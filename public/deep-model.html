@@ -4741,5 +4741,159 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(start,0));else setTimeout(start,0);
 })();
 </script>
+/* ---------- contextual V23 AI adviser ---------- */
+.v23-ai-backdrop{position:fixed;inset:0;z-index:88;border:0;background:rgba(2,8,16,.7);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:opacity .2s}
+.v23-ai-backdrop.open{opacity:1;pointer-events:auto}
+.v23-ai-panel{position:fixed;z-index:90;right:14px;bottom:14px;width:min(560px,calc(100vw - 28px));height:min(820px,calc(100vh - 28px));display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto auto;background:var(--panel);color:var(--text);border:1px solid color-mix(in srgb,var(--acc) 52%,var(--border));border-radius:20px;box-shadow:0 34px 110px rgba(0,0,0,.72);overflow:hidden;transform:translateX(calc(100% + 40px));opacity:0;pointer-events:none;transition:transform .22s ease,opacity .2s ease}
+.v23-ai-panel.open{transform:translateX(0);opacity:1;pointer-events:auto}
+.v23-ai-head{display:flex;align-items:center;gap:11px;padding:15px 16px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 14%,var(--panel)),color-mix(in srgb,var(--acc2) 7%,var(--panel)))}
+.v23-ai-orb{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font:800 11px 'DM Mono',monospace;box-shadow:0 8px 22px color-mix(in srgb,var(--acc) 25%,transparent)}
+.v23-ai-head>div:nth-child(2){min-width:0;flex:1}.v23-ai-head small{display:block;color:var(--acc2);font:700 9.5px 'DM Mono',monospace;letter-spacing:1px;text-transform:uppercase}.v23-ai-head h2{margin:2px 0 0;font-size:17px;letter-spacing:-.35px}.v23-ai-close{border:1px solid var(--border);border-radius:9px;padding:7px 10px;background:var(--panel2);color:var(--muted);cursor:pointer;font:700 11px inherit}.v23-ai-close:hover{border-color:var(--acc);color:var(--text)}
+.v23-ai-context{display:flex;gap:6px;overflow-x:auto;padding:9px 12px;border-bottom:1px solid var(--border);scrollbar-width:none}.v23-ai-context::-webkit-scrollbar{display:none}.v23-ai-context span{white-space:nowrap;padding:5px 9px;border:1px solid var(--border);border-radius:999px;background:var(--chip);color:var(--muted);font:600 10px 'DM Mono',monospace}.v23-ai-context span:first-child{border-color:color-mix(in srgb,var(--acc2) 55%,var(--border));color:var(--acc2)}
+.v23-ai-prompts{display:flex;gap:7px;overflow-x:auto;padding:9px 12px;border-bottom:1px solid var(--border);scrollbar-width:none}.v23-ai-prompts::-webkit-scrollbar{display:none}.v23-ai-prompts button{white-space:nowrap;border:1px solid var(--border);border-radius:999px;padding:7px 10px;background:var(--panel2);color:var(--muted);cursor:pointer;font:700 10px inherit}.v23-ai-prompts button:hover{border-color:var(--acc);color:var(--text)}.v23-ai-prompts button:disabled{opacity:.5;cursor:wait}
+.v23-ai-messages{min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:11px;scrollbar-color:var(--border) transparent}.v23-ai-message{max-width:91%;border:1px solid var(--border);border-radius:14px;padding:10px 12px;background:var(--panel2)}.v23-ai-message.user{align-self:flex-end;background:color-mix(in srgb,var(--acc) 15%,var(--panel));border-color:color-mix(in srgb,var(--acc) 42%,var(--border))}.v23-ai-message.model{align-self:flex-start}.v23-ai-meta{display:flex;justify-content:space-between;gap:12px;margin-bottom:5px;color:var(--soft);font:700 9px 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.7px}.v23-ai-body{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text);font-size:13px;line-height:1.58}.v23-ai-thinking{color:var(--muted);animation:v23AiPulse 1.15s ease-in-out infinite}@keyframes v23AiPulse{50%{opacity:.45}}
+.v23-ai-error{margin:0 12px 8px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--bad) 55%,var(--border));border-radius:9px;background:color-mix(in srgb,var(--bad) 8%,var(--panel));color:var(--bad);font-size:11px}
+.v23-ai-compose{padding:11px 12px 10px;border-top:1px solid var(--border);background:var(--panel)}.v23-ai-compose label{display:block;margin-bottom:6px;color:var(--muted);font:700 10px 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.65px}.v23-ai-compose textarea{box-sizing:border-box;width:100%;min-height:76px;max-height:160px;resize:vertical;border:1px solid var(--border);border-radius:11px;padding:10px 11px;background:var(--panel2);color:var(--text);font:13px/1.45 inherit}.v23-ai-compose textarea:focus{border-color:var(--acc);outline:2px solid color-mix(in srgb,var(--acc) 20%,transparent)}.v23-ai-actions{display:flex;align-items:center;gap:8px;margin-top:8px}.v23-ai-actions small{margin-right:auto;color:var(--soft);font-size:9.5px}.v23-ai-actions button{border:1px solid var(--border);border-radius:9px;padding:8px 11px;background:var(--panel2);color:var(--muted);cursor:pointer;font:700 10.5px inherit}.v23-ai-actions .send{border:0;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff}.v23-ai-actions .stop{border-color:var(--bad);color:var(--bad);background:transparent}.v23-ai-actions button:disabled{opacity:.45;cursor:not-allowed}
+.v23-ai-foot{padding:7px 12px;border-top:1px solid var(--border);color:var(--soft);font:9.5px/1.4 'DM Mono',monospace;text-align:center}
+.v23-ai-launcher{position:fixed;z-index:76;right:76px;bottom:max(18px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:9px;border:1px solid color-mix(in srgb,var(--acc) 55%,var(--border));border-radius:15px;padding:7px 12px 7px 8px;background:color-mix(in srgb,var(--panel) 94%,transparent);color:var(--text);box-shadow:0 10px 34px rgba(0,0,0,.52);backdrop-filter:blur(14px);cursor:pointer}.v23-ai-launcher:hover{border-color:var(--acc);transform:translateY(-2px)}.v23-ai-launcher .v23-ai-orb{flex-basis:34px;height:34px;border-radius:11px}.v23-ai-launcher b,.v23-ai-launcher small{display:block;text-align:left}.v23-ai-launcher b{font-size:11.5px}.v23-ai-launcher small{max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:9.5px}
+@media(max-width:700px){.v23-ai-panel{inset:7px;width:auto;height:auto;max-height:none;border-radius:16px}.v23-ai-launcher{right:10px;bottom:calc(max(9px,env(safe-area-inset-bottom)) + 60px);padding-right:10px}.v23-ai-launcher small{display:none}.v23-ai-messages{padding:11px}.v23-ai-message{max-width:95%}.v23-ai-actions small{display:none}.v23-ai-context,.v23-ai-prompts{padding-left:9px;padding-right:9px}}
+@media(prefers-reduced-motion:reduce){.v23-ai-panel,.v23-ai-backdrop,.v23-ai-launcher{transition:none!important}}
+@media print{.v23-ai-backdrop,.v23-ai-panel,.v23-ai-launcher{display:none!important}}
+</style>
+<script>
+(function(){
+  "use strict";
+  const CHAT_KEY="robinson-retirement-ai-chat-v23";
+  const SITE_ORIGIN="https://robinson-retirement.mick353.chatgpt.site";
+  const MAX_HISTORY=24;
+  let open=false,streaming=false,abortController=null,referenceText="";
+  let messages=loadMessages();
+
+  function now(){return new Date().toISOString();}
+  function id(prefix){return prefix+"-"+Date.now()+"-"+Math.random().toString(36).slice(2,8);}
+  function welcome(){return{id:"welcome",role:"model",createdAt:now(),content:"I can review the exact V23 page you are viewing, including its current controls, rendered tables and chart data. Change the model first, then ask me to interpret what moved, what matters and what to verify."};}
+  function loadMessages(){try{const parsed=JSON.parse(localStorage.getItem(CHAT_KEY)||"null");if(Array.isArray(parsed)&&parsed.length)return parsed.slice(-MAX_HISTORY);}catch(e){}return[welcome()];}
+  function saveMessages(){try{localStorage.setItem(CHAT_KEY,JSON.stringify(messages.slice(-MAX_HISTORY)));}catch(e){}}
+  function activePageId(){try{if(typeof currentPage==="string"&&currentPage)return currentPage;}catch(e){}return document.querySelector("section.page.active")?.id||"page-executive";}
+  function activePage(){return document.getElementById(activePageId())||document.querySelector("section.page.active");}
+  function activeTitle(){const page=activePage();const key=activePageId().replace(/^page-/,"");const nav=document.querySelector('nav.side a[data-page="'+key+'"]');return(nav?.textContent||page?.querySelector("h1,h2")?.textContent||key).trim();}
+  function endpoint(){return location.hostname==="mick353.github.io"?SITE_ORIGIN+"/api/retirement-ai":"/api/retirement-ai";}
+  function referenceUrl(){return new URL("model-reference.txt",document.baseURI).toString();}
+  function cleanText(value,limit){return String(value||"").replace(/\s+/g," ").trim().slice(0,limit);}
+  function sharedScenario(){try{return JSON.parse(localStorage.getItem("robinson-retirement-shared-scenario")||"null");}catch(e){return null;}}
+  function controlSnapshot(root,limit){
+    if(!root)return[];
+    return Array.from(root.querySelectorAll("input,select,textarea")).slice(0,limit||100).map((el,index)=>{
+      const label=el.labels?.[0]?.innerText||el.closest("label")?.innerText||el.getAttribute("aria-label")||el.id||("control "+(index+1));
+      const value=(el.type==="checkbox"||el.type==="radio")?el.checked:el.value;
+      const selected=el.tagName==="SELECT"?el.options[el.selectedIndex]?.textContent:null;
+      return{id:el.id||null,label:cleanText(label,180),type:el.type||el.tagName.toLowerCase(),value,selected:cleanText(selected,120),disabled:!!el.disabled};
+    });
+  }
+  function chartSnapshots(page){
+    if(!page)return[];
+    return Array.from(page.querySelectorAll("canvas[id]")).slice(0,8).map(canvas=>{
+      let chart=null;try{chart=STATE?.charts?.[canvas.id]||null;}catch(e){}
+      if(!chart)return{id:canvas.id,available:false};
+      const labels=Array.from(chart.data?.labels||[]).slice(0,120);
+      const datasets=Array.from(chart.data?.datasets||[]).slice(0,10).map(dataset=>({label:dataset.label||"Series",values:Array.from(dataset.data||[]).slice(0,120).map(value=>typeof value==="object"&&value!==null?{x:value.x??null,y:value.y??null}:value)}));
+      return{id:canvas.id,available:true,labels,datasets};
+    });
+  }
+  function deterministicOutputs(profile){
+    try{
+      const targetAge=Number(STATE.targetAge);const keyAges=[profile.retireAge,65,70,targetAge,80,85,90,95];
+      const scenarios=Object.entries(SCENARIOS).map(([key,scenario])=>{
+        const sim=runModel({profile,abpReturn:scenario.abp,accumReturn:scenario.accum});
+        return{key,name:scenario.name,returnA:scenario.abp,returnB:scenario.accum,rows:sim.rows.filter(row=>keyAges.includes(row.age)).map(row=>({age:row.age,poolA:row.abp,poolB:row.acc,poolC:row.poolC,total:row.total,lifestyleGap:row.gap,actualPortfolioExit:row.realExit,mandatoryDraw:row.mandDraw,extraPoolADraw:row.extraDraw}))};
+      });
+      const likely=runModel({profile,abpReturn:STATE.likely,accumReturn:STATE.likely*.85});
+      const target=likely.rows.find(row=>row.age===targetAge)||likely.rows[likely.rows.length-1];
+      const start=likely.rows[0]||{};
+      return{scenarios,likelyTarget:target,likelyStart:start};
+    }catch(e){return{error:"The live calculation snapshot could not be serialised."};}
+  }
+  function buildContext(){
+    const page=activePage();let state={},profile={};
+    try{state=JSON.parse(JSON.stringify(STATE,(key,value)=>key==="charts"?undefined:value));}catch(e){}
+    try{profile={...getProfile()};}catch(e){}
+    const outputs=deterministicOutputs(profile);const shared=sharedScenario();
+    const rail=shared?.rail||(state.profile==="michael"?"A":(String(profile.name||"").includes("Rail B")?"B":"Custom"));
+    const pageText=cleanText(page?.innerText,35000);
+    const pageTables=Array.from(page?.querySelectorAll("table")||[]).slice(0,12).map((table,index)=>({index,text:cleanText(table.innerText,12000)}));
+    const globalRoot=document.querySelector(".control-bar");
+    return{
+      metadata:{modelVersion:"V23",baselineDate:"2026-07-18",currency:"AUD",valueBasis:"Real dollars unless labelled otherwise",surface:"V23 detailed workbench",activePageId:activePageId(),activePageTitle:activeTitle(),capturedAt:now()},
+      activeScenario:{rail,railName:profile.name||rail,annualNetSpending:Number(profile.netPension||0)+Number(outputs.likelyStart?.realExit||0),realReturn:Number(state.likely||0),targetAge:Number(state.targetAge||75),annualPortfolioDraw:Number(outputs.likelyStart?.realExit||0),modelledInvestmentCapitalAtTarget:Number(outputs.likelyTarget?.total||0),sharedCommandCentreScenario:shared},
+      v23State:state,
+      activeProfile:profile,
+      activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:controlSnapshot(page,100),charts:chartSnapshots(page)},
+      globalControls:controlSnapshot(globalRoot,40),
+      deterministicOutputs:outputs,
+      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself."],
+      links:{commandCentre:new URL("./",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
+    };
+  }
+  function promptSet(){
+    const title=activeTitle();const id=activePageId();
+    const review=["Review this page","Review the current "+title+" page using the controls, tables and chart data attached. Lead with the decision-relevant conclusion, then explain the three most important figures and anything I should verify."];
+    const controls=["Explain controls","Explain which current controls materially drive the "+title+" results, what each one changes, and which sensitivity test would be most informative next."];
+    let specialist=["Test next","Given the current "+title+" outputs, recommend three useful model changes to test next and explain what each test would reveal. Do not change anything yourself."];
+    if(/montecarlo|histogram|longevity|sequence|sensitivity|breakeven|stress|probability|tornado/.test(id))specialist=["Interpret risk","Interpret the current risk results, separating deterministic assumptions from simulations and identifying the weak-path warning that matters most."];
+    else if(/estate|wash|bequest/.test(id))specialist=["Review estate","Review the current estate, NCC wash and death-benefit-tax implications. Highlight the separate-interest control and any assumption needing professional confirmation."];
+    else if(/income|reinvest|guardrails|oneoff/.test(id))specialist=["Review cashflow","Review current retirement cash flow, mandatory draws, extra Pool A draws and Pool C routing. Explain whether the spending rule is doing what the controls imply."];
+    else if(/audit|reviewdelta|triggers|recalibrate|checklist|decisions/.test(id))specialist=["Governance check","Turn the current page into a concise annual-review checklist: settled items, changed inputs, evidence to refresh and triggers requiring action."];
+    return[review,controls,specialist,["Challenge it","Act as a careful reviewer: identify the strongest conclusion on this page, the weakest assumption behind it and one plausible interpretation error to avoid."]];
+  }
+  function makeUI(){
+    if(document.getElementById("v23-ai-panel"))return;
+    const backdrop=document.createElement("button");backdrop.type="button";backdrop.className="v23-ai-backdrop";backdrop.setAttribute("aria-label","Close V23 AI adviser");backdrop.addEventListener("click",closePanel);
+    const panel=document.createElement("section");panel.id="v23-ai-panel";panel.className="v23-ai-panel";panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");panel.setAttribute("aria-labelledby","v23-ai-title");panel.innerHTML=`
+      <header class="v23-ai-head"><div class="v23-ai-orb">AI</div><div><small>Gemini · current V23 page attached</small><h2 id="v23-ai-title">V23 AI review</h2></div><button class="v23-ai-close" id="v23-ai-close" type="button">Close</button></header>
+      <div class="v23-ai-context" id="v23-ai-context" aria-label="V23 context sent with each message"></div>
+      <div class="v23-ai-prompts" id="v23-ai-prompts" aria-label="Page-aware suggested questions"></div>
+      <div class="v23-ai-messages" id="v23-ai-messages" role="log" aria-live="polite"></div>
+      <div class="v23-ai-error" id="v23-ai-error" role="alert" hidden></div>
+      <form class="v23-ai-compose" id="v23-ai-form"><label for="v23-ai-input">Ask about the active V23 page</label><textarea id="v23-ai-input" maxlength="6000" rows="3" placeholder="Change the controls, then ask what moved and why."></textarea><div class="v23-ai-actions"><button id="v23-ai-clear" type="button">Reset chat</button><small>Enter to send · Shift + Enter for a new line</small><button class="stop" id="v23-ai-stop" type="button" hidden>Stop</button><button class="send" id="v23-ai-send" type="submit">Send</button></div></form>
+      <footer class="v23-ai-foot">Current controls and rendered page outputs are captured when you send · interpretation only</footer>`;
+    const launcher=document.createElement("button");launcher.type="button";launcher.className="v23-ai-launcher";launcher.id="v23-ai-launcher";launcher.setAttribute("aria-controls","v23-ai-panel");launcher.innerHTML='<span class="v23-ai-orb">AI</span><span><b>AI review</b><small id="v23-ai-launcher-page">Current V23 page</small></span>';
+    launcher.addEventListener("click",openPanel);panel.querySelector("#v23-ai-close").addEventListener("click",closePanel);panel.querySelector("#v23-ai-clear").addEventListener("click",resetChat);panel.querySelector("#v23-ai-stop").addEventListener("click",()=>abortController?.abort());panel.querySelector("#v23-ai-form").addEventListener("submit",event=>{event.preventDefault();send();});panel.querySelector("#v23-ai-input").addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();send();}});
+    document.body.append(backdrop,panel,launcher);renderAll();
+    document.addEventListener("click",event=>{if(event.target.closest?.("nav.side a[data-page],button[data-v23-page]"))setTimeout(refreshPageContext,0);});
+    document.addEventListener("keydown",event=>{if(event.key==="Escape"&&open)closePanel();});
+  }
+  function refreshPageContext(){
+    const title=activeTitle();const context=document.getElementById("v23-ai-context");if(context){context.textContent="";[title,(STATE?.profile==="michael"?"Michael":"Custom"),"Target "+STATE?.targetAge,"Likely "+((Number(STATE?.likely)||0)*100).toFixed(1)+"%"].forEach(text=>{const span=document.createElement("span");span.textContent=text;context.appendChild(span);});}
+    const launcherPage=document.getElementById("v23-ai-launcher-page");if(launcherPage)launcherPage.textContent=title;
+    const prompts=document.getElementById("v23-ai-prompts");if(prompts){prompts.textContent="";promptSet().forEach(([label,prompt])=>{const button=document.createElement("button");button.type="button";button.textContent=label;button.disabled=streaming;button.addEventListener("click",()=>send(prompt));prompts.appendChild(button);});}
+  }
+  function renderMessages(){
+    const root=document.getElementById("v23-ai-messages");if(!root)return;root.textContent="";
+    messages.forEach(message=>{const article=document.createElement("article");article.className="v23-ai-message "+message.role;const meta=document.createElement("div");meta.className="v23-ai-meta";const who=document.createElement("b");who.textContent=message.role==="user"?"You":"V23 AI";const time=document.createElement("time");try{time.textContent=new Intl.DateTimeFormat("en-AU",{hour:"numeric",minute:"2-digit"}).format(new Date(message.createdAt));}catch(e){}meta.append(who,time);const body=document.createElement("div");body.className="v23-ai-body";body.textContent=message.content||(streaming&&message.role==="model"?"Reviewing the current V23 page…":"");if(!message.content&&streaming)body.classList.add("v23-ai-thinking");article.append(meta,body);root.appendChild(article);});
+    root.scrollTop=root.scrollHeight;
+  }
+  function renderAll(){renderMessages();refreshPageContext();const sendButton=document.getElementById("v23-ai-send");const stopButton=document.getElementById("v23-ai-stop");const input=document.getElementById("v23-ai-input");if(sendButton)sendButton.disabled=streaming||!input?.value.trim();if(stopButton)stopButton.hidden=!streaming;if(input)input.disabled=streaming;}
+  function openPanel(){open=true;document.getElementById("v23-ai-panel")?.classList.add("open");document.querySelector(".v23-ai-backdrop")?.classList.add("open");document.getElementById("v23-ai-launcher")?.setAttribute("aria-expanded","true");renderAll();setTimeout(()=>document.getElementById("v23-ai-input")?.focus(),60);}
+  function closePanel(){open=false;document.getElementById("v23-ai-panel")?.classList.remove("open");document.querySelector(".v23-ai-backdrop")?.classList.remove("open");document.getElementById("v23-ai-launcher")?.setAttribute("aria-expanded","false");}
+  function resetChat(){abortController?.abort();messages=[welcome()];streaming=false;document.getElementById("v23-ai-error")?.setAttribute("hidden","");try{localStorage.removeItem(CHAT_KEY);}catch(e){}renderAll();}
+  async function loadReference(){if(referenceText)return referenceText;try{const response=await fetch(referenceUrl(),{cache:"force-cache"});if(response.ok)referenceText=await response.text();}catch(e){}return referenceText;}
+  function append(idValue,text){const message=messages.find(item=>item.id===idValue);if(message)message.content+=text;renderMessages();}
+  async function send(requested){
+    const input=document.getElementById("v23-ai-input");const content=String(requested??input?.value??"").trim();if(!content||streaming)return;
+    const user={id:id("user"),role:"user",createdAt:now(),content:content.slice(0,6000)};const assistant={id:id("model"),role:"model",createdAt:now(),content:""};const conversation=messages.filter(message=>message.id!=="welcome").concat(user).slice(-16);messages=messages.concat(user,assistant).slice(-MAX_HISTORY);if(input)input.value="";streaming=true;const error=document.getElementById("v23-ai-error");if(error){error.hidden=true;error.textContent="";}abortController=new AbortController();renderAll();
+    try{
+      const modelReference=await loadReference();const context=buildContext();context.modelReference=modelReference;
+      const response=await fetch(endpoint(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:conversation,context}),signal:abortController.signal});
+      if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.error||"The V23 adviser is temporarily unavailable.");}if(!response.body)throw new Error("The adviser returned an empty response.");
+      const reader=response.body.getReader();const decoder=new TextDecoder();let buffer="",received=false;
+      while(true){const chunk=await reader.read();buffer+=decoder.decode(chunk.value||new Uint8Array(),{stream:!chunk.done});const lines=buffer.split("\n");buffer=chunk.done?"":(lines.pop()||"");for(const raw of lines){const line=raw.trim();if(!line.startsWith("data:"))continue;const data=line.slice(5).trim();if(!data||data==="[DONE]")continue;try{const parsed=JSON.parse(data);if(parsed.error)throw new Error(parsed.error);if(parsed.text){received=true;append(assistant.id,parsed.text);}}catch(parseError){if(parseError instanceof SyntaxError){received=true;append(assistant.id,data);}else throw parseError;}}if(chunk.done)break;}
+      if(!received)append(assistant.id,"I did not receive a usable answer. Please try again.");
+    }catch(requestError){if(abortController?.signal.aborted)append(assistant.id,"\n\nResponse stopped.");else{const message=requestError instanceof Error?requestError.message:"The V23 adviser is temporarily unavailable.";if(error){error.textContent=message;error.hidden=false;}append(assistant.id,"The AI review could not complete. Your V23 controls, calculations and saved settings are unaffected.");}}
+    finally{abortController=null;streaming=false;saveMessages();renderAll();}
+  }
+  function start(){makeUI();const input=document.getElementById("v23-ai-input");input?.addEventListener("input",renderAll);setInterval(()=>{if(open)refreshPageContext();},1200);}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(start,0));else setTimeout(start,0);
+})();
+</script>
 </body>
 </html>
