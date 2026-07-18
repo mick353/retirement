@@ -21,6 +21,7 @@ The main command centre and V23 workbench share scenario parameters, so a rail, 
 - Annual review checklist and review snapshot
 - Corrected V23 model with advanced controls, export, print packs and mobile workbench
 - Responsive navigation, installable PWA manifest and offline app shell
+- Retractable Gemini retirement adviser using the active scenario and detailed V23 model reference
 
 ## Run locally
 
@@ -51,6 +52,8 @@ The workflow in `.github/workflows/pages.yml` builds and deploys the site after 
 This repository is public and the website contains personal retirement assumptions and modelled financial figures. The source PDFs, spreadsheets and research files are intentionally not committed. Only the integrated website and its calculation logic are included.
 
 The site stores saved scenarios and annual-review preferences only in the current browser using local storage. It has no account system or server-side database.
+
+When a user sends an adviser message, the current retirement scenario, the detailed model reference and that chat history are sent to the protected ChatGPT Site endpoint and then to Google Gemini. The Gemini credential remains server-side and is not stored in this public repository or exposed to the browser.
 
 ## Important notice
 
