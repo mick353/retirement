@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import RetirementAi from "./retirement-ai";
 
 type RailKey = "A" | "B";
 type TaxYear = "2026-27" | "2027-28";
@@ -476,6 +477,82 @@ export default function RetirementDashboard() {
   const deepModelUrl = sharedModelUrl(currentScenario);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
+  const taxableStart = rail.poolA * 0.7097;
+  const removedPerWash = 130_000 * 0.7097;
+  const taxableRemaining = Math.max(0, taxableStart - washCycles * removedPerWash);
+  const dbtStart = taxableStart * 0.17;
+  const dbtRemaining = taxableRemaining * 0.17;
+  const dbtSaved = dbtStart - dbtRemaining;
+  const aiContext: Record<string, unknown> = {
+    metadata: {
+      modelVersion: "2026-07-18.integrated.2",
+      baselineDate: "2026-07-18",
+      currency: "AUD",
+      valueBasis: "Real dollars unless specifically labelled nominal",
+      activeSection: section,
+      retirementDate: "2033-12-21",
+      retirementAge: 60,
+    },
+    activeScenario: {
+      rail: railKey,
+      railName: rail.name,
+      railPurpose: rail.purpose,
+      railSource: rail.source,
+      annualNetSpending: spend,
+      realReturn,
+      targetAge,
+      homeValue,
+      taxYear,
+      annualPortfolioDraw: portfolioDraw,
+      modelledInvestmentCapitalAtTarget: endCapital,
+      modelledGrossEstateAtTarget: estate,
+      salaryGrossEquivalent: grossEquivalent,
+      retirementNetPerFortnight: retirementPf,
+      currentVisibleBankReceiptPerFortnight: currentPf,
+    },
+    governedRails: RAILS,
+    controls: {
+      generalTransferBalanceCap: TBC,
+      transferBalanceBuffer: TSB_BUFFER,
+      poolCModelledDistributionDrag: POOL_C_DRAG,
+      retirementDollarBasis: "real",
+      railDifference: "Rail B uses the newer 2 July 2026 iEstimator and higher FAS. Rail A preserves the March/V5 control baseline. Spending does not cause the PSS uplift.",
+    },
+    deterministicTrajectories: trajectorySeries.map((series) => ({ name: series.name, ages: trajectoryLabels, values: series.values })),
+    probabilityLens: {
+      method: "600 deterministic-seed simulations with constant selected mean and 12% annual volatility",
+      targetThreshold: 500_000,
+      probabilityAtSelectedTarget: targetProbability,
+      ages: fan.ages,
+      percentile10: fan.p10,
+      percentile25: fan.p25,
+      percentile50: fan.p50,
+      percentile75: fan.p75,
+      percentile90: fan.p90,
+      limitation: "Not a forecast of market regimes, fees, legislation or personal spending shocks. Raw paths are omitted from the chat payload; governed percentile curves and the exact target test are supplied.",
+    },
+    operationalLedger: ledger,
+    nccWash: {
+      completedCycles: washCycles,
+      annualWash: 130_000,
+      taxableShare: 0.7097,
+      deathBenefitTaxRate: 0.17,
+      taxableComponentAtStart: taxableStart,
+      taxableComponentRemaining: taxableRemaining,
+      illustrativeDeathBenefitTaxAtStart: dbtStart,
+      illustrativeDeathBenefitTaxRemaining: dbtRemaining,
+      illustrativeDeathBenefitTaxSaved: dbtSaved,
+      executionControl: "Commute from the original taxable interest and recontribute as a distinct tax-free interest. Merging it back re-blends the pool and reduces later-wash effectiveness.",
+      comparators: ["Corrected proportioning (V23)", "Workbook separate/frozen share", "Full conversion comparator"],
+    },
+    voluntaryRedundancy: { selectedAge: vrAge, selectedMode: vrMode, immediatePensionPath: VR_IMMEDIATE, preserveTo60Path: VR_PRESERVE },
+    preRetirement: { phase2ContributionPerFortnight: phase2, phase3ContributionPerFortnight: phase3, nominalReturn },
+    savedScenarios: saved,
+    annualReview: { snapshot: reviewSnapshot, checks: reviewChecks },
+    scenarioPresets: SCENARIO_PRESETS,
+    sourceRegister: SOURCES,
+    links: { activeV23Scenario: deepModelUrl, modelReference: "/model-reference.html", modelReferenceText: "/model-reference.txt" },
+  };
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -973,6 +1050,7 @@ export default function RetirementDashboard() {
         <main className="content">{content}</main>
       </div>
       <nav className="mobile-dock" aria-label="Primary mobile navigation">{[["overview", "Home"], ["scenario", "Adjust"], ["compare", "Compare"], ["risk", "Risk"], ["review", "Review"]].map(([key, label]) => <button key={key} aria-current={section === key ? "page" : undefined} className={section === key ? "active" : ""} onClick={() => go(key as SectionKey)}>{label}</button>)}</nav>
+      <RetirementAi context={aiContext} />
     </div>
   );
 }
