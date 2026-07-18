@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": [
+    "app/retirement-dashboard.tsx",
+    "github-pages/main.tsx",
+    "vite.pages.config.ts"
+  ]
+}

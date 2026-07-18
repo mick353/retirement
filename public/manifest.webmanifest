@@ -1,0 +1,19 @@
+{
+  "name": "Robinson Retirement Command Centre",
+  "short_name": "Retirement",
+  "description": "Dual-rail retirement planning, scenario comparison, risk and annual-review command centre.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#03080f",
+  "theme_color": "#071321",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
