@@ -261,7 +261,7 @@ export default function RetirementAi({ context }: RetirementAiProps) {
           <label htmlFor="retirement-ai-message">Ask about this retirement scenario</label>
           <textarea id="retirement-ai-message" ref={textareaRef} rows={3} value={draft} maxLength={6_000} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="e.g. What changes if I spend $120k and returns are weaker early?" disabled={streaming} />
           <div>
-            <button className="ai-clear" type="button" onClick={clearConversation}>Clear chat</button>
+            <button className="ai-clear" type="button" onClick={clearConversation}>Reset chat</button>
             <span>Shift + Enter for a new line</span>
             {streaming ? <button className="ai-send stop" type="button" onClick={() => abortRef.current?.abort()}>Stop</button> : <button className="ai-send" type="submit" disabled={!draft.trim()}>Send</button>}
           </div>
