@@ -55,6 +55,8 @@ The site stores saved scenarios and annual-review preferences only in the curren
 
 When a user sends an adviser message, the current retirement scenario, the detailed model reference and that chat history are sent to the protected ChatGPT Site endpoint and then to Google Gemini. The Gemini credential remains server-side and is not stored in this public repository or exposed to the browser.
 
+The V23 workbench also has a separate page-aware AI review panel. Each message attaches the active V23 page, current controls, rendered tables and chart datasets at send time. Its device-local chat history is separate from the main Command Centre adviser and can be reset independently.
+
 ## Important notice
 
 This is a personal planning model, not financial, taxation or legal advice. Outputs depend on assumptions and should be checked against current legislation, fund rules, official PSS estimates and qualified professional advice before decisions are made.
