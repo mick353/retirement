@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="index,follow,max-snippet:-1" />
+    <meta name="description" content="Crawler-readable formulas, assumptions, controls and source register for the Robinson Retirement Command Centre and V23 model." />
+    <link rel="alternate" type="text/plain" href="./model-reference.txt" title="Plain-text model reference" />
+    <title>Robinson Retirement Model Reference</title>
+    <style>
+      :root { color-scheme: dark; --bg:#071321; --panel:#0d1d2d; --panel2:#11263a; --line:#284057; --text:#f3f7fb; --muted:#a9bac8; --cyan:#54d2d2; --gold:#e9bd69; --green:#6fd3a5; --red:#f08c8c; }
+      * { box-sizing:border-box; }
+      html { scroll-behavior:smooth; }
+      body { margin:0; background:linear-gradient(180deg,#071321 0%,#091724 100%); color:var(--text); font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      a { color:var(--cyan); }
+      a:hover { color:#8be8e8; }
+      .wrap { width:min(1120px,calc(100% - 32px)); margin:auto; }
+      header { padding:54px 0 30px; border-bottom:1px solid var(--line); background:radial-gradient(circle at 80% 0%,#143a4d 0,transparent 42%); }
+      .eyebrow { margin:0 0 8px; color:var(--cyan); font-weight:800; letter-spacing:.13em; text-transform:uppercase; font-size:.78rem; }
+      h1 { margin:0; max-width:900px; font-size:clamp(2rem,6vw,4.3rem); line-height:1.02; letter-spacing:-.045em; }
+      .lede { max-width:850px; color:#cad6df; font-size:clamp(1.05rem,2vw,1.25rem); }
+      .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+      .button { display:inline-flex; min-height:44px; align-items:center; padding:9px 15px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); color:var(--text); font-weight:750; text-decoration:none; }
+      .button.primary { background:var(--cyan); border-color:var(--cyan); color:#06202b; }
+      nav { position:sticky; top:0; z-index:2; overflow:auto; white-space:nowrap; border-bottom:1px solid var(--line); background:rgba(7,19,33,.94); backdrop-filter:blur(12px); }
+      nav .wrap { display:flex; gap:18px; padding:11px 0; }
+      nav a { color:var(--muted); font-size:.9rem; text-decoration:none; }
+      main { padding:30px 0 72px; }
+      section { scroll-margin-top:62px; margin:0 0 24px; padding:clamp(20px,4vw,32px); border:1px solid var(--line); border-radius:18px; background:linear-gradient(145deg,var(--panel),#0a1928); box-shadow:0 18px 60px rgba(0,0,0,.13); }
+      h2 { margin:0 0 10px; font-size:clamp(1.45rem,3vw,2rem); line-height:1.15; }
+      h3 { margin:22px 0 8px; font-size:1.08rem; }
+      p { margin:8px 0; }
+      ul,ol { padding-left:22px; }
+      li + li { margin-top:5px; }
+      .note { padding:14px 16px; border-left:4px solid var(--gold); border-radius:8px; background:#1b2730; color:#e8edf1; }
+      .good { border-left-color:var(--green); }
+      .warning { border-left-color:var(--red); }
+      .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+      .card { padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--panel2); }
+      .card b { display:block; color:var(--cyan); }
+      .tag { display:inline-block; margin:2px 5px 2px 0; padding:3px 8px; border:1px solid var(--line); border-radius:999px; color:#d9e4ec; font-size:.78rem; font-weight:700; }
+      .table-wrap { overflow-x:auto; }
+      table { width:100%; min-width:620px; border-collapse:collapse; }
+      th,td { padding:10px 12px; border-bottom:1px solid var(--line); text-align:right; vertical-align:top; }
+      th:first-child,td:first-child { text-align:left; }
+      th { color:var(--muted); font-size:.78rem; letter-spacing:.06em; text-transform:uppercase; }
+      code,pre { font-family:"SFMono-Regular",Consolas,monospace; }
+      code { padding:.12em .35em; border-radius:5px; background:#07111b; color:#bfe8e8; }
+      pre { overflow:auto; padding:16px; border:1px solid var(--line); border-radius:10px; background:#06111d; color:#d6e3eb; white-space:pre-wrap; }
+      dl { margin:0; }
+      dt { margin-top:12px; color:var(--cyan); font-weight:800; }
+      dd { margin:2px 0 0; color:#d3dee6; }
+      footer { padding:24px 0 50px; border-top:1px solid var(--line); color:var(--muted); }
+      @media (max-width:600px) { .wrap{width:min(100% - 20px,1120px)} header{padding-top:34px} section{border-radius:13px} nav .wrap{gap:14px} }
+      @media print { :root{color-scheme:light} body{background:white;color:#111} header,section{background:white;box-shadow:none} nav,.actions{display:none} a{color:#0645ad} }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <p class="eyebrow">Static model documentation · 18 July 2026 baseline</p>
+        <h1>Robinson Retirement Model Reference</h1>
+        <p class="lede">A JavaScript-free description of the data rails, formulas, scenario engines, governance controls and source lineage used by the interactive Command Centre and the linked V23 deep model.</p>
+        <div class="actions">
+          <a class="button primary" href="./">Open interactive Command Centre</a>
+          <a class="button" href="./deep-model.html">Open full V23 model</a>
+          <a class="button" href="./model-reference.txt">Read plain-text version</a>
+        </div>
+      </div>
+    </header>
+
+    <nav aria-label="Model reference sections">
+      <div class="wrap">
+        <a href="#scope">Scope</a><a href="#baseline">Baseline</a><a href="#projection">Projection</a><a href="#risk">Risk</a><a href="#ncc">NCC wash</a><a href="#tax">Tax</a><a href="#governance">Governance</a><a href="#sources">Sources</a>
+      </div>
+    </nav>
+
+    <main class="wrap">
+      <section id="scope">
+        <p class="eyebrow">Purpose and boundaries</p>
+        <h2>What this page documents</h2>
+        <p>This reference makes the model intelligible to people, accessibility tools, search engines and AI retrieval systems that do not execute React. All substantive content is present in this HTML response; JavaScript is not required.</p>
+        <div class="note warning"><strong>Decision-support only.</strong> This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules and obtain professional advice before acting.</div>
+        <div class="grid">
+          <div class="card"><b>Interactive Command Centre</b>Integrated, mobile-responsive, dual-rail dashboard with adjustable spending, returns, target age, home value and stress settings.</div>
+          <div class="card"><b>V23 deep model</b>Detailed annual engine for guardrails, draw sequencing, NCC wash methods, CPI shock, sequence risk and stochastic analysis.</div>
+          <div class="card"><b>This reference</b>Static description of formulas and controls. It does not execute projections or replace the interactive outputs.</div>
+        </div>
+        <p><span class="tag">EXACT</span> documented or directly calculated input <span class="tag">ESTIMATED</span> external pricing or replacement value <span class="tag">MODELLED</span> scenario-dependent output <span class="tag">SPECULATIVE</span> unknowable future state.</p>
+      </section>
+
+      <section id="baseline">
+        <p class="eyebrow">Controlled inputs</p>
+        <h2>Dual-rail retirement baseline</h2>
+        <p>The rails are intentionally separate. Rail A is the conservative V5 workbook/V23 control baseline. Rail B reflects the July spending-frontier update. Selecting a rail changes the governed starting inputs; it does not silently blend them.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Input at age 60</th><th>Rail A</th><th>Rail B</th></tr></thead>
+            <tbody>
+              <tr><td>Gross indexed PSS pension</td><td>$78,382.04 p.a.</td><td>$82,550.89 p.a.</td></tr>
+              <tr><td>Net PSS pension used by model</td><td>$76,041.68 p.a.</td><td>$76,302.72 p.a.</td></tr>
+              <tr><td>PSS lump sum</td><td>$574,801.66</td><td>$605,373.22</td></tr>
+              <tr><td>Hostplus balance</td><td>$317,447.66</td><td>$317,447.66</td></tr>
+              <tr><td>Total investment capital</td><td>$892,249.32</td><td>$922,820.88</td></tr>
+              <tr><td>DB special value</td><td>$1,254,112.64</td><td>$1,320,814.24</td></tr>
+              <tr><td>Pool A — retirement pension account</td><td>$840,887.36</td><td>$774,185.76</td></tr>
+              <tr><td>Pool C — external ETF</td><td>$51,361.96</td><td>$148,635.12</td></tr>
+              <tr><td>Final average salary</td><td>$143,700.42</td><td>$151,343.31</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Shared planning controls</h3>
+        <ul>
+          <li>General transfer balance cap planning value: <strong>$2,100,000</strong>.</li>
+          <li>Target buffer below the cap: <strong>$5,000</strong>, giving an illustrative TSB target near $2.095 million.</li>
+          <li>Home baseline: <strong>$500,000</strong>, adjustable in the Command Centre.</li>
+          <li>Pool C external investment drag: <strong>0.35% real per year</strong>.</li>
+          <li>Retirement scenarios are expressed in real dollars and use real returns unless explicitly labelled otherwise. Pre-retirement sensitivities are separately labelled nominal.</li>
+        </ul>
+      </section>
+
+      <section id="projection">
+        <p class="eyebrow">Calculation layer</p>
+        <h2>Deterministic projection and annual cash ledger</h2>
+        <h3>Closed-form monthly projection</h3>
+        <p>For a starting balance <code>B</code>, annual real return <code>r</code>, annual investment draw <code>D</code>, and <code>n = years × 12</code> months:</p>
+        <pre>monthlyReturn = (1 + r)^(1/12) - 1
+monthlyDraw   = max(0, D) / 12
+growth        = (1 + monthlyReturn)^n
+endingBalance = max(0, B × growth - monthlyDraw × ((growth - 1) / monthlyReturn))
+
+If monthlyReturn is zero:
+endingBalance = max(0, B - monthlyDraw × n)</pre>
+        <p>The Command Centre sets <code>D = max(0, annual spending - net PSS pension)</code>. The spending frontier evaluates annual spending from $80,000 to $140,000 in $5,000 steps, projects to age 75 using an illustrative 5% real return, then adds the selected home value to show a gross estate.</p>
+
+        <h3>Operational annual ledger</h3>
+        <pre>mandatoryDraw = openingPoolA × ageBasedMinimumRate
+lifestyleGap  = max(0, spending - netPssPension)
+actualDraw    = min(openingPoolA, max(mandatoryDraw, lifestyleGap))
+reinvestment = max(0, netPssPension + actualDraw - spending)
+poolCDrag     = openingPoolC × 0.0035
+closingPoolA  = max(0, openingPoolA × (1 + realReturn) - actualDraw)
+closingPoolC  = max(0, openingPoolC × (1 + realReturn) - poolCDrag + reinvestment)</pre>
+        <p>Minimum draw rates represented in the integrated ledger are: under 65, 4%; 65–74, 5%; 75–79, 6%; 80–84, 7%; 85–89, 9%; 90–94, 11%; 95+, 14%. These are model assumptions tied to the baseline and must be reconfirmed against current law.</p>
+
+        <h3>V23 deterministic governor</h3>
+        <ol>
+          <li>Apply the age-based mandatory draw from Pool A.</li>
+          <li>Use pension plus the required draw to meet the selected spending rule.</li>
+          <li>Draw extra from Pool A only when the spending gap exceeds the mandatory draw.</li>
+          <li>Route surplus to available super headroom when permitted, otherwise to Pool C.</li>
+          <li>Keep Pool B as a transit account for wash/recontribution modelling rather than a permanent growth pool.</li>
+        </ol>
+        <div class="note good">The static reference describes the algorithm. The interactive V23 page remains the authoritative surface for changing profile-specific floor, target, strong-estate and spending-governor settings.</div>
+      </section>
+
+      <section id="risk">
+        <p class="eyebrow">Uncertainty layer</p>
+        <h2>Monte Carlo, sequence and shock tests</h2>
+        <h3>Integrated Command Centre fan</h3>
+        <ul>
+          <li>600 reproducible seeded paths from age 60 through age 95.</li>
+          <li>Annual returns are sampled from a normal distribution with the selected real mean and 12% volatility, clamped between −55% and +45%.</li>
+          <li>Each year: <code>capital = max(0, capital × (1 + sampledReturn) - annualDraw)</code>.</li>
+          <li>The chart reports the P10, P25, P50, P75 and P90 balance paths. Percentiles are scenario outputs, not guarantees.</li>
+        </ul>
+        <h3>V23 stochastic lab</h3>
+        <p>V23 exposes run count, expected real return, volatility, target age and guardrail thresholds. It reports estimated probabilities of clearing the selected floor, target and strong-estate levels. Sampling noise remains; V23 notes that a 500-run result may vary by roughly one to three percentage points between samples.</p>
+        <h3>Sequence-risk isolation</h3>
+        <p>The sequence test reorders the same set of annual returns into worst-first, smooth and best-first paths. Because the arithmetic average is held constant, the resulting balance spread isolates the effect of return order while withdrawals occur.</p>
+        <h3>Stress controls</h3>
+        <p>The one-off shock path applies the selected shock return at the chosen age and the mean return in other years. V23 also includes a CPI-lag stress: the real PSS pension can dip for a year during an inflation shock while capital experiences the selected real-return drag, requiring the investment draw to top up the pension shortfall.</p>
+      </section>
+
+      <section id="ncc">
+        <p class="eyebrow">Estate and super sequencing</p>
+        <h2>NCC wash and death-benefit-tax methods</h2>
+        <p>The planning objective is to reduce the taxable component exposed to an illustrative 17% adult non-tax-dependant death-benefit-tax rate, while respecting contribution eligibility, TSB/TBC headroom and transaction sequencing. The supplied 60/40 estimate uses a 29.03% tax-free and 70.97% taxable-taxed split.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Method</th><th>How a $130,000 wash is represented</th><th>Interpretation</th></tr></thead>
+            <tbody>
+              <tr><td>Corrected proportioning — V23 default analysis</td><td>Taxable amount removed is proportional to the current taxable share. At 70.97%, the first wash removes about $92,258 taxable.</td><td>Taxable share decays; the benefit per wash declines. Illustrative analysis may require up to 14 annual washes from ages 61–74 to approach a $10,000 DBT target.</td></tr>
+              <tr><td>Workbook separate/frozen-share method</td><td>Uses the workbook’s fixed component treatment and can reproduce about $15,683.86 of tax reduction per wash.</td><td>Useful for reconciliation with the workbook, but it freezes the share and is not the corrected proportioning default.</td></tr>
+              <tr><td>Full-conversion master-document method</td><td>Treats the full $130,000 as taxable converted, implying $22,100 at 17%.</td><td>Shown as an explicit comparison method, not silently combined with proportioning.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre>Corrected proportioning step:
+taxableRemoved = washAmount × currentTaxableShare
+taxableAfter   = max(0, taxableBefore - taxableRemoved)
+
+Illustrative DBT exposure:
+deathBenefitTax = taxableComponent × 0.17</pre>
+        <h3>Modelled sequence</h3>
+        <ol>
+          <li>Before the relevant 30 June snapshot, confirm TSB, contribution eligibility, cap space and implementation advice.</li>
+          <li>Commute the selected amount from Pool A under the chosen component method.</li>
+          <li>Contribute the eligible NCC amount to Pool B.</li>
+          <li>Recommence or consolidate according to provider and advice requirements.</li>
+          <li>Preserve the intended $5,000 planning buffer and route mandatory-draw surplus according to the governor.</li>
+        </ol>
+        <div class="note warning"><strong>Implementation control:</strong> the integrated Command Centre contains a simplified 0–7 wash-cycle illustration. V23 carries the method comparison and expanded corrected analysis. Neither is an instruction to transact.</div>
+      </section>
+
+      <section id="tax">
+        <p class="eyebrow">Comparators</p>
+        <h2>Tax, salary equivalence, spending and estate</h2>
+        <h3>Salary-equivalent comparator</h3>
+        <p>The dashboard compares retirement cash flow with employment salary by calculating resident individual income tax plus a 2% Medicare levy, then solving by binary search for the gross salary that produces the selected net income. The baseline tax function uses a $18,200 tax-free threshold, bracket points at $45,000, $135,000 and $190,000, rates of 30%, 37% and 45% above those points, and a lower bracket rate of 15% for 2026–27 or 14% for 2027–28.</p>
+        <p>This deliberately simplified comparator excludes offsets, Medicare levy variations, Medicare levy surcharge, HELP, deductions and household-specific effects. It is a modelled comparison, not a tax return estimate.</p>
+        <h3>Spending guardrails</h3>
+        <p>V23 supports three distinguishable spending modes: age-band spending; a percentage of positive investment earnings, which produces no earnings-based gap after a negative return and can require extra Pool A draw in strong years; and a percentage of the mandatory draw, which cannot exceed the mandatory draw and routes the unused surplus through the reinvestment governor.</p>
+        <h3>Estate view</h3>
+        <p>The simplified frontier reports <code>gross estate = projected investments + selected home value</code>. V23 separately tracks account components, external assets and illustrative death-benefit tax so gross and after-tax outcomes are not conflated.</p>
+      </section>
+
+      <section id="governance">
+        <p class="eyebrow">Audit controls</p>
+        <h2>Known mismatches and model governance</h2>
+        <dl>
+          <dt>Do not mix Rail A and Rail B silently.</dt><dd>Each output inherits a named rail. Cross-rail comparison is visible and intentional.</dd>
+          <dt>Do not use the PSS statement whole-interest split for Pool A/B.</dt><dd>The wash model uses the supplied 60/40 lump-sum estimate: 29.03% tax-free, 70.97% taxable-taxed, 0% untaxed.</dd>
+          <dt>Keep gross, net and salary-equivalent values distinct.</dt><dd>Gross pension, modelled net pension, net spending and gross salary equivalence are separate fields.</dd>
+          <dt>Keep real and nominal values distinct.</dt><dd>Retirement projections use real dollars. Pre-age-60 compounding is separately labelled nominal.</dd>
+          <dt>Preserve method labels.</dt><dd>Corrected proportioning, workbook reconciliation and full-conversion comparison are not interchangeable NCC wash methods.</dd>
+          <dt>Review annually.</dt><dd>PSS estimates, balances, tax rates, Medicare, draw rates, contribution caps, TBC/TSB rules and provider processes can change.</dd>
+        </dl>
+        <h3>Machine-analysis contract</h3>
+        <p>When analysing this model, an automated system should: distinguish documented inputs from modelled outputs; state the rail and wash method being discussed; quote the formulas or assumptions that drive a conclusion; never infer that a simulated percentile is a forecast; and never convert this documentation into personal financial advice.</p>
+      </section>
+
+      <section id="sources">
+        <p class="eyebrow">Lineage</p>
+        <h2>Reviewed source register</h2>
+        <p>Personal source PDFs and workbooks are not republished from this public page. Their governed outputs and roles are documented below.</p>
+        <ul>
+          <li><code>PSS_Defined_Benefit_Calculator_V8_Baseline_2026-07-18.xlsx</code> — PSS defined-benefit calculation control.</li>
+          <li><code>Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx</code> — conservative Rail A workbook and cash-flow control.</li>
+          <li><code>PSS_iEstimator_60-40_2026-07-02.pdf</code> — 60/40 PSS option and component input.</li>
+          <li><code>PSS_iEstimator_100_2026-07-02.pdf</code> — 100% pension comparison.</li>
+          <li><code>PSS_Annual_Statement_2025_2025-12-20.pdf</code> — annual PSS statement reference.</li>
+          <li><code>Robinson_Retirement_Master_2026-07-18.md</code> — master narrative and operating assumptions.</li>
+          <li><code>Robinson_Retirement_Spending_Estate_Frontier_Analysis_2026-07-18.md</code> — Rail B spending and estate frontier.</li>
+          <li><code>Robinson_PSSDB_VR_Deep_Research_2026-07-18.md</code> — PSS/VR research and valuation context.</li>
+          <li><code>Robinson_NCC_Wash_Drawdown_Research_2026-07-18.md</code> — NCC wash, drawdown and sequencing research.</li>
+          <li><code>Australian_Salary_Net_Gross_Analysis_2026-07-18.md</code> — salary net/gross comparison assumptions.</li>
+          <li><code>Robinson_Global_Position_Deep_Analysis_2026-07-18.md</code> — broader position and benchmark context.</li>
+          <li><code>Robinson_Source_Folder_Recheck_2026-07-18.md</code> — source reconciliation and freshness control.</li>
+          <li><code>Retirement_Analysis_AU_US_UK_2026-05-31.pdf</code> — international retirement comparison context.</li>
+        </ul>
+        <p>Official rule links used by the interactive site: <a href="https://www.ato.gov.au/tax-rates-and-codes/tax-rates-australian-residents">ATO resident tax rates</a>, <a href="https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/growing-and-keeping-track-of-your-super/caps-limits-and-tax-on-super-contributions/non-concessional-contributions-cap">ATO NCC cap</a>, <a href="https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/self-managed-super-funds-smsf/smsf-newsroom/general-transfer-balance-cap-indexation-on-1-july-2026">ATO transfer balance cap indexation</a>, and <a href="https://www.csc.gov.au/defined-benefit-members/funds/pss">CSC PSS information</a>.</p>
+      </section>
+    </main>
+
+    <footer><div class="wrap">Robinson Retirement Command Centre · Baseline 2026-07-18 · Static reference v1 · <a href="./">Return to dashboard</a></div></footer>
+  </body>
+</html>
