@@ -590,7 +590,7 @@ export default function RetirementDashboard() {
           <div className="rail-switch" aria-label="Select modelling rail">
             {(["A", "B"] as RailKey[]).map((key) => <button key={key} className={railKey === key ? "active" : ""} onClick={() => setRailKey(key)}><b>Rail {key}</b><span>{RAILS[key].short}</span></button>)}
           </div>
-          <div className="rail-note"><Badge tone={railKey === "A" ? "modelled" : "exact"}>{rail.source}</Badge><p>{rail.purpose}</p></div>
+          <div className="rail-note"><Badge tone={railKey === "A" ? "modelled" : "exact"}>{rail.source}</Badge><p>{rail.purpose}</p><p><b>Why the PSS figures differ:</b> Rail B uses the newer 2 July iEstimator and higher FAS; Rail A preserves the March/V5 control baseline. The spending objective determines which lens to use—it does not create the pension uplift.</p></div>
         </div>
       </section>
 
@@ -967,6 +967,7 @@ export default function RetirementDashboard() {
           <div className="sidebar-context"><span>Retirement date</span><b>21 December 2033</b><small>Age 60 · preservation age 60</small></div>
           <nav>{NAV.map((item, index) => { const showGroup = index === 0 || item.group !== NAV[index - 1].group; return <div key={item.key}>{showGroup && <div className="nav-group">{item.group}</div>}<button aria-current={section === item.key ? "page" : undefined} className={section === item.key ? "active" : ""} onClick={() => go(item.key)}><span>{item.label}</span></button></div>; })}</nav>
           <a className="deep-link" href={deepModelUrl} target="_blank" rel="noreferrer"><span>Full V23 model</span><small>Opens with this rail, return, spending and target age</small><b>Continue exact scenario ↗</b></a>
+          <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
           <div className="version">Baseline 2026-07-18 · integrated v2</div>
         </aside>
         <main className="content">{content}</main>
