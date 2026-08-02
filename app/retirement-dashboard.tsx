@@ -475,6 +475,7 @@ export default function RetirementDashboard() {
   const retirementPf = spend / 26;
   const currentScenario = useMemo<ScenarioState>(() => ({ rail: railKey, spend, realReturn, targetAge, homeValue }), [railKey, spend, realReturn, targetAge, homeValue]);
   const deepModelUrl = sharedModelUrl(currentScenario);
+  const atlasUrl = siteAsset("atlas-prototype.html");
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
   const taxableStart = rail.poolA * 0.7097;
@@ -661,6 +662,7 @@ export default function RetirementDashboard() {
             <button className="primary" onClick={() => go("scenario")}>Run a scenario</button>
             <button className="secondary" onClick={() => go("frontier")}>Inspect the frontier</button>
             <a className="secondary" href={deepModelUrl} target="_blank" rel="noreferrer">Open this scenario in V23 ↗</a>
+            <a className="secondary" href={atlasUrl} target="_blank" rel="noreferrer">Explore Atlas ↗</a>
           </div>
         </div>
         <div className="hero-rail">
@@ -1044,6 +1046,7 @@ export default function RetirementDashboard() {
           <div className="sidebar-context"><span>Retirement date</span><b>21 December 2033</b><small>Age 60 · preservation age 60</small></div>
           <nav>{NAV.map((item, index) => { const showGroup = index === 0 || item.group !== NAV[index - 1].group; return <div key={item.key}>{showGroup && <div className="nav-group">{item.group}</div>}<button aria-current={section === item.key ? "page" : undefined} className={section === item.key ? "active" : ""} onClick={() => go(item.key)}><span>{item.label}</span></button></div>; })}</nav>
           <a className="deep-link" href={deepModelUrl} target="_blank" rel="noreferrer"><span>Full V23 model</span><small>Opens with this rail, return, spending and target age</small><b>Continue exact scenario ↗</b></a>
+          <a className="deep-link" href={atlasUrl} target="_blank" rel="noreferrer"><span>Retirement Atlas</span><small>Strategy map linking the floor, pools, tax, trajectory and estate</small><b>Open Atlas ↗</b></a>
           <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
           <div className="version">Baseline 2026-07-18 · integrated v2</div>
         </aside>
