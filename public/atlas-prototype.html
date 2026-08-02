@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas — Robinson Retirement (design prototype)</title>
+<style>
+  :root{
+    --ground:#0B0E13; --ground-2:#121722; --panel:#151B26;
+    --brass:#B8935A; --brass-lt:#d9b678; --brass-dim:#8f7346;
+    --poolA:#4FA8A0; --poolA-lt:#6fc7be; --poolC:#7FB0C4; --warn:#c98f6f;
+    --ink:#E8E9EC; --muted:#9AA0AB; --faint:#5C626E; --hair:#232A36;
+    --serif:'Iowan Old Style','Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+    --sp:clamp(3rem,6vh,5rem); --nav:54px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.58;-webkit-font-smoothing:antialiased;letter-spacing:.005em;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(120% 80% at 50% -10%,rgba(184,147,90,.06),transparent 55%),linear-gradient(180deg,#0c1017 0%,#0B0E13 40%,#080a0f 100%)}
+  .wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 clamp(1.25rem,5vw,3rem)}
+  .col{max-width:680px}
+  .eyebrow{font-family:var(--mono);font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:var(--brass);margin:0 0 1.1rem;display:flex;align-items:center;gap:.7rem}
+  .eyebrow .tick{width:22px;height:1px;background:var(--brass);display:inline-block}
+  .eyebrow .dot{color:var(--faint);margin:0 .2em}
+  h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,7vw,5rem);line-height:1.02;letter-spacing:-.015em;margin:0 0 1.3rem}
+  h2{font-family:var(--serif);font-weight:400;font-size:clamp(1.8rem,4.2vw,2.9rem);line-height:1.08;letter-spacing:-.01em;margin:0 0 1rem}
+  p{color:var(--muted);margin:0 0 1rem;max-width:62ch}
+  p strong{color:var(--ink);font-weight:600}
+  p em{color:var(--poolA-lt);font-style:italic}
+  .lede{font-size:1.2rem;line-height:1.5;color:#c3c7cf}
+  .fig{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  section{padding:var(--sp) 0;position:relative;scroll-margin-top:calc(var(--nav) + 8px)}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--hair) 15%,var(--hair) 85%,transparent)}
+
+  /* top nav */
+  .topnav{position:sticky;top:0;z-index:30;height:var(--nav);display:flex;align-items:center;gap:1.2rem;padding:0 clamp(1rem,4vw,2.2rem);background:rgba(11,14,19,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--hair)}
+  .brand{font-family:var(--mono);font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);text-decoration:none;white-space:nowrap;font-weight:600}
+  .brand b{color:var(--brass)}
+  .navlinks{display:flex;gap:.2rem;overflow-x:auto;scrollbar-width:none;flex:1;-ms-overflow-style:none}
+  .navlinks::-webkit-scrollbar{display:none}
+  .navlinks a{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:.4rem .6rem;border-radius:6px;white-space:nowrap;transition:.2s;position:relative}
+  .navlinks a:hover{color:var(--ink)}
+  .navlinks a.mainpage{color:var(--ink);border:1px solid var(--hair)}
+  .navlinks a.on{color:var(--brass)}
+  .navlinks a.on::after{content:"";position:absolute;left:.6rem;right:.6rem;bottom:.15rem;height:1px;background:var(--brass)}
+  .navright{display:flex;align-items:center;gap:.75rem;margin-left:auto}
+  .railbadge{font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:right;line-height:1.35}
+  .railbadge b{color:var(--ink)}
+  .seg{display:flex;background:var(--ground);border:1px solid var(--hair);border-radius:999px;padding:2px}
+  .seg button{font-family:var(--mono);font-size:.66rem;letter-spacing:.04em;border:0;background:transparent;color:var(--muted);padding:.3rem .66rem;border-radius:999px;cursor:pointer;transition:.25s}
+  .seg button.on{background:var(--brass);color:#1a130a;font-weight:600}
+  .seg button:not(.on):hover{color:var(--ink)}
+  @media(max-width:860px){.navlinks{gap:0}.railbadge{display:none}.brand span{display:none}}
+
+  /* depth gauge */
+  .depth{position:fixed;left:1.1rem;top:0;bottom:0;width:44px;z-index:15;display:flex;align-items:center;pointer-events:none}
+  .depth .rail{position:relative;width:1px;height:58vh;margin:auto;background:linear-gradient(180deg,transparent,var(--hair) 8%,var(--hair) 92%,transparent)}
+  .depth .strat{position:absolute;left:-4px;width:9px;height:1px;background:var(--faint);opacity:.5}
+  .depth .marker{position:absolute;left:-3px;width:7px;height:7px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 3px rgba(184,147,90,.18);transition:top .12s linear;top:0}
+  .depth .plabel{position:absolute;left:16px;top:0;transform:translateY(-50%);font-family:var(--mono);font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);white-space:nowrap;transition:top .12s linear}
+  @media(max-width:1160px){.depth{display:none}}
+
+  .rv{opacity:0;transform:translateY(20px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+  .rv.in{opacity:1;transform:none}
+
+  /* hero */
+  .hero{min-height:calc(84vh - var(--nav));display:flex;flex-direction:column;justify-content:center;padding-top:3rem}
+  .hero .floornum{display:flex;align-items:baseline;gap:1.1rem;flex-wrap:wrap;margin:.5rem 0 1rem}
+  .hero .floornum .val{font-family:var(--serif);font-size:clamp(2.3rem,6vw,3.5rem);color:var(--brass);letter-spacing:-.01em}
+  .hero .floornum .unit{font-family:var(--mono);font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .bedrock{margin-top:2.2rem;max-width:760px}
+  .bedrock-cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-top:.6rem}
+  .scrollcue{margin-top:3rem;font-family:var(--mono);font-size:.6rem;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:.7rem}
+  .scrollcue .ln{width:34px;height:1px;background:var(--faint);position:relative;overflow:hidden}
+  .scrollcue .ln::after{content:"";position:absolute;inset:0;background:var(--brass);transform:translateX(-100%);animation:sweep 2.6s ease-in-out infinite}
+  @keyframes sweep{0%{transform:translateX(-100%)}55%,100%{transform:translateX(100%)}}
+
+  /* charts */
+  .chart{margin:1.6rem 0 0;width:100%}
+  .chart svg{width:100%;height:auto;display:block;overflow:visible;touch-action:pan-y}
+  .axislab{font-family:var(--mono);font-size:10px;letter-spacing:.08em;fill:var(--faint);text-transform:uppercase}
+  .gridln{stroke:var(--hair);stroke-width:1}
+  .cursorln{stroke:var(--ink);stroke-width:1;opacity:.35;stroke-dasharray:3 4}
+  .legend{display:flex;gap:1.4rem;flex-wrap:wrap;margin-top:1.1rem;font-family:var(--mono);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .legend .sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:.5rem;vertical-align:-1px}
+  .note{font-family:var(--mono);font-size:.59rem;letter-spacing:.1em;color:var(--faint);margin-top:1rem;text-transform:uppercase}
+  .ctrl{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1.5rem;font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .ctrl .val{color:var(--brass);font-weight:600}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:2px;background:var(--hair);border-radius:2px;width:220px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--brass);cursor:pointer;border:3px solid var(--ground);box-shadow:0 0 0 1px var(--brass)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--brass);cursor:pointer;border:3px solid var(--ground)}
+  .chip{border:1px solid var(--hair);background:transparent;color:var(--muted);font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem .78rem;border-radius:999px;cursor:pointer;transition:.2s}
+  .chip.on{border-color:var(--brass);color:var(--brass)}
+  .chip:not(.on):hover{color:var(--ink)}
+
+  #tt{position:fixed;z-index:40;pointer-events:none;opacity:0;transition:opacity .12s;background:rgba(11,14,19,.94);border:1px solid var(--hair);border-radius:8px;padding:.65rem .8rem;font-family:var(--mono);font-size:.67rem;line-height:1.55;color:var(--ink);letter-spacing:.02em;box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:240px}
+  #tt .tk{color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-size:.56rem;margin-bottom:.15rem}
+  #tt b{color:var(--brass)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:10px;overflow:hidden;margin-top:2rem}
+  .stat{background:var(--ground-2);padding:1.35rem 1.3rem;position:relative;transition:transform .3s,background .3s}
+  .stat::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--brass);transform:scaleX(0);transform-origin:left;transition:transform .4s}
+  .stat:hover{transform:translateY(-3px);background:#161d29}.stat:hover::before{transform:scaleX(1)}
+  .stat .k{font-family:var(--mono);font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+  .stat .v{font-family:var(--serif);font-size:1.65rem;color:var(--ink);letter-spacing:-.01em}
+  .stat .s{font-family:var(--mono);font-size:.6rem;color:var(--faint);margin-top:.3rem}
+  .stat.a .v{color:var(--poolA)} .stat.c .v{color:var(--poolC)} .stat.f .v{color:var(--brass)}
+
+  .archgrid{display:grid;grid-template-columns:1.35fr 1fr;gap:2.6rem;align-items:center;margin-top:2rem}
+  .washloop{text-align:center}.washloop svg{max-width:320px;margin:0 auto}
+  .washbtn{margin-top:.3rem;font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;background:transparent;border:1px solid var(--hair);color:var(--ink);border-radius:999px;padding:.5rem 1rem;cursor:pointer;transition:.2s}
+  .washbtn:hover{border-color:var(--poolA);color:var(--poolA-lt)}
+  .washstate{font-family:var(--mono);font-size:.63rem;color:var(--muted);margin-top:.8rem;min-height:2.8em;letter-spacing:.04em}
+  .washstate b{color:var(--brass)}
+
+  .ribbon{margin-top:2rem}
+  .track{position:relative;height:60px;margin:2.2rem 0 1rem;cursor:ew-resize;user-select:none;touch-action:none}
+  .track .base{position:absolute;left:0;right:0;top:50%;height:3px;background:var(--hair);border-radius:3px}
+  .track .fill{position:absolute;left:0;top:50%;height:3px;background:var(--brass);border-radius:3px}
+  .track .ms{position:absolute;top:50%;width:1px;height:14px;background:var(--faint);transform:translate(-50%,-50%);cursor:pointer}
+  .track .ms .cap{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.52rem;letter-spacing:.08em;color:var(--faint);white-space:nowrap;text-transform:uppercase}
+  .track .handle{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--brass);border:3px solid var(--ground);box-shadow:0 0 0 1px var(--brass),0 4px 14px rgba(0,0,0,.5);transform:translate(-50%,-50%)}
+  .track .agebadge{position:absolute;top:-30px;transform:translateX(-50%);font-family:var(--mono);font-size:.7rem;color:var(--brass);letter-spacing:.06em;white-space:nowrap}
+  .ribread{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:10px;overflow:hidden;margin-top:2rem}
+  .ribread .cell{background:var(--ground-2);padding:1.1rem 1.1rem}
+  .ribread .k{font-family:var(--mono);font-size:.55rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+  .ribread .v{font-family:var(--serif);font-size:1.3rem;color:var(--ink)}
+
+  .estate{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:12px;overflow:hidden;margin-top:2rem}
+  .ecard{background:var(--ground-2);padding:1.8rem 1.7rem;transition:background .3s}
+  .ecard:hover{background:#161d29}
+  .ecard .k{font-family:var(--mono);font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .ecard .v{font-family:var(--serif);font-size:2.3rem;margin:.5rem 0 .2rem;letter-spacing:-.01em}
+  .ecard.base .v{color:var(--poolC)} .ecard.strong .v{color:var(--poolA-lt)}
+  .ecard .bar{height:6px;background:var(--hair);border-radius:6px;overflow:hidden;margin-top:.9rem}
+  .ecard .bar i{display:block;height:100%;border-radius:6px;transform-origin:left;transform:scaleX(0);transition:transform 1.1s cubic-bezier(.2,.7,.2,1)}
+  .ecard.base .bar i{background:var(--poolC)} .ecard.strong .bar i{background:var(--poolA-lt)}
+  .ecard .s{font-family:var(--mono);font-size:.59rem;color:var(--faint);margin-top:.6rem;letter-spacing:.05em}
+
+  /* doors */
+  .doors{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:2.2rem}
+  .door{display:flex;flex-direction:column;background:var(--ground-2);border:1px solid var(--hair);border-radius:14px;padding:1.9rem 1.8rem;text-decoration:none;transition:.3s;position:relative;overflow:hidden}
+  .door::after{content:"";position:absolute;inset:0;border-radius:14px;border:1px solid transparent;transition:.3s;pointer-events:none}
+  .door:hover{transform:translateY(-4px);background:#161d29}
+  .door:hover::after{border-color:var(--brass)}
+  .door .ill{height:130px;margin:-.4rem -.4rem 1.2rem;border-radius:10px;background:radial-gradient(120% 120% at 30% 0%,rgba(79,168,160,.08),transparent 60%);display:flex;align-items:center;justify-content:center}
+  .door .ill svg{width:100%;height:100%}
+  .door .k{font-family:var(--mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);margin-bottom:.5rem}
+  .door h3{font-family:var(--serif);font-weight:400;font-size:1.5rem;color:var(--ink);margin:0 0 .5rem}
+  .door p{font-size:.96rem;color:var(--muted);margin:0 0 1rem}
+  .door .feat{list-style:none;padding:0;margin:0 0 1.3rem;font-family:var(--mono);font-size:.62rem;letter-spacing:.04em;color:var(--faint);line-height:2}
+  .door .feat li::before{content:"→ ";color:var(--poolA)}
+  .door .go{margin-top:auto;font-family:var(--mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);display:inline-flex;align-items:center;gap:.5rem;transition:.2s}
+  .door:hover .go{color:var(--brass)}
+  @media(max-width:720px){.doors{grid-template-columns:1fr}.archgrid{grid-template-columns:1fr;gap:2rem}.estate{grid-template-columns:1fr}.stat .v{font-size:1.4rem}input[type=range]{width:170px}}
+
+  .coda{text-align:center;padding-top:calc(var(--sp)*.7)}
+  .coda h2{max-width:18ch;margin:0 auto 1rem}
+  .coda p{margin-left:auto;margin-right:auto}
+  footer{padding:2.5rem 0 4rem;border-top:1px solid var(--hair);margin-top:1.5rem}
+  footer .fine{font-family:var(--mono);font-size:.59rem;letter-spacing:.1em;color:var(--faint);line-height:1.9}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div id="tt"></div>
+
+<div class="depth" aria-hidden="true">
+  <div class="rail" id="depthRail"><div class="marker" id="depthMarker"></div><div class="plabel" id="depthLabel">The Floor</div></div>
+</div>
+
+<nav class="topnav" aria-label="Atlas and site navigation">
+  <a class="brand" href="#s-floor">ROBINSON <b>·</b> <span>ATLAS</span></a>
+  <div class="navlinks" id="navlinks">
+    <a class="mainpage" href="./">Command Centre</a><a class="mainpage" href="./deep-model.html">V23</a><a href="#s-floor">Floor</a><a href="#s-fizz">Fizz</a><a href="#s-arch">Architecture</a><a href="#s-dbt">Tax</a><a href="#s-cone">Trajectory</a><a href="#s-life">Life</a><a href="#s-estate">Estate</a><a href="#s-rails">Rails</a><a href="#s-doors">Open</a>
+  </div>
+  <div class="navright">
+    <div class="railbadge" id="railBadge"></div>
+    <div class="seg" role="tablist" aria-label="Analysis rail">
+      <button id="rA" class="on" role="tab" aria-selected="true">Rail A</button>
+      <button id="rB" role="tab" aria-selected="false">Rail B</button>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="hero" id="s-floor" data-label="The Floor">
+    <div class="col rv in">
+      <p class="eyebrow"><span class="tick"></span>Robinson Retirement<span class="dot">/</span>The Floor</p>
+      <h1>You already<br>have income.</h1>
+      <p class="lede">Retirement at sixty is usually the problem of turning savings into a paycheque. Not here. A PSS defined-benefit pension pays a fixed, indexed income for life — before a single dollar of capital is touched.</p>
+      <div class="floornum">
+        <span class="val fig" id="heroFloor">$76,041.68</span>
+        <span class="unit">net / year &nbsp;·&nbsp; <span id="heroPf">$2,924.68</span> / fortnight &nbsp;·&nbsp; CPI-indexed &nbsp;·&nbsp; for life</span>
+      </div>
+      <div class="bedrock chart" id="bedrockChart"></div>
+      <div class="bedrock-cap"><span>Age 60</span><span>The floor never moves — real terms</span><span>Age 95</span></div>
+    </div>
+    <div class="scrollcue rv in"><span class="ln"></span> Scroll — what sits above the floor</div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- FIZZ -->
+  <section id="s-fizz" data-label="Floor &amp; Fizz">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>01<span class="dot">·</span>Floor &amp; Fizz</p>
+      <h2>The floor is guaranteed.<br>Everything above it is choice.</h2>
+      <p>The <strong>net</strong> pension is bedrock — flat, permanent, real. Just above it runs the <strong>gross</strong> line; the sliver between them is the over-60 tax offset. Higher still, the account-based pension's <strong>mandatory minimum draws</strong> alone lift spendable income into the <strong>$100k–$110k</strong> band from day one — without ever spending capital on purpose. Turn the dial; the living layer breathes, the floor does not.</p>
+    </div>
+    <div class="chart rv" id="fizzChart"></div>
+    <div class="ctrl rv">
+      <span>Real return</span><input type="range" id="fizzR" min="3" max="7" step="0.25" value="5"><span class="val" id="fizzRv">5.0%</span>
+      <span style="color:var(--faint)">· hover the chart to read any age</span>
+    </div>
+    <div class="legend rv">
+      <span><span class="sw" style="background:var(--brass)"></span>Net pension — the floor</span>
+      <span><span class="sw" style="background:var(--brass-lt);opacity:.6"></span>Gross pension &amp; offset</span>
+      <span><span class="sw" style="background:var(--poolA)"></span>Mandatory-draw capacity</span>
+      <span><span class="sw" style="background:transparent;border:1px dashed var(--muted)"></span>$100k–$110k band</span>
+    </div>
+    <p class="note rv">Floor &amp; gross canonical · fizz is illustrative shape from the minimum-draw schedule — Codex wires to the live V23 engine.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ARCHITECTURE -->
+  <section id="s-arch" data-label="Architecture">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>02<span class="dot">·</span>The Architecture</p>
+      <h2>Where the capital lands.</h2>
+      <p>The commuted lump sum and the Hostplus balance roll together at commencement and split cleanly into the pools — a true conservation, no leakage. Above them sits the pension's <strong>defined-benefit special value</strong>, locked at sixteen times the pension, filling most of the transfer-balance cap and never re-indexed.</p>
+    </div>
+    <div class="chart rv" id="flowChart"></div>
+    <div class="legend rv">
+      <span><span class="sw" style="background:var(--brass)"></span>Commuted lump sum</span>
+      <span><span class="sw" style="background:var(--brass-dim)"></span>Hostplus rollover</span>
+      <span><span class="sw" style="background:var(--poolA)"></span>Pool A — ABP</span>
+      <span><span class="sw" style="background:var(--poolC)"></span>Pool C — external ETF</span>
+    </div>
+    <div class="archgrid">
+      <div class="chart rv" id="tbcChart"></div>
+      <div class="washloop rv">
+        <div class="chart" id="washChart"></div>
+        <button class="washbtn" id="washStep">Run the wash →</button>
+        <div class="washstate" id="washState"></div>
+      </div>
+    </div>
+    <div class="stats rv">
+      <div class="stat a"><div class="k">Pool A — ABP, day one</div><div class="v fig" id="sPoolA"></div><div class="s">0% tax · the compounding engine</div></div>
+      <div class="stat"><div class="k">Pool B — transit</div><div class="v fig">$0.00</div><div class="s">wash bucket · opens empty</div></div>
+      <div class="stat c"><div class="k">Pool C — external ETF</div><div class="v fig" id="sPoolC"></div><div class="s">outside super · deposit-only</div></div>
+      <div class="stat f"><div class="k">DB special value in TSB</div><div class="v fig" id="sDBSV"></div><div class="s">fixed · never re-indexed</div></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- DBT -->
+  <section id="s-dbt" data-label="Death-benefits Tax">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>03<span class="dot">·</span>Death-benefits Tax</p>
+      <h2>A liability, dismantled<br>one wash at a time.</h2>
+      <p>Left alone, the taxable component of super would hand the estate a bill on the way out. The wash removes it in steps — each cycle saving a fixed <strong class="fig">$15,683.86</strong> — until death-benefits tax reaches <strong>zero</strong> by the late sixties, in every return scenario. It never comes back.</p>
+    </div>
+    <div class="chart rv" id="dbtChart"></div>
+    <div class="legend rv">
+      <span><span class="sw" style="background:var(--brass)"></span>DBT liability remaining</span>
+      <span><span class="sw" style="background:var(--poolA)"></span>Wash executed · −$15,683.86</span>
+      <span style="color:var(--faint)">hover each step</span>
+    </div>
+    <p class="note rv">Per-wash saving and the $0 endpoint canonical · burn-down height illustrative — locked identical on both rails by guardrail.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- CONE -->
+  <section id="s-cone" data-label="Wealth Cone">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>04<span class="dot">·</span>Capital Trajectory</p>
+      <h2>One floor. A fan<br>of possible ceilings.</h2>
+      <p>The pension removes the downside from <em>income</em>; the pools carry the <em>upside</em>. Across a plausible range of real returns, total capital traces a widening cone — the spread between a cautious and a strong path. The point is not the exact line. It is that the floor holds under all of them.</p>
+    </div>
+    <div class="chart rv" id="coneChart"></div>
+    <div class="ctrl rv">
+      <button class="chip on" data-cone="all">Full cone</button>
+      <button class="chip" data-cone="central">Central only</button>
+      <span style="color:var(--faint)">· hover to read low / central / high at any age</span>
+    </div>
+    <div class="legend rv">
+      <span><span class="sw" style="background:var(--poolA)"></span>Central — 5% real</span>
+      <span><span class="sw" style="background:var(--poolC);opacity:.5"></span>Scenario cone — 3% to 6.5%</span>
+    </div>
+    <p class="note rv">Illustrative deterministic cone (low / central / high) — not Monte-Carlo percentiles. Codex wires to the live engine's probability fan.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- LIFE -->
+  <section id="s-life" data-label="The Life Ribbon">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>05<span class="dot">·</span>Thirty-five Years</p>
+      <h2>Drag across the life.</h2>
+      <p>The strategy is a sequence, not a snapshot. Move the marker — or use the arrow keys — and read the system at any age: the mandatory-draw rate stepping up through the bands, the wash window, the pension holding flat the whole way. This is what the plan feels like from inside a given year.</p>
+    </div>
+    <div class="ribbon rv">
+      <div class="track" id="track" tabindex="0" role="slider" aria-label="Age" aria-valuemin="60" aria-valuemax="95" aria-valuenow="60">
+        <div class="base"></div><div class="fill" id="trackFill"></div>
+        <div class="handle" id="handle"><div class="agebadge" id="ageBadge">Age 60</div></div>
+      </div>
+      <div class="ribread">
+        <div class="cell"><div class="k">Pension floor</div><div class="v fig" id="ribPension"></div></div>
+        <div class="cell"><div class="k">Draw rate</div><div class="v fig" id="ribRate"></div></div>
+        <div class="cell"><div class="k">Draw capacity (illus.)</div><div class="v fig" id="ribDraw"></div></div>
+        <div class="cell"><div class="k">Pool A (illus.)</div><div class="v fig" id="ribPool"></div></div>
+        <div class="cell"><div class="k">Phase</div><div class="v" id="ribPhase" style="font-size:1.05rem"></div></div>
+      </div>
+    </div>
+    <p class="note rv">Pension &amp; draw-rate bands canonical · pool &amp; draw dollars illustrative at 5% real — Codex wires to the live engine.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ESTATE -->
+  <section id="s-estate" data-label="The Estate">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>06<span class="dot">·</span>The Payoff</p>
+      <h2>Because income was never<br>the question.</h2>
+      <p>Capital that never has to become income becomes something else: estate. Modelled total wealth at seventy-five sits near the figures below — the reward for building a floor instead of a drawdown.</p>
+    </div>
+    <div class="estate rv">
+      <div class="ecard base"><div class="k" id="ekBase">Base case · 5% real · age 75</div><div class="v fig" id="evBase">~$1.44M</div><div class="bar"><i id="ebarBase"></i></div><div class="s" id="esBase">total modelled wealth</div></div>
+      <div class="ecard strong"><div class="k" id="ekStrong">Strong case · 6.5% real · age 75</div><div class="v fig" id="evStrong">~$1.87M</div><div class="bar"><i id="ebarStrong"></i></div><div class="s" id="esStrong">total modelled wealth · +30%</div></div>
+    </div>
+    <p class="note rv" id="estateNote"></p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- RAILS -->
+  <section id="s-rails" data-label="Two Rails">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>07<span class="dot">·</span>Two Rails</p>
+      <h2>One strategy, held on<br>two honest baselines.</h2>
+      <p>Every figure belongs to exactly one rail, and the badge in the bar always says which. <strong>Rail A</strong> is the locked conservative baseline — the wealth-and-estate engine. <strong>Rail B</strong> is the later spending frontier. They are never blended silently; flip between them with the control above and watch the whole page re-cast.</p>
+    </div>
+    <div class="stats rv" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+      <div class="stat f"><div class="k">Net pension floor</div><div class="v fig" id="rFloor"></div><div class="s" id="rFloorS"></div></div>
+      <div class="stat"><div class="k">Gross pension</div><div class="v fig" id="rGross"></div><div class="s">before over-60 offset</div></div>
+      <div class="stat"><div class="k">Commuted lump sum</div><div class="v fig" id="rLump"></div><div class="s">rolled to the pools</div></div>
+      <div class="stat a"><div class="k">Capital at sixty</div><div class="v fig" id="rCap"></div><div class="s">lump + Hostplus rollover</div></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- DOORS -->
+  <section id="s-doors" data-label="Open the Instruments">
+    <div class="col rv">
+      <p class="eyebrow"><span class="tick"></span>08<span class="dot">·</span>Two Instruments</p>
+      <h2>This was the view.<br>Here are the controls.</h2>
+      <p>Atlas is the calm object — the whole strategy in one shape. When you want to fly it, two instruments sit behind it: one to <em>operate</em>, one to <em>interrogate</em>.</p>
+    </div>
+    <div class="doors rv">
+      <a class="door" href="./">
+        <div class="ill">
+          <svg viewBox="0 0 260 130" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path d="M20 96 Q80 40 140 58 T240 30" fill="none" stroke="#7FB0C4" stroke-width="1.5" opacity=".55"/>
+            <path d="M20 96 Q80 60 140 74 T240 58" fill="none" stroke="#4FA8A0" stroke-width="2"/>
+            <path d="M20 96 L240 96" stroke="#B8935A" stroke-width="2"/>
+            <g stroke="#B8935A" fill="none" stroke-width="2">
+              <path d="M52 96 A26 26 0 0 1 104 96"/><path d="M156 96 A26 26 0 0 1 208 96"/>
+            </g>
+            <line x1="78" y1="96" x2="70" y2="78" stroke="#d9b678" stroke-width="2"/>
+            <line x1="182" y1="96" x2="196" y2="80" stroke="#d9b678" stroke-width="2"/>
+            <circle cx="78" cy="96" r="3" fill="#d9b678"/><circle cx="182" cy="96" r="3" fill="#d9b678"/>
+          </svg>
+        </div>
+        <div class="k">Operate</div>
+        <h3>The Command Centre</h3>
+        <p>The live cockpit — efficient frontier, capital-probability fan, sequence-risk heatmap, cashflow map and the NCC wash simulator, all on one working surface.</p>
+        <ul class="feat"><li>Efficient frontier &amp; probability fan</li><li>Wash simulator &amp; trade-off matrix</li><li>Reconciled ledger &amp; TBC panels</li></ul>
+        <span class="go">Open the Command Centre ↗</span>
+      </a>
+      <a class="door" href="./deep-model.html">
+        <div class="ill">
+          <svg viewBox="0 0 260 130" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g transform="rotate(-6 130 65)">
+              <rect x="70" y="30" width="120" height="74" rx="5" fill="none" stroke="#5C626E" stroke-width="1.4"/>
+              <rect x="78" y="24" width="120" height="74" rx="5" fill="none" stroke="#7FB0C4" stroke-width="1.4" opacity=".7"/>
+              <rect x="86" y="18" width="120" height="74" rx="5" fill="#121722" stroke="#4FA8A0" stroke-width="1.8"/>
+              <line x1="96" y1="34" x2="196" y2="34" stroke="#B8935A" stroke-width="2"/>
+              <g stroke="#5C626E" stroke-width="1.2">
+                <line x1="96" y1="46" x2="180" y2="46"/><line x1="96" y1="56" x2="196" y2="56"/>
+                <line x1="96" y1="66" x2="170" y2="66"/><line x1="96" y1="76" x2="188" y2="76"/>
+              </g>
+            </g>
+            <text x="212" y="112" font-family="monospace" font-size="15" fill="#B8935A">33</text>
+          </svg>
+        </div>
+        <div class="k">Interrogate</div>
+        <h3>The V23 Deep Model</h3>
+        <p>The full analytical workbench — thirty-three pages of Monte-Carlo, stress tests, tornado sensitivities, longevity, guardrails and the complete audit trail behind every figure here.</p>
+        <ul class="feat"><li>Monte-Carlo, histograms &amp; probability</li><li>Stress, tornado &amp; sensitivity</li><li>Audit page &amp; engine self-test</li></ul>
+        <span class="go">Open the deep model ↗</span>
+      </a>
+    </div>
+    <p class="note rv">Links point to the live site · Codex confirms in-repo relative paths on integration.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="coda" id="s-coda" data-label="The Thesis">
+    <div class="rv">
+      <p class="eyebrow" style="justify-content:center"><span class="tick"></span>The Thesis<span class="tick"></span></p>
+      <h2>The income is settled.<br>The rest is optionality<br>and estate.</h2>
+      <p class="lede">One floor that never moves. Everything above it, a choice.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p class="fine">
+      Design prototype · stratigraphy language · offline &amp; framework-free (hand-rolled SVG, zero dependencies)<br>
+      Canonical figures: 2026-07-18 baseline · Rail A default · rails never blended without the badge<br>
+      Trajectory curves are illustrative shape from documented method — the live V23 engine is authoritative
+    </p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+const RAILS={
+  A:{label:"Rail A",sub:"locked baseline",src:"2026-03-23",
+     floor:76041.68,floorPf:2924.68,gross:78382.04,lump:574801.66,
+     poolA:840887.36,poolB:0,poolC:51362.30,dbsv:1254112.64,hostplus:317447.66,rollover:892249.32,
+     estBase:1.44,estStrong:1.87,estTag:"Rail A benchmark · approximate"},
+  B:{label:"Rail B",sub:"spending frontier",src:"2026-07-02",
+     floor:76302.72,floorPf:2934.72,gross:82550.89,lump:605373.22,
+     poolA:774185.76,poolB:0,poolC:148635.12,dbsv:1320814.24,hostplus:317447.66,rollover:922820.88,
+     estBase:null,estStrong:null,estTag:"Rail B · illustrative from engine"}
+};
+const TBC=2100000,BUFFER=5000,PERWASH=15683.86;
+const REDUCED=matchMedia("(prefers-reduced-motion:reduce)").matches;
+let RAIL="A";
+const fmt=n=>"$"+n.toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0=n=>"$"+Math.round(n).toLocaleString("en-AU");
+const fmtM=n=>"$"+(n/1e6).toFixed(2)+"M";
+const $=id=>document.getElementById(id);
+
+/* engine (illustrative) */
+const AGES=[];for(let a=60;a<=95;a++)AGES.push(a);
+function mdRate(a){if(a<65)return .04;if(a<75)return .05;if(a<80)return .06;if(a<85)return .07;if(a<90)return .09;if(a<95)return .11;return .14;}
+function poolPath(open,r){let o=open;const rows=[];for(const a of AGES){const md=o*mdRate(a);const close=(o-md)*(1+r);rows.push({age:a,open:o,md,close});o=close;}return rows;}
+function closeAt(open,r,age){let o=open;for(const a of AGES){if(a>age)break;const md=o*mdRate(a);o=(o-md)*(1+r);}return o;}
+function wealthAt(age,r){const R=RAILS[RAIL];return closeAt(R.poolA,r,age)+R.poolC*Math.pow(1+r,age-60);}
+
+/* svg helpers */
+const NS="http://www.w3.org/2000/svg";
+function svg(w,h){const s=document.createElementNS(NS,"svg");s.setAttribute("viewBox",`0 0 ${w} ${h}`);s.setAttribute("preserveAspectRatio","none");s.__vb={w,h};return s;}
+function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);return e;}
+function txt(x,y,s,cls,anchor){const t=el("text",{x,y,class:cls||"axislab","text-anchor":anchor||"start"});t.textContent=s;return t;}
+function drawIn(p,ms){if(REDUCED)return;const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L;p.getBoundingClientRect();p.style.transition=`stroke-dashoffset ${ms}ms cubic-bezier(.2,.7,.2,1)`;p.style.strokeDashoffset=0;}
+function fadeIn(n,ms,d){if(REDUCED)return;n.style.opacity=0;n.style.transition=`opacity ${ms}ms ease ${d||0}ms`;requestAnimationFrame(()=>n.style.opacity=1);}
+const TT=$("tt");
+function showTT(x,y,html){TT.innerHTML=html;TT.style.opacity=1;const w=TT.offsetWidth,h=TT.offsetHeight;let px=x+16,py=y-h-12;if(px+w>innerWidth-8)px=x-w-16;if(py<8)py=y+18;TT.style.left=px+"px";TT.style.top=py+"px";}
+function hideTT(){TT.style.opacity=0;}
+function vbx(s,cx){const r=s.getBoundingClientRect();return (cx-r.left)/r.width*s.__vb.w;}
+
+/* bedrock */
+function bedrock(){
+  const host=$("bedrockChart");host.innerHTML="";const W=760,H=90,y=54;const s=svg(W,H);
+  for(let i=0;i<36;i++){const x=8+i*(W-16)/35;s.appendChild(el("line",{x1:x,y1:y+6,x2:x,y2:y+11,stroke:"var(--faint)","stroke-width":i%5===0?1.4:.7,opacity:i%5===0?.55:.3}));}
+  s.appendChild(el("line",{x1:8,y1:y,x2:W-8,y2:y,stroke:"var(--brass)","stroke-width":7,opacity:.14,"stroke-linecap":"round"}));
+  const ln=el("line",{x1:8,y1:y,x2:W-8,y2:y,stroke:"var(--brass)","stroke-width":2.5,"stroke-linecap":"round"});s.appendChild(ln);
+  if(!REDUCED){const sh=el("line",{x1:8,y1:y,x2:60,y2:y,stroke:"var(--brass-lt)","stroke-width":2.5,"stroke-linecap":"round"});s.appendChild(sh);
+    sh.appendChild(el("animate",{attributeName:"x1",values:"8;752",dur:"3.6s",repeatCount:"indefinite"}));
+    sh.appendChild(el("animate",{attributeName:"x2",values:"60;760",dur:"3.6s",repeatCount:"indefinite"}));
+    sh.appendChild(el("animate",{attributeName:"opacity",values:"0;.9;0",dur:"3.6s",repeatCount:"indefinite"}));}
+  host.appendChild(s);
+  if(!REDUCED){const L=W-16;ln.style.strokeDasharray=L;ln.style.strokeDashoffset=L;ln.getBoundingClientRect();ln.style.transition="stroke-dashoffset 1500ms cubic-bezier(.2,.7,.2,1)";ln.style.strokeDashoffset=0;}
+}
+
+/* fizz + gross overlay */
+let FIZZ_R=0.05;
+function fizz(){
+  const host=$("fizzChart");host.innerHTML="";const W=1100,H=440,P={l:64,r:24,t:28,b:44},iw=W-P.l-P.r,ih=H-P.t-P.b;
+  const R=RAILS[RAIL];const rows=poolPath(R.poolA,FIZZ_R);const floor=R.floor,gross=R.gross;
+  const data=rows.map(r=>({age:r.age,total:floor+r.md,md:r.md}));
+  const maxY=Math.max(125000,Math.max(...data.map(d=>d.total))*1.06);
+  const X=a=>P.l+(a-60)/35*iw,Y=v=>P.t+ih-(v/maxY)*ih;const s=svg(W,H);
+  [0,25000,50000,75000,100000,125000].forEach(v=>{if(v>maxY)return;const y=Y(v);s.appendChild(el("line",{x1:P.l,y1:y,x2:W-P.r,y2:y,class:"gridln",opacity:v===0?.9:.4}));s.appendChild(txt(P.l-12,y+3,"$"+(v/1000)+"k","axislab","end"));});
+  const bTop=Y(110000),bBot=Y(100000);
+  s.appendChild(el("rect",{x:P.l,y:bTop,width:iw,height:bBot-bTop,fill:"var(--muted)",opacity:.06}));
+  [bTop,bBot].forEach(y=>s.appendChild(el("line",{x1:P.l,y1:y,x2:W-P.r,y2:y,stroke:"var(--muted)","stroke-width":1,"stroke-dasharray":"4 5",opacity:.4})));
+  // fizz area
+  let up=`M ${X(60)} ${Y(floor)}`;data.forEach(d=>up+=` L ${X(d.age)} ${Y(d.total)}`);let dn="";for(let i=data.length-1;i>=0;i--)dn+=` L ${X(data[i].age)} ${Y(floor)}`;
+  s.appendChild(el("path",{d:up+dn+" Z",fill:"var(--poolA)","fill-opacity":.16}));
+  const topLine=el("path",{d:up,fill:"none",stroke:"var(--poolA)","stroke-width":2.5});s.appendChild(topLine);
+  // net floor block
+  s.appendChild(el("rect",{x:P.l,y:Y(floor),width:iw,height:P.t+ih-Y(floor),fill:"var(--brass)","fill-opacity":.14}));
+  // gross/offset band
+  s.appendChild(el("rect",{x:P.l,y:Y(gross),width:iw,height:Y(floor)-Y(gross),fill:"var(--brass-lt)","fill-opacity":.18}));
+  s.appendChild(el("line",{x1:P.l,y1:Y(gross),x2:W-P.r,y2:Y(gross),stroke:"var(--brass-lt)","stroke-width":1.4,"stroke-dasharray":"5 4",opacity:.85}));
+  const gl=txt(W-P.r-8,Y(gross)-6,"GROSS "+fmt0(gross),"axislab","end");gl.setAttribute("fill","var(--brass-lt)");s.appendChild(gl);
+  const floorLine=el("line",{x1:P.l,y1:Y(floor),x2:W-P.r,y2:Y(floor),stroke:"var(--brass)","stroke-width":2.5});s.appendChild(floorLine);
+  const fl=txt(P.l+8,Y(floor)+16,"NET FLOOR · "+fmt0(floor),"axislab");fl.setAttribute("fill","var(--brass)");s.appendChild(fl);
+  [60,65,70,75,80,85,90,95].forEach(a=>s.appendChild(txt(X(a),H-14,"AGE "+a,"axislab","middle")));
+  const cg=el("g",{});const cln=el("line",{class:"cursorln",y1:P.t,y2:P.t+ih,x1:-9,x2:-9});const dT=el("circle",{r:4,fill:"var(--poolA-lt)",cx:-9,cy:-9});cg.appendChild(cln);cg.appendChild(dT);s.appendChild(cg);
+  const ov=el("rect",{x:P.l,y:P.t,width:iw,height:ih,fill:"transparent"});s.appendChild(ov);
+  function move(ev){const cx=(ev.touches?ev.touches[0].clientX:ev.clientX);let a=Math.round(60+(vbx(s,cx)-P.l)/iw*35);a=Math.max(60,Math.min(95,a));const d=data[a-60];const x=X(a);cln.setAttribute("x1",x);cln.setAttribute("x2",x);dT.setAttribute("cx",x);dT.setAttribute("cy",Y(d.total));showTT(cx,(ev.touches?ev.touches[0].clientY:ev.clientY),`<div class="tk">Age ${a}</div>Total income <b>${fmt0(d.total)}</b><br>Net floor ${fmt0(floor)}<br>Gross ${fmt0(gross)} · offset ${fmt0(gross-floor)}<br>Fizz +${fmt0(d.md)}`);}
+  ov.addEventListener("pointermove",move);ov.addEventListener("pointerleave",()=>{hideTT();cln.setAttribute("x1",-9);cln.setAttribute("x2",-9);dT.setAttribute("cx",-9);});
+  host.appendChild(s);drawIn(topLine,1400);
+}
+
+/* allocation flow */
+function flow(){
+  const host=$("flowChart");host.innerHTML="";const R=RAILS[RAIL];const W=1100,H=260,s=svg(W,H);
+  const total=R.rollover,scale=190/total;const midX1=430,midX2=560,poolX=770;
+  const srcs=[{k:"Commuted lump sum",v:R.lump,c:"var(--brass)"},{k:"Hostplus rollover",v:R.hostplus,c:"var(--brass-dim)"}];
+  const pools=[{k:"Pool A — ABP",v:R.poolA,c:"var(--poolA)"},{k:"Pool C — external ETF",v:R.poolC,c:"var(--poolC)"}];
+  let sy=40;const srcNodes=srcs.map(d=>{const h=Math.max(d.v*scale,10);const n={...d,x:150,y:sy,h};sy+=h+34;return n;});
+  const rollH=total*scale,rollY=(H-rollH)/2;
+  let py=(H-(R.poolA*scale+R.poolC*scale+24))/2;const poolNodes=pools.map(d=>{const h=Math.max(d.v*scale,10);const n={...d,x:poolX,y:py,h};py+=h+24;return n;});
+  // source -> rollover ribbons
+  let acc=rollY;srcNodes.forEach(n=>{const h=n.h,y0=n.y,y1=acc;acc+=h;
+    s.appendChild(el("path",{d:`M ${n.x+70} ${y0} C ${midX1} ${y0}, ${midX1} ${y1}, ${midX1+2} ${y1} L ${midX1+2} ${y1+h} C ${midX1} ${y1+h}, ${midX1} ${y0+h}, ${n.x+70} ${y0+h} Z`,fill:n.c,"fill-opacity":.22}));});
+  // rollover -> pools ribbons
+  let acc2=rollY;poolNodes.forEach(n=>{const h=n.h,y0=n.y,y1=acc2;acc2+=h;
+    s.appendChild(el("path",{d:`M ${midX2} ${y1} C ${(midX2+n.x)/2} ${y1}, ${(midX2+n.x)/2} ${y0}, ${n.x} ${y0} L ${n.x} ${y0+h} C ${(midX2+n.x)/2} ${y0+h}, ${(midX2+n.x)/2} ${y1+h}, ${midX2} ${y1+h} Z`,fill:n.c,"fill-opacity":.22}));});
+  // nodes
+  srcNodes.forEach(n=>{s.appendChild(el("rect",{x:n.x,y:n.y,width:70,height:n.h,fill:n.c,rx:2}));const t=txt(n.x-12,n.y+n.h/2-2,n.k,"axislab","end");s.appendChild(t);const v=txt(n.x-12,n.y+n.h/2+13,fmt0(n.v),"axislab","end");v.setAttribute("fill","var(--muted)");s.appendChild(v);});
+  s.appendChild(el("rect",{x:midX2-2,y:rollY,width:6,height:rollH,fill:"var(--ink)",opacity:.5,rx:2}));
+  const rt=txt((midX1+midX2)/2+2,rollY-12,"ROLLOVER","axislab","middle");rt.setAttribute("fill","var(--ink)");s.appendChild(rt);
+  const rv=txt((midX1+midX2)/2+2,rollY+rollH+20,fmt0(total),"axislab","middle");rv.setAttribute("fill","var(--muted)");s.appendChild(rv);
+  poolNodes.forEach(n=>{s.appendChild(el("rect",{x:n.x,y:n.y,width:70,height:n.h,fill:n.c,rx:2}));const t=txt(n.x+82,n.y+n.h/2-2,n.k,"axislab");s.appendChild(t);const v=txt(n.x+82,n.y+n.h/2+13,fmt0(n.v),"axislab");v.setAttribute("fill","var(--muted)");s.appendChild(v);});
+  const pb=txt(poolX+82,poolNodes[1].y+poolNodes[1].h+22,"Pool B — transit · $0","axislab");pb.setAttribute("fill","var(--faint)");s.appendChild(pb);
+  host.appendChild(s);
+}
+
+/* TBC */
+function tbc(){
+  const host=$("tbcChart");host.innerHTML="";const R=RAILS[RAIL];const W=560,H=420,P={t:16,b:16},ih=H-P.t-P.b;const s=svg(W,H);
+  const order=[{k:"Pool A — account-based pension",v:R.poolA,c:"var(--poolA)"},{k:"DB special value (pension × 16)",v:R.dbsv,c:"var(--brass)"},{k:"$5,000 buffer — clear air",v:BUFFER,c:"var(--faint)"}];
+  const barW=118,bx=78;let y=P.t+ih;const capY=P.t;
+  order.forEach((seg,i)=>{const h=seg.v/TBC*ih;y-=h;const rect=el("rect",{x:bx,y,width:barW,height:Math.max(h,2),fill:seg.c,opacity:seg.c==="var(--faint)"?.5:.92,rx:i===order.length-1?4:0,style:"cursor:pointer"});s.appendChild(rect);
+    if(h>18){s.appendChild(txt(bx+barW+14,y+h/2-2,seg.k,"axislab"));const v=txt(bx+barW+14,y+h/2+13,fmt0(seg.v),"axislab");v.setAttribute("fill","var(--muted)");s.appendChild(v);}
+    rect.addEventListener("pointermove",ev=>showTT(ev.clientX,ev.clientY,`<div class="tk">${seg.k}</div><b>${fmt0(seg.v)}</b> · ${(seg.v/TBC*100).toFixed(1)}% of cap`));rect.addEventListener("pointerleave",hideTT);fadeIn(rect,700,i*150);});
+  s.appendChild(el("line",{x1:bx-10,y1:capY,x2:bx+barW+10,y2:capY,stroke:"var(--ink)","stroke-width":1.5,"stroke-dasharray":"2 4"}));
+  const c=txt(bx-16,capY+4,"TBC","axislab","end");c.setAttribute("fill","var(--ink)");s.appendChild(c);const c2=txt(bx-16,capY+18,"$2.10M","axislab","end");c2.setAttribute("fill","var(--muted)");s.appendChild(c2);
+  host.appendChild(s);
+}
+
+/* wash loop */
+let washStep=0,washCount=0;
+const WASH=[
+  st=>`Ready. <b>${st} washes</b> complete. Press to commute $130,000 from Pool A.`,
+  ()=>`<b>Commute</b> — $130,000 leaves Pool A; $92,258 of it is taxable component.`,
+  ()=>`<b>Recontribute</b> — it returns as a non-concessional contribution: 100% tax-free.`,
+  st=>`<b>Recommence.</b> DBT reduced by <b>$15,683.86</b>. ${st} washes complete.`];
+const WASHNODE=[0,0,1,2];
+function wash(){
+  const host=$("washChart");host.innerHTML="";const W=300,H=210,cx=150,cy=100,r=66;const s=svg(W,H);
+  s.appendChild(el("circle",{cx,cy,r,fill:"none",stroke:"var(--hair)","stroke-width":1.5}));
+  s.appendChild(el("path",{d:`M ${cx} ${cy-r} A ${r} ${r} 0 1 1 ${cx-.01} ${cy-r}`,fill:"none",stroke:"var(--poolA)","stroke-width":2,"stroke-linecap":"round",opacity:.35}));
+  const nodes=[["Commute",-90],["→ NCC",30],["Recommence",150]],active=WASHNODE[washStep];
+  nodes.forEach(([lab,deg],i)=>{const a=deg*Math.PI/180,x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);const on=(i===active&&washStep>0);s.appendChild(el("circle",{cx:x,cy:y,r:on?7:5,fill:on?"var(--brass)":"var(--poolA)",opacity:on?1:.6}));const t=txt(cx+(r+22)*Math.cos(a),cy+(r+22)*Math.sin(a)+3,lab,"axislab",Math.abs(Math.cos(a))<.3?"middle":(Math.cos(a)>0?"start":"end"));t.setAttribute("fill",on?"var(--brass)":"var(--muted)");s.appendChild(t);});
+  const c=txt(cx,cy-2,"−$15,683.86","axislab","middle");c.setAttribute("fill","var(--brass)");c.setAttribute("font-size","11");s.appendChild(c);
+  const c2=txt(cx,cy+13,"per turn","axislab","middle");c2.setAttribute("fill","var(--faint)");s.appendChild(c2);
+  host.appendChild(s);$("washState").innerHTML=WASH[washStep](washCount);
+}
+$("washStep").onclick=()=>{washStep=(washStep+1)%4;if(washStep===3)washCount++;wash();};
+
+/* DBT */
+function dbt(){
+  const host=$("dbtChart");host.innerHTML="";const R=RAILS[RAIL];const start=R.poolA*0.7097*0.17,n=Math.ceil(start/PERWASH);
+  const W=1100,H=360,P={l:64,r:24,t:26,b:44},iw=W-P.l-P.r,ih=H-P.t-P.b,maxY=start*1.05,startAge=61;
+  const X=i=>P.l+i/n*iw,Y=v=>P.t+ih-v/maxY*ih;const s=svg(W,H);
+  [0,.25,.5,.75,1].forEach(f=>{const v=maxY*f,y=Y(v);s.appendChild(el("line",{x1:P.l,y1:y,x2:W-P.r,y2:y,class:"gridln",opacity:f===0?.9:.35}));s.appendChild(txt(P.l-12,y+3,fmt0(v),"axislab","end"));});
+  let d=`M ${X(0)} ${Y(start)}`,rem=start;const dots=[];
+  for(let i=0;i<n;i++){const nx=X(i+1);d+=` L ${nx} ${Y(rem)}`;rem=Math.max(0,rem-PERWASH);d+=` L ${nx} ${Y(rem)}`;dots.push([nx,Y(rem),startAge+i,rem]);}
+  s.appendChild(el("path",{d:d+` L ${X(n)} ${Y(0)} L ${X(0)} ${Y(0)} Z`,fill:"var(--brass)","fill-opacity":.08}));
+  const path=el("path",{d,fill:"none",stroke:"var(--brass)","stroke-width":2.5,"stroke-linejoin":"round"});s.appendChild(path);
+  dots.forEach(([x,y,age,rm],i)=>{const last=i===dots.length-1;const c=el("circle",{cx:x,cy:y,r:last?5:4,fill:last?"var(--poolA)":"var(--brass)",style:"cursor:pointer"});s.appendChild(c);fadeIn(c,400,500+i*140);
+    c.addEventListener("pointermove",ev=>showTT(ev.clientX,ev.clientY,`<div class="tk">Wash ${i+1} · age ${age}</div>Remaining <b>${fmt0(rm)}</b><br>Saved this turn ${fmt0(PERWASH)}`));c.addEventListener("pointerleave",hideTT);
+    if(last){const t=txt(x-6,y-12,"$0 · age "+age,"axislab","end");t.setAttribute("fill","var(--poolA)");s.appendChild(t);}});
+  for(let i=0;i<=n;i++)s.appendChild(txt(X(i),H-14,i===0?"START":("W"+i),"axislab","middle"));
+  host.appendChild(s);drawIn(path,1700);
+}
+
+/* cone */
+let CONE_MODE="all";
+function cone(){
+  const host=$("coneChart");host.innerHTML="";const W=1100,H=440,P={l:70,r:24,t:26,b:44},iw=W-P.l-P.r,ih=H-P.t-P.b;
+  const lo=AGES.map(a=>({age:a,v:wealthAt(a,.03)})),mid=AGES.map(a=>({age:a,v:wealthAt(a,.05)})),hi=AGES.map(a=>({age:a,v:wealthAt(a,.065)}));
+  const maxY=Math.max(...hi.map(d=>d.v))*1.06;const X=a=>P.l+(a-60)/35*iw,Y=v=>P.t+ih-v/maxY*ih;const s=svg(W,H);
+  for(let f=0;f<=4;f++){const v=maxY*f/4,y=Y(v);s.appendChild(el("line",{x1:P.l,y1:y,x2:W-P.r,y2:y,class:"gridln",opacity:f===0?.9:.35}));s.appendChild(txt(P.l-12,y+3,fmtM(v),"axislab","end"));}
+  if(CONE_MODE==="all"){let up=`M ${X(60)} ${Y(hi[0].v)}`;hi.forEach(d=>up+=` L ${X(d.age)} ${Y(d.v)}`);for(let i=lo.length-1;i>=0;i--)up+=` L ${X(lo[i].age)} ${Y(lo[i].v)}`;s.appendChild(el("path",{d:up+" Z",fill:"var(--poolC)","fill-opacity":.14}));
+    [hi,lo].forEach(arr=>{let p=`M ${X(60)} ${Y(arr[0].v)}`;arr.forEach(d=>p+=` L ${X(d.age)} ${Y(d.v)}`);s.appendChild(el("path",{d:p,fill:"none",stroke:"var(--poolC)","stroke-width":1.2,opacity:.5}));});}
+  let pm=`M ${X(60)} ${Y(mid[0].v)}`;mid.forEach(d=>pm+=` L ${X(d.age)} ${Y(d.v)}`);const midLine=el("path",{d:pm,fill:"none",stroke:"var(--poolA)","stroke-width":2.5});s.appendChild(midLine);
+  [60,65,70,75,80,85,90,95].forEach(a=>s.appendChild(txt(X(a),H-14,"AGE "+a,"axislab","middle")));
+  const cln=el("line",{class:"cursorln",y1:P.t,y2:P.t+ih,x1:-9,x2:-9});const dM=el("circle",{r:4,fill:"var(--poolA-lt)",cx:-9,cy:-9});s.appendChild(cln);s.appendChild(dM);
+  const ov=el("rect",{x:P.l,y:P.t,width:iw,height:ih,fill:"transparent"});s.appendChild(ov);
+  ov.addEventListener("pointermove",ev=>{const cx=ev.clientX;let a=Math.round(60+(vbx(s,cx)-P.l)/iw*35);a=Math.max(60,Math.min(95,a));const x=X(a);cln.setAttribute("x1",x);cln.setAttribute("x2",x);dM.setAttribute("cx",x);dM.setAttribute("cy",Y(mid[a-60].v));const extra=CONE_MODE==="all"?`<br>High ${fmtM(hi[a-60].v)}<br>Low ${fmtM(lo[a-60].v)}`:"";showTT(cx,ev.clientY,`<div class="tk">Age ${a} · total capital</div>Central <b>${fmtM(mid[a-60].v)}</b>${extra}`);});
+  ov.addEventListener("pointerleave",()=>{hideTT();cln.setAttribute("x1",-9);dM.setAttribute("cx",-9);});
+  host.appendChild(s);drawIn(midLine,1500);
+}
+document.querySelectorAll("[data-cone]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-cone]").forEach(x=>x.classList.remove("on"));b.classList.add("on");CONE_MODE=b.dataset.cone;cone();});
+
+/* life ribbon */
+function phaseFor(a){if(a<61)return"Commencement";if(a<68)return"Wash window";if(a<75)return"Compounding";if(a<85)return"Steady draw";return"High-draw band";}
+let ribAge=60;
+function setAge(a){a=Math.max(60,Math.min(95,Math.round(a)));ribAge=a;const R=RAILS[RAIL];const p=(a-60)/35;
+  const track=$("track"),w=track.clientWidth;$("handle").style.left=(p*w)+"px";$("trackFill").style.width=(p*w)+"px";
+  $("ageBadge").textContent="Age "+a;track.setAttribute("aria-valuenow",a);
+  $("ribPension").textContent=fmt(R.floor);$("ribRate").textContent=(mdRate(a)*100)+"%";
+  const open=a===60?R.poolA:closeAt(R.poolA,.05,a-1);$("ribDraw").textContent=fmt0(open*mdRate(a));$("ribPool").textContent=fmt0(open);$("ribPhase").textContent=phaseFor(a);
+}
+(function(){const track=$("track");
+  [[60,"Retire"],[61,"Wash opens"],[65,"5%"],[75,"6%"],[80,"7%"],[85,"9%"],[90,"11%"],[95,"14%"]].forEach(([a,lab])=>{const d=document.createElement("div");d.className="ms";d.style.left=((a-60)/35*100)+"%";d.innerHTML=`<span class="cap">${lab}</span>`;d.onclick=()=>setAge(a);track.appendChild(d);});
+  let drag=false;const toAge=cx=>{const r=track.getBoundingClientRect();return 60+(cx-r.left)/r.width*35;};
+  track.addEventListener("pointerdown",e=>{drag=true;track.setPointerCapture(e.pointerId);setAge(toAge(e.clientX));});
+  track.addEventListener("pointermove",e=>{if(drag)setAge(toAge(e.clientX));});
+  track.addEventListener("pointerup",()=>drag=false);track.addEventListener("pointercancel",()=>drag=false);
+  track.addEventListener("keydown",e=>{if(e.key==="ArrowRight"||e.key==="ArrowUp"){setAge(ribAge+1);e.preventDefault();}if(e.key==="ArrowLeft"||e.key==="ArrowDown"){setAge(ribAge-1);e.preventDefault();}});
+})();
+
+/* estate (rail-aware) */
+function estate(){
+  const R=RAILS[RAIL];let base,strong;
+  if(R.estBase){base=R.estBase;strong=R.estStrong;}else{base=wealthAt(75,.05)/1e6;strong=wealthAt(75,.065)/1e6;}
+  $("evBase").textContent="~"+fmtM(base*1e6);$("evStrong").textContent="~"+fmtM(strong*1e6);
+  $("ebarBase").style.transform="scaleX("+(base/strong)+")";$("ebarStrong").style.transform="scaleX(1)";
+  $("esBase").textContent="total modelled wealth";$("esStrong").textContent="total modelled wealth · +"+Math.round((strong/base-1)*100)+"%";
+  $("estateNote").textContent=R.estTag+" — Codex wires to the live engine's terminal-wealth outputs.";
+}
+
+/* rail paint */
+function tweenNum(node,to){if(REDUCED){node.textContent=fmt(to);return;}const from=parseFloat((node.textContent||"0").replace(/[^0-9.]/g,""))||0;const t0=performance.now(),dur=650;(function step(t){const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);node.textContent=fmt(from+(to-from)*e);if(p<1)requestAnimationFrame(step);})(performance.now());}
+function paintRail(tw){
+  const R=RAILS[RAIL];
+  $("railBadge").innerHTML=`<b>${R.label}</b> · ${R.sub}<br>iEstimator ${R.src}`;
+  $("rA").classList.toggle("on",RAIL==="A");$("rB").classList.toggle("on",RAIL==="B");
+  $("rA").setAttribute("aria-selected",RAIL==="A");$("rB").setAttribute("aria-selected",RAIL==="B");
+  const set=(id,v)=>{const n=$(id);if(tw)tweenNum(n,v);else n.textContent=fmt(v);};
+  set("heroFloor",R.floor);$("heroPf").textContent=fmt(R.floorPf);
+  set("sPoolA",R.poolA);set("sPoolC",R.poolC);set("sDBSV",R.dbsv);
+  set("rFloor",R.floor);$("rFloorS").textContent=`${R.label} · iEstimator ${R.src}`;set("rGross",R.gross);set("rLump",R.lump);set("rCap",R.rollover);
+  fizz();flow();tbc();dbt();cone();setAge(ribAge);estate();
+}
+function setRail(r){if(r===RAIL)return;RAIL=r;paintRail(true);}
+$("rA").onclick=()=>setRail("A");$("rB").onclick=()=>setRail("B");
+addEventListener("keydown",e=>{if((e.key==="r"||e.key==="R")&&!/input|textarea/i.test(document.activeElement.tagName))setRail(RAIL==="A"?"B":"A");});
+
+/* reveal */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}}),{threshold:.14,rootMargin:"0px 0px -6% 0px"});
+document.querySelectorAll(".rv:not(.in)").forEach(n=>io.observe(n));
+
+/* depth gauge + scroll spy */
+const secs=[...document.querySelectorAll("section[data-label]")];
+const rail=$("depthRail"),marker=$("depthMarker"),dlabel=$("depthLabel");
+for(let i=0;i<=10;i++){const d=document.createElement("div");d.className="strat";d.style.top=(i*10)+"%";rail.appendChild(d);}
+const navA=[...document.querySelectorAll(".navlinks a")];
+let ticking=false;
+function onScroll(){if(ticking)return;ticking=true;requestAnimationFrame(()=>{
+  const h=document.documentElement,max=h.scrollHeight-innerHeight,p=Math.max(0,Math.min(1,h.scrollTop/max));
+  marker.style.top=(p*100)+"%";dlabel.style.top=(p*100)+"%";
+  const mid=innerHeight/2;let cur=secs[0];for(const s of secs){if(s.getBoundingClientRect().top<=mid)cur=s;}
+  dlabel.textContent=cur.dataset.label.replace(/&amp;/g,"&");
+  navA.forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+cur.id));
+  ticking=false;});}
+addEventListener("scroll",onScroll,{passive:true});
+
+$("fizzR").addEventListener("input",e=>{FIZZ_R=parseFloat(e.target.value)/100;$("fizzRv").textContent=(e.target.value*1).toFixed(1)+"%";fizz();});
+function countUp(node,to){if(REDUCED){node.textContent=fmt(to);return;}const t0=performance.now(),dur=1400;(function step(t){const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);node.textContent=fmt(to*e);if(p<1)requestAnimationFrame(step);})(performance.now());}
+
+/* boot */
+paintRail(false);bedrock();wash();setAge(60);onScroll();
+if(!REDUCED)countUp($("heroFloor"),RAILS.A.floor);
+addEventListener("resize",()=>{clearTimeout(window.__rz);window.__rz=setTimeout(()=>{bedrock();fizz();flow();tbc();wash();dbt();cone();setAge(ribAge);},180);});
+</script>
+</body>
+</html>
