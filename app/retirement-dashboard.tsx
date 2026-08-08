@@ -225,15 +225,6 @@ function endingWithShock(rail: Rail, spend: number, mean: number, targetAge: num
   return capital;
 }
 
-function monthlyEndingBalance(start: number, annualReturn: number, annualDraw: number, years: number) {
-  const months = Math.max(0, years * 12);
-  const mr = Math.pow(1 + annualReturn, 1 / 12) - 1;
-  const draw = Math.max(0, annualDraw) / 12;
-  if (mr === 0) return Math.max(0, start - draw * months);
-  const growth = Math.pow(1 + mr, months);
-  return Math.max(0, start * growth - draw * ((growth - 1) / mr));
-}
-
 function incomeTax(gross: number, year: TaxYear) {
   const lowerRate = year === "2026-27" ? 0.15 : 0.14;
   let tax = 0;
@@ -271,8 +262,22 @@ function drawRate(age: number) {
 function operationalLedger(rail: Rail, spend: number, realReturn: number, taxYear: TaxYear) {
   let poolA = rail.poolA;
   let poolC = rail.poolC;
-  const rows = [];
-  for (let age = 60; age <= 95; age += 1) {
+  const rows = [{
+    year: "2033 launch",
+    age: 60,
+    pension: 0,
+    accumulation: 0,
+    abp: poolA,
+    poolC,
+    draw: 0,
+    spend: 0,
+    reinvestment: 0,
+    tax: 0,
+    netIncome: 0,
+    grossEquivalent: 0,
+    ending: poolA + poolC,
+  }];
+  for (let age = 61; age <= 95; age += 1) {
     const openingA = poolA;
     const openingC = poolC;
     const mandatory = openingA * drawRate(age);
@@ -299,6 +304,11 @@ function operationalLedger(rail: Rail, spend: number, realReturn: number, taxYea
     });
   }
   return rows;
+}
+
+function ledgerEndingAtAge(rail: Rail, spend: number, realReturn: number, targetAge: number, taxYear: TaxYear = "2026-27") {
+  const rows = operationalLedger(rail, spend, realReturn, taxYear);
+  return rows.find((row) => row.age === targetAge)?.ending ?? rows[rows.length - 1]?.ending ?? rail.capital;
 }
 
 function contributionWhatIf(phase2: number, phase3: number, nominalReturn: number) {
@@ -374,7 +384,7 @@ function FanChart({ fan, targetAge }: { fan: ReturnType<typeof monteCarloFan>; t
 
 function FrontierCurve({ rail, selectedSpend, homeValue, onSelect }: { rail: Rail; selectedSpend: number; homeValue: number; onSelect: (value: number) => void }) {
   const points = Array.from({ length: 13 }, (_, index) => 80_000 + index * 5_000).map((candidateSpend) => {
-    const capital = monthlyEndingBalance(rail.capital, 0.05, Math.max(0, candidateSpend - rail.netPension), 15);
+    const capital = ledgerEndingAtAge(rail, candidateSpend, 0.05, 75);
     return { spend: candidateSpend, capital, estate: capital + homeValue };
   });
   const width = 920;
@@ -460,16 +470,16 @@ export default function RetirementDashboard() {
 
   const rail = RAILS[railKey];
   const portfolioDraw = Math.max(0, spend - rail.netPension);
-  const endCapital = monthlyEndingBalance(rail.capital, realReturn, portfolioDraw, targetAge - 60);
+  const ledger = useMemo(() => operationalLedger(rail, spend, realReturn, taxYear), [rail, spend, realReturn, taxYear]);
+  const endCapital = ledger.find((row) => row.age === targetAge)?.ending ?? rail.capital;
   const estate = endCapital + homeValue;
   const grossEquivalent = grossForNet(spend, taxYear);
-  const ledger = useMemo(() => operationalLedger(rail, spend, realReturn, taxYear), [rail, spend, realReturn, taxYear]);
   const fan = useMemo(() => monteCarloFan(rail, spend, realReturn), [rail, spend, realReturn]);
   const trajectoryLabels = Array.from({ length: 16 }, (_, i) => 60 + i);
   const trajectorySeries = RETURNS.map((r, i) => ({
     name: `${pct(r, 1)} real`,
     color: ["#f3a950", "#47d6a0", "#6f8cff"][i],
-    values: trajectoryLabels.map((age) => monthlyEndingBalance(rail.capital, r, portfolioDraw, age - 60)),
+    values: trajectoryLabels.map((age) => ledgerEndingAtAge(rail, spend, r, age, taxYear)),
   }));
   const currentPf = 2_795.57;
   const retirementPf = spend / 26;
@@ -486,7 +496,7 @@ export default function RetirementDashboard() {
   const dbtSaved = dbtStart - dbtRemaining;
   const aiContext: Record<string, unknown> = {
     metadata: {
-      modelVersion: "2026-07-18.integrated.2",
+      modelVersion: "2026-07-18.integrated.3",
       baselineDate: "2026-07-18",
       currency: "AUD",
       valueBasis: "Real dollars unless specifically labelled nominal",
@@ -622,7 +632,7 @@ export default function RetirementDashboard() {
   };
 
   const exportSettings = () => {
-    const payload = { version: "2026-07-18.integrated.2", exportedAt: new Date().toISOString(), current: { rail: railKey, spend, realReturn, targetAge, homeValue, taxYear }, saved, reviewSnapshot, reviewChecks };
+    const payload = { version: "2026-07-18.integrated.3", exportedAt: new Date().toISOString(), current: { rail: railKey, spend, realReturn, targetAge, homeValue, taxYear }, saved, reviewSnapshot, reviewChecks };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "robinson-retirement-scenarios.json"; a.click(); URL.revokeObjectURL(url);
@@ -676,7 +686,7 @@ export default function RetirementDashboard() {
       <div className="metrics four">
         <Metric label="Indexed PSS net floor" value={money(rail.netPension)} sub={`${fmt1.format(rail.netPension / 26)} per fortnight · for life`} tone="violet" />
         <Metric label="Flexible capital at 60" value={money(rail.capital)} sub={`${money(rail.lumpSum)} PSS lump + ${money(rail.hostplus)} Hostplus`} />
-        <Metric label={`Investments at ${targetAge}`} value={money(endCapital)} sub={`${pct(realReturn, 1)} real · ${money(spend)} net spending`} tone="green" />
+        <Metric label={`Investments at ${targetAge}`} value={money(endCapital)} sub={`${pct(realReturn, 1)} real · reconciled age-${targetAge} ledger`} tone="green" />
         <Metric label={`Full estate at ${targetAge}`} value={money(estate)} sub={`Includes ${money(homeValue)} real home`} tone="amber" />
       </div>
 
@@ -705,8 +715,8 @@ export default function RetirementDashboard() {
             ["Income security", rail.netPension / spend, "Pension coverage"],
             ["Spending power", Math.min(1, spend / 110_000), "Lifestyle capacity"],
             ["Capital", Math.min(1, endCapital / 1_500_000), `Investments @${targetAge}`],
-            ["Age-75 wealth", Math.min(1, monthlyEndingBalance(rail.capital, realReturn, portfolioDraw, 15) / 1_500_000), "Investment target"],
-            ["Age-85 wealth", Math.min(1, monthlyEndingBalance(rail.capital, realReturn, portfolioDraw, 25) / 1_500_000), "Longevity capital"],
+            ["Age-75 wealth", Math.min(1, ledgerEndingAtAge(rail, spend, realReturn, 75, taxYear) / 1_500_000), "Investment target"],
+            ["Age-85 wealth", Math.min(1, ledgerEndingAtAge(rail, spend, realReturn, 85, taxYear) / 1_500_000), "Longevity capital"],
             ["Estate", Math.min(1, estate / 2_000_000), "Property-inclusive"],
             ["Tax efficiency", washCycles >= 6 ? 0.92 : 0.65, "NCC wash enabled"],
             ["Optionality", spend <= 120_000 ? 0.9 : 0.68, "Liquidity / reversibility"],
@@ -747,7 +757,7 @@ export default function RetirementDashboard() {
       </section>
 
       <section className="panel">
-        <div className="panel-head"><div><h3>Reconciled annual operating ledger</h3><p>Three-pool deterministic ledger; every ending-capital row equals Hostplus pension + accumulation + Pool C.</p></div><button className="secondary" onClick={() => setShowLedger(!showLedger)}>{showLedger ? "Hide table" : "Show ages 60–95"}</button></div>
+        <div className="panel-head"><div><h3>Reconciled annual operating ledger</h3><p>Age 60 is the retirement-date launch snapshot; later rows are balances on each birthday. Every ending-capital row equals Hostplus pension + accumulation + Pool C.</p></div><button className="secondary" onClick={() => setShowLedger(!showLedger)}>{showLedger ? "Hide table" : "Show ages 60–95"}</button></div>
         <div className="table-wrap desktop-ledger"><table><thead><tr><th>Year</th><th>Age</th><th>PSSDB pension</th><th>Hostplus accumulation</th><th>Hostplus pension</th><th>Pool C</th><th>Draw</th><th>Spend</th><th>Reinvestment</th><th>Tax drag</th><th>Net income</th><th>Gross equivalent</th><th>Ending capital</th></tr></thead><tbody>{ledger.slice(0, showLedger ? ledger.length : 6).map((r) => <tr key={r.age}><td>{r.year}</td><td>{r.age}</td><td>{money(r.pension)}</td><td>{money(r.accumulation)}</td><td>{money(r.abp)}</td><td>{money(r.poolC)}</td><td>{money(r.draw)}</td><td>{money(r.spend)}</td><td>{money(r.reinvestment)}</td><td>{money(r.tax)}</td><td>{money(r.netIncome)}</td><td>{money(r.grossEquivalent)}</td><td><b>{money(r.ending)}</b></td></tr>)}</tbody></table></div>
         <div className="mobile-ledger">{ledger.slice(0, showLedger ? ledger.length : 6).map((row) => <article key={row.age}><header><div><span>{row.year}</span><b>Age {row.age}</b></div><strong>{money(row.ending)}</strong></header><dl><div><dt>PSS pension</dt><dd>{money(row.pension)}</dd></div><div><dt>Portfolio draw</dt><dd>{money(row.draw)}</dd></div><div><dt>Annual spend</dt><dd>{money(row.spend)}</dd></div><div><dt>Pool C</dt><dd>{money(row.poolC)}</dd></div></dl></article>)}</div>
         <div className="assumption-row"><Badge tone="modelled">4–14% statutory draw bands</Badge><Badge tone="modelled">Pool C 0.35% annual drag</Badge><Badge tone="modelled">Real dollars</Badge><Badge tone="speculative">Current law held constant</Badge></div>
@@ -759,8 +769,8 @@ export default function RetirementDashboard() {
     const scenarios = Object.entries(SCENARIO_PRESETS).map(([key, scenario]) => {
       const scenarioRail = RAILS[scenario.rail];
       const draw = Math.max(0, scenario.spend - scenarioRail.netPension);
-      const capital75 = monthlyEndingBalance(scenarioRail.capital, scenario.realReturn, draw, 15);
-      const capital85 = monthlyEndingBalance(scenarioRail.capital, scenario.realReturn, draw, 25);
+      const capital75 = ledgerEndingAtAge(scenarioRail, scenario.spend, scenario.realReturn, 75, taxYear);
+      const capital85 = ledgerEndingAtAge(scenarioRail, scenario.spend, scenario.realReturn, 85, taxYear);
       const scenarioFan = monteCarloFan(scenarioRail, scenario.spend, scenario.realReturn, .12, 360);
       const probability = scenarioFan.paths[15].filter((value) => value >= 500_000).length / scenarioFan.paths[15].length;
       return { key, ...scenario, draw, capital75, capital85, estate75: capital75 + scenario.homeValue, probability };
@@ -845,7 +855,8 @@ export default function RetirementDashboard() {
   );
 
   const renderFrontier = () => {
-    const rows = FRONTIER_SPENDS.map((s) => ({ spend: s, draw: Math.max(0, s - rail.netPension), gross: grossForNet(s, taxYear), values: RETURNS.map((r) => monthlyEndingBalance(rail.capital, r, Math.max(0, s - rail.netPension), 15)) }));
+    const rows = FRONTIER_SPENDS.map((s) => ({ spend: s, draw: Math.max(0, s - rail.netPension), gross: grossForNet(s, taxYear), values: RETURNS.map((r) => ledgerEndingAtAge(rail, s, r, 75, taxYear)) }));
+    const marginalCost = RETURNS.map((_, index) => Math.max(0, rows[0].values[index] - rows[1].values[index]));
     const selected = rows.find((r) => r.spend === Math.round(spend / 10_000) * 10_000) ?? rows[2];
     return <>
       <SectionHeading eyebrow="Lifestyle ↔ legacy" title="Spending–estate frontier" copy="The same secure pension supports several valid retirement profiles. The cost of higher spending is lower future capital plus foregone compounding." />
@@ -853,20 +864,20 @@ export default function RetirementDashboard() {
       <div className="metrics four">
         <Metric label="PSS coverage" value={pct(rail.netPension / spend, 1)} sub={`${money(portfolioDraw)} annual portfolio draw`} tone="violet" />
         <Metric label="Salary gross equivalent" value={money(grossEquivalent)} sub={`${taxYear} rates`} />
-        <Metric label="Investments @75 · 5%" value={money(monthlyEndingBalance(rail.capital, 0.05, portfolioDraw, 15))} sub="Home excluded" tone="green" />
-        <Metric label="Gross estate @75 · 5%" value={money(monthlyEndingBalance(rail.capital, 0.05, portfolioDraw, 15) + homeValue)} sub="Before estate costs / residual DBT" tone="amber" />
+        <Metric label="Investments @75 · 5%" value={money(ledgerEndingAtAge(rail, spend, 0.05, 75, taxYear))} sub="Reconciled three-pool ledger · home excluded" tone="green" />
+        <Metric label="Gross estate @75 · 5%" value={money(ledgerEndingAtAge(rail, spend, 0.05, 75, taxYear) + homeValue)} sub="Before estate costs / residual DBT" tone="amber" />
       </div>
       <section className="panel">
         <div className="panel-head"><div><h3>Interactive efficient frontier</h3><p>Drag spending or select a point. Colour shows the investment buffer at age 75: green ≥ $1m, amber ≥ $500k, red below the floor.</p></div><Badge tone="modelled">5% real · age 75</Badge></div>
         <FrontierCurve rail={rail} selectedSpend={spend} homeValue={homeValue} onSelect={setSpend} />
       </section>
       <section className="panel">
-        <div className="panel-head"><div><h3>Full age-75 outcome matrix</h3><p>Monthly compounding and monthly withdrawals. Current selected rail: {rail.short}.</p></div><Badge tone="modelled">Deterministic</Badge></div>
+        <div className="panel-head"><div><h3>Full age-75 outcome matrix</h3><p>Annual reconciled three-pool path with statutory draw bands and Pool C drag. Current selected rail: {rail.short}.</p></div><Badge tone="modelled">Deterministic</Badge></div>
         <div className="table-wrap"><table><thead><tr><th>Net spend</th><th>Per fortnight</th><th>Gross equivalent</th><th>Portfolio draw</th>{RETURNS.map((r) => <th key={r}>Investments · {pct(r, 1)}</th>)}<th>Estate · 5%</th></tr></thead><tbody>{rows.map((r) => <tr key={r.spend} className={spend === r.spend ? "selected-row" : ""} onClick={() => setSpend(r.spend)}><td><b>{money(r.spend)}</b></td><td>{fmt1.format(r.spend / 26)}</td><td>{money(r.gross)}</td><td>{money(r.draw)}</td>{r.values.map((v, i) => <td key={i}>{money(v)}</td>)}<td><b>{money(r.values[1] + homeValue)}</b></td></tr>)}</tbody></table></div>
       </section>
       <section className="panel tradeoff">
-        <div><Badge tone="warn">Marginal cost</Badge><h3>Each extra $10,000 of annual spending</h3><p>Reduces age-75 investment capital by approximately $203,881 at 4%, $220,687 at 5%, and $248,944 at 6.5% under the 15-year Rail B frontier.</p></div>
-        <div className="tradeoff-bars">{RETURNS.map((r, i) => { const cost = [203_881, 220_687, 248_944][i]; return <div key={r}><span>{pct(r, 1)}</span><i style={{ width: `${cost / 2_600}%` }} /><b>{money(cost)}</b></div>; })}</div>
+        <div><Badge tone="warn">Marginal cost</Badge><h3>Each extra $10,000 of annual spending</h3><p>Reduces age-75 investment capital by approximately {money(marginalCost[0])} at 4%, {money(marginalCost[1])} at 5%, and {money(marginalCost[2])} at 6.5% on the selected rail.</p></div>
+        <div className="tradeoff-bars">{RETURNS.map((r, i) => { const cost = marginalCost[i]; return <div key={r}><span>{pct(r, 1)}</span><i style={{ width: `${cost / 2_600}%` }} /><b>{money(cost)}</b></div>; })}</div>
       </section>
       <section className="panel two-models"><article><Badge tone="modelled">Model A</Badge><h3>Investment benchmark</h3><p>$1.2m / $1.5m / $1.75m age-75 investments at 4% / 5% / 6.5%. Home excluded.</p></article><article><Badge tone="good">Model B</Badge><h3>Spending frontier</h3><p>At least $500k investments + $500k home = $1m property-inclusive gross estate floor.</p></article><div><strong>Selected position</strong><p>{money(selected.spend)} spend · {money(selected.values[1])} investments · {money(selected.values[1] + homeValue)} estate at 5%.</p></div></section>
     </>;
@@ -915,7 +926,7 @@ export default function RetirementDashboard() {
         </div>
       </section>
       <section className="retirement-runway" aria-label="Retirement runway">
-        {[{ age: 57, title: "Optional VR window", detail: "Request formal CSC estimates" }, { age: 60, title: "Retirement transition", detail: "PSS 60/40 · Pool A/B/C launch" }, { age: 61, title: "NCC wash cycle", detail: "Separate-interest execution" }, { age: 75, title: "Primary decision target", detail: `${money(monthlyEndingBalance(rail.capital, realReturn, portfolioDraw, 15))} modelled investments` }, { age: 85, title: "Longevity checkpoint", detail: "Review care and estate capacity" }, { age: 95, title: "Late-life horizon", detail: "PSS floor continues for life" }].map((milestone) => <article key={milestone.age}><span>{milestone.age}</span><div><b>{milestone.title}</b><small>{milestone.detail}</small></div></article>)}
+        {[{ age: 57, title: "Optional VR window", detail: "Request formal CSC estimates" }, { age: 60, title: "Retirement transition", detail: "PSS 60/40 · Pool A/B/C launch" }, { age: 61, title: "NCC wash cycle", detail: "Separate-interest execution" }, { age: 75, title: "Primary decision target", detail: `${money(ledgerEndingAtAge(rail, spend, realReturn, 75, taxYear))} modelled investments` }, { age: 85, title: "Longevity checkpoint", detail: "Review care and estate capacity" }, { age: 95, title: "Late-life horizon", detail: "PSS floor continues for life" }].map((milestone) => <article key={milestone.age}><span>{milestone.age}</span><div><b>{milestone.title}</b><small>{milestone.detail}</small></div></article>)}
       </section>
     </>;
   };
