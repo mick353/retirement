@@ -1169,7 +1169,7 @@ main{min-width:0;}
     <section class="page" id="page-reinvest">
       <div class="panel">
         <h2>Surplus recycled (likely path)</h2>
-        <div class="muted smaller">V5.0: TSB held $5k below TBC at Day 1. Pool C seeded with $51,362 (Pool B commuted + $5k XD). NCC wash strategy active from age 61 to clean death benefit tax components. Surplus mandatory draws continue to externalise into Pool C.</div>
+        <div class="muted smaller">Opening balances follow the active profile. Rail A reproduces the governed V5.0 opening; a shared Rail B scenario uses the newer July source opening. The $5k TBC buffer, NCC-wash controls and Pool C routing remain explicit.</div>
         <div class="chart-wrap"><canvas id="ri_chart"></canvas></div>
       </div>
       <div class="panel"><h2>Reinvestment table</h2><table id="ri_tbl"></table></div>
@@ -1731,6 +1731,14 @@ function mandRate(age){
   if(age<85)return 0.07;if(age<90)return 0.09;if(age<95)return 0.11;return 0.14;
 }
 function getProfile(){return PROFILES[STATE.profile];}
+function isRailBProfile(p=getProfile()){return String(p?.name||"").startsWith("Rail B");}
+function openingSourceLabel(p=getProfile()){return isRailBProfile(p)?"Rail B · July 2026 shared source":"Rail A · V5.0 governed baseline";}
+function openingPoolNote(p=getProfile()){
+  const pc=fmt$(p.poolC_day1??0);
+  return isRailBProfile(p)
+    ? `Rail B shared opening from the newer July source: Pool B $0; Pool C ${pc}; $5k TBC buffer retained.`
+    : `Rail A V5.0 opening: Pool B fully commuted; Pool C ${pc}; $5k TBC buffer retained.`;
+}
 function tIdx(){return STATE.targetAge-getProfile().retireAge;}
 
 /* ========== TBC ALLOCATION ENGINE ========== */
@@ -2173,7 +2181,7 @@ function renderExecutive(){
     <div class="card"><div class="label">TBC planning anchor</div><div class="value">${fmt$(p.tbc)}</div><div class="sub">TBC headroom $${tbcAlloc.poolA.toLocaleString()}; Day 1 Pool A $${(p.poolA_day1??tbcAlloc.poolA).toLocaleString()} after $5k XD.</div></div>
     <div class="card good"><div class="label">Capital @${ta}, 4% case</div><div class="value">${fmt$(conserv_cap)}</div><div class="sub">${floorStatus.detail}.</div></div>
     <div class="card"><div class="label">Capital @${ta}, base case</div><div class="value">${fmt$(base_cap)}</div><div class="sub">${baseStatus.detail}.</div></div>
-    <div class="card"><div class="label">Pool A / B / C start</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">Day 1 values (V5.0). Pool B fully commuted, $5k XD. Pool C seeded $51,362.</div></div>
+    <div class="card"><div class="label">Pool A / B / C start</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">${openingPoolNote(p)}</div></div>
     <div class="card"><div class="label">Average usable income</div><div class="value">${fmt$(avgIncome)}/yr</div><div class="sub">PSS plus consumed Pool A draw, likely path to 95.</div></div>
   `;
   const c=getThemeColors();
@@ -2232,7 +2240,7 @@ function renderOverview(){
     <div class="tbc-cell"><div class="lbl">PSS lump → Pool A</div><div class="v">${fmt$(tbcAlloc.lumpToABP)}</div><div class="sv">absorbs first</div></div>
     <div class="tbc-cell"><div class="lbl">Hostplus → Pool A</div><div class="v">${fmt$(tbcAlloc.otherToABP)}</div><div class="sv">fills remaining headroom</div></div>
     <div class="tbc-cell"><div class="lbl">Hostplus → Pool B</div><div class="v">${fmt$(tbcAlloc.otherToAccum)}</div><div class="sv">overflow @ 15% tax → commuted to Pool C Day 1</div></div>
-    <div class="tbc-cell"><div class="lbl">Day-1 headroom remaining</div><div class="v">${fmt$(p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):tbcAlloc.headroomFinal)}</div><div class="sv">${p.poolA_day1!==undefined?"V5.0 XD creates $5k buffer":tbcAlloc.headroomFinal===0?"fully saturated":"spare cap"}</div></div>
+    <div class="tbc-cell"><div class="lbl">Day-1 headroom remaining</div><div class="v">${fmt$(p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):tbcAlloc.headroomFinal)}</div><div class="sv">${p.poolA_day1!==undefined?openingSourceLabel(p)+" · deliberate buffer":tbcAlloc.headroomFinal===0?"fully saturated":"spare cap"}</div></div>
   `;
   const ages=likely.rows.map(r=>r.age);const tc=getThemeColors();
   makeChart("ov_scen",{type:"line",data:{labels:ages,datasets:[
@@ -2327,7 +2335,7 @@ function renderTwoPool(){
   const p=getProfile();const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const tbcAlloc=sim.tbcAlloc;const tc=getThemeColors();const ta=STATE.targetAge;const idx=tIdx();
   document.getElementById("tpCards").innerHTML=`
-    <div class="card"><div class="label">Pool A @60</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)}</div><div class="sub">tax-free ABP (Day 1 V5.0)</div></div>
+    <div class="card"><div class="label">Pool A @60</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)}</div><div class="sub">tax-free ABP · ${openingSourceLabel(p)}</div></div>
     <div class="card"><div class="label">Pool B @60</div><div class="value">${fmt$(p.poolB_day1??tbcAlloc.poolB)}</div><div class="sub">15% earnings tax (fully commuted Day 1)</div></div>
     <div class="card"><div class="label">Pool C @60</div><div class="value">${fmt$(p.poolC_day1??0)}</div><div class="sub">external ETF — seeded Day 1, builds from surplus</div></div>
     <div class="card"><div class="label">Pool A @${ta}</div><div class="value">${fmt$(sim.rows[idx].abp)}</div><div class="sub">after mandatory draws</div></div>
@@ -2500,7 +2508,7 @@ function renderReinvest(){
   if(tbl&&!document.getElementById("ri_note")){
     const note=document.createElement("p");
     note.id="ri_note";note.className="muted smaller";note.style.marginTop="8px";
-    note.textContent="Each row reconciles: Pool C balance = prior balance + Pool C return + surplus routed. Pool C return = prior balance × (likely return − drag). V5.0: Pool C opens with $51,362 Day 1 (Pool B commuted + $5k XD). TSB held $5k below TBC; NCC wash active from age 61.";
+    note.textContent=`Each row reconciles: Pool C balance = prior balance + Pool C return + surplus routed. Pool C return = prior balance × (likely return − drag). ${openingPoolNote(p)} NCC wash controls start at age ${p.washAge??61}.`;
     tbl.parentNode.insertBefore(note,tbl.nextSibling);
   }
 }
@@ -3157,7 +3165,7 @@ function renderAudit(){
   document.getElementById("audit_cards").innerHTML=`
     <div class="card good"><div class="label">Model version</div><div class="value">${APP_VERSION}</div><div class="sub">Model run ${new Date().toLocaleDateString("en-AU",{day:"2-digit",month:"short",year:"numeric"})}</div></div>
     <div class="card"><div class="label">Target age</div><div class="value">${ta}</div><div class="sub">Dynamic across outputs</div></div>
-    <div class="card"><div class="label">Pool A / B / C (Day 1)</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">V5.0 Day 1 values — XD $5k, Pool B commuted</div></div>
+    <div class="card"><div class="label">Pool A / B / C (Day 1)</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">${openingSourceLabel(p)} · $5k TBC buffer</div></div>
     <div class="card warn"><div class="label">TBC assumption</div><div class="value">$2.1M</div><div class="sub">2026-27 indexed planning anchor</div></div>
   `;
   const rows=[
@@ -3170,11 +3178,11 @@ function renderAudit(){
     ["Lump sum","$"+p.lumpSum.toLocaleString(),"locked"],
     ["Hostplus balance","$"+p.hostplus.toLocaleString(),"at retirement"],
     ["TBC (1 Jul 2026)","$"+p.tbc.toLocaleString(),"legislated"],
-    ["Pool A (ABP)","$"+Math.round(p.poolA_day1??tbcAlloc.poolA).toLocaleString(),"Day 1 V5.0 — PA_TARGET less $5k XD"],
-    ["Pool B (Acc)","$"+Math.round(p.poolB_day1??tbcAlloc.poolB).toLocaleString(),"Day 1 V5.0 — fully commuted to Pool C"],
-    ["Pool C (ETF)","$"+Math.round(p.poolC_day1??0).toLocaleString(),"Day 1 V5.0 — Pool B $46,362 + XD $5,000"],
+    ["Pool A (ABP)","$"+Math.round(p.poolA_day1??tbcAlloc.poolA).toLocaleString(),openingSourceLabel(p)+" — $5k TBC buffer retained"],
+    ["Pool B (Acc)","$"+Math.round(p.poolB_day1??tbcAlloc.poolB).toLocaleString(),openingSourceLabel(p)+" — Day 1 accumulation balance"],
+    ["Pool C (ETF)","$"+Math.round(p.poolC_day1??0).toLocaleString(),openingSourceLabel(p)+" — external flexible-capital opening"],
     ["PSS special value","$"+(p.grossPension*16).toLocaleString(),"= pension × 16 for TBC"],
-    ["TBC headroom (Day 1)","$"+(p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):Math.round(tbcAlloc.headroomFinal)).toLocaleString(),"V5.0: $5k buffer — XD reduced Pool A from $845,888 to $840,887"],
+    ["TBC headroom (Day 1)","$"+(p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):Math.round(tbcAlloc.headroomFinal)).toLocaleString(),openingSourceLabel(p)+" — deliberate planning buffer"],
     ["ABP return (likely)",fmtPctClean(STATE.likely),"adjustable slider"],
     ["ABP return (cons)",fmtPctClean(SCENARIOS.conservative.abp),"scenario"],
     ["Return vol (sd)",fmtPctClean(STATE.vol,0),"adjustable slider"],
@@ -3296,13 +3304,13 @@ function renderDecisions(){
   document.getElementById("dec_cards").innerHTML=`
     <div class="decision-card"><div class="k">Primary decision</div><div class="v">Keep 60/40</div><div class="s">Do not re-litigate unless PSS source data or legislation changes.</div></div>
     <div class="decision-card"><div class="k">TBC anchor</div><div class="v">${fmt$(p.tbc)}</div><div class="s">2026-27 indexed planning assumption, all today's dollars.</div></div>
-    <div class="decision-card"><div class="k">Pool split (Day 1)</div><div class="v">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / $0 / ${fmt$(p.poolC_day1??0)}</div><div class="s">V5.0: Pool B fully commuted Day 1 ($46,362 → Pool C). $5k XD from Pool A. TSB=$2,095,000.</div></div>
+    <div class="decision-card"><div class="k">Pool split (Day 1)</div><div class="v">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="s">${openingPoolNote(p)}</div></div>
     <div class="decision-card"><div class="k">Current version</div><div class="v">${APP_VERSION}</div><div class="s">Feature-rich dashboard after Codex wiring pass.</div></div>
   `;
   renderTable("dec_tbl",[
     ["60/40 retirement split","Settled","PSS pension plus capital pools clear the floor under conservative modelling.","Revisit only if i-Estimator/source data changes."],
     ["$2.1M TBC anchor","Current assumption","Used as 2026-27 real-dollar planning anchor.","Review annually against ATO indexation and personal cap rules."],
-    ["Pool C external ETF","V5.0 active","Pool C seeded Day 1 ($51,362). NCC wash from age 61 cleans DBT. Surplus draws continue to externalise.","Review ETF drag and tax assumptions annually."],
+    ["Pool C external ETF",openingSourceLabel(p),`Pool C opens at ${fmt$(p.poolC_day1??0)}. NCC wash controls begin at age ${p.washAge??61}; surplus draws continue to externalise.`,"Review ETF drag and tax assumptions annually."],
     ["Dynamic target age","Added in v17C","Shows how results change from age 70-90.","Use for adviser-style sensitivity reviews."],
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
@@ -3772,6 +3780,10 @@ function applyStateToInputs(){
   document.querySelectorAll("[data-profile]").forEach(b=>b.classList.toggle("active",b.dataset.profile===STATE.profile));
   const cf=document.getElementById("customForm");
   if(cf)cf.classList.toggle("show",STATE.profile==="custom");
+  if(STATE.profile==="custom"){
+    const p=getProfile();
+    [["cf_retire",p.retireAge],["cf_grossPension",p.grossPension],["cf_netPension",p.netPension],["cf_lump",p.lumpSum],["cf_hostplus",p.hostplus],["cf_tbc",p.tbc],["cf_floor",p.floor],["cf_target",p.target],["cf_strong",p.strong],["cf_gap",p.defaultGap]].forEach(([id,value])=>set(id,value));
+  }
 }
 
 /* ========== BAND EDITOR ========== */
@@ -4045,7 +4057,7 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Presentation answer","One-sentence verdict suitable for reading out: does the plan clear the bands, and with how much margin."],
 ["Executive scenario table","Conservative 4% / Base 5% / Strong 6.5–7% real-return rows with capital, margins and status at the target age."],
 ["Capital @target, 4% / base cards","End-capital at the target age under the conservative (4%) and base (5%) deterministic paths."],
-["Day 1 values note","Confirms the V5.0 openings: Pool B fully commuted Day 1, $5k excess disregard, Pool C seeded $51,362."],
+["Day 1 values note","Confirms that opening balances follow the active profile: the governed Rail A V5.0 baseline or the newer July Rail B shared scenario."],
 ["Capital @target — 4% case / base case","Deterministic end-capital at the target age under the conservative (4%) and base (5%) real-return scenarios — the two reference paths beneath your likely setting."],
 ["NCC blocked","Flags whether non-concessional contributions are unavailable because total super balance sits at or above the cap — the constraint that governs wash-loop timing."]]},
 decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting evidence cards — built to be printed and filed with the annual review.",h:["Use Print → Brief pack for a filing copy.","Each evidence card cites the page that proves it — follow them for depth.","If the recommendation ever changes between reviews, log why in the Decision log."],f:[
@@ -4289,7 +4301,7 @@ audit:{t:"Assumption audit",w:"Every live assumption with its source, default an
 ["Source file register","The canonical documents (iEstimator, master brief, statements) each figure traces to."],
 ["DBT parameters","Death-benefits tax 17%; taxable share of the lump sum 70.97% (tax-free 29.03%, untaxed 0%), per the i-Estimator 60/40 split."],
 ["Parameter / Value / Notes","Every live assumption in one table, read straight from the current sliders — the page to screenshot before making changes so you can prove what the run assumed."],
-["Pool A / B / C (Day 1)","The locked V5.0 openings: $840,887 / $0 / $51,362."],
+["Pool A / B / C (Day 1)","The active profile opening. Rail A and shared Rail B remain distinct and must not reuse one another’s Pool A or Pool C values."],
 ["Pool C tax drag","Displayed to 2 decimals. Your canonical AMIT drag is 0.35%/yr — earlier builds rounded the display to 0.4% and, worse, wrote 0.4% back into the model if you touched the slider. Fixed."],
 ["Floor / Target / Strong capital","Now shown with thousands separators. Earlier builds printed the raw concatenation '$1200000'."]]},
 recalibrate:{t:"Annual recalibration",w:"Re-anchor the whole projection to actual balances once a year: enter actuals, run, and adopt the recalibrated path as the new baseline.",h:["Run after the June statements; Export settings afterwards as the new baseline.","Pre-retirement, the Hostplus field substitutes for Pool balances."],f:[
@@ -4702,7 +4714,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     STATE.spendMode="fixed";
     STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-netPension)),unit:"dollar"}];
     try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:2,updatedAt:new Date().toISOString(),...shared}));}catch(e){}
-    applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();closeOverlays();
+    applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
+    document.querySelectorAll(".v23-overlay.open").forEach(overlay=>overlay.classList.remove("open"));
     const main=document.querySelector("main");
     if(main&&!document.getElementById("v23-shared-banner")){
       const banner=document.createElement("div");banner.id="v23-shared-banner";
