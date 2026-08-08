@@ -704,7 +704,7 @@ export default function RetirementDashboard() {
       </section>
 
       <section className="panel">
-        <div className="panel-head"><div><h3>Spending choice → investment capital</h3><p>Monthly deterministic frontier, selected rail; home excluded from the lines.</p></div><div className="quick-spend">{FRONTIER_SPENDS.map((v) => <button key={v} className={spend === v ? "active" : ""} onClick={() => setSpend(v)}>${v / 1000}k</button>)}</div></div>
+        <div className="panel-head"><div><h3>Spending choice → investment capital</h3><p>Reconciled annual three-pool frontier, selected rail; home excluded from the lines.</p></div><div className="quick-spend">{FRONTIER_SPENDS.map((v) => <button key={v} className={spend === v ? "active" : ""} onClick={() => setSpend(v)}>${v / 1000}k</button>)}</div></div>
         <LineChart labels={trajectoryLabels} series={trajectorySeries} />
       </section>
 
@@ -1059,7 +1059,7 @@ export default function RetirementDashboard() {
           <a className="deep-link" href={deepModelUrl} target="_blank" rel="noreferrer"><span>Full V23 model</span><small>Opens with this rail, return, spending and target age</small><b>Continue exact scenario ↗</b></a>
           <a className="deep-link" href={atlasUrl} target="_blank" rel="noreferrer"><span>Retirement Atlas</span><small>Strategy map linking the floor, pools, tax, trajectory and estate</small><b>Open Atlas ↗</b></a>
           <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
-          <div className="version">Baseline 2026-07-18 · integrated v2</div>
+          <div className="version">Baseline 2026-07-18 · integrated v3</div>
         </aside>
         <main className="content">{content}</main>
       </div>
