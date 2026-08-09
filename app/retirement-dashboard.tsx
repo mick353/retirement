@@ -800,17 +800,20 @@ export default function RetirementDashboard() {
       return { key, ...scenario, draw, capital75, capital85, estate75: capital75 + scenario.homeValue, probability };
     });
     const baseline = scenarios[0];
+    const sharedReturn = baseline.realReturn;
+    const sharedTargetAge = baseline.targetAge;
+    const sharedHomeValue = baseline.homeValue;
     return <>
-      <SectionHeading eyebrow="Decision workspace" title="Compare complete retirement plans" copy="These are fixed governed presets, intentionally independent of the active sliders. Load a card to make all of its assumptions active in the Command Centre or V23." />
+      <SectionHeading eyebrow="Decision workspace" title="Compare complete retirement plans" copy={`These are fixed governed presets, intentionally independent of the active sliders. All capital and estate figures use ${pct(sharedReturn, 1)} real return p.a. after inflation, age ${sharedTargetAge} and a ${money(sharedHomeValue)} real home. Load a card to make all assumptions active in the Command Centre or V23.`} />
       <section className="compare-cards">{scenarios.map((scenario, index) => <article key={scenario.key} className={scenario.key === "baseline" ? "recommended" : ""}>
         <div className="compare-head"><div><Badge tone={scenario.key === "baseline" ? "good" : scenario.key === "lifestyle" ? "estimated" : "modelled"}>{scenario.key === "baseline" ? "Recommended" : `Option ${index + 1}`}</Badge><h3>{scenario.label}</h3><p>{scenario.intent}</p></div><span>Rail {scenario.rail}</span></div>
-        <div className="compare-spend"><span>Net annual spending</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight</small></div>
+        <div className="compare-spend"><span>Net annual spending</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight</small><small className="compare-assumption">Figures use <b>{pct(scenario.realReturn, 1)} real return p.a.</b> after inflation · age {scenario.targetAge} · {money(scenario.homeValue)} real home</small></div>
         <dl className="compare-outcomes"><div><dt>Capital @75</dt><dd>{money(scenario.capital75)}</dd></div><div><dt>Capital @85</dt><dd>{money(scenario.capital85)}</dd></div><div><dt>Estate @75</dt><dd>{money(scenario.estate75)}</dd></div><div><dt>P(floor @75)</dt><dd>{pct(scenario.probability, 0)}</dd></div></dl>
         <div className="compare-delta"><span>Versus baseline</span><b>{scenario.key === "baseline" ? "Reference plan" : `${scenario.capital75 >= baseline.capital75 ? "+" : ""}${money(scenario.capital75 - baseline.capital75)} capital @75`}</b></div>
         <div className="compare-actions"><button className="secondary" onClick={() => { applyScenario(scenario); go("scenario"); }}>Use this plan</button><a className="text-button" href={sharedModelUrl(scenario)} target="_blank" rel="noreferrer">Open in V23 ↗</a></div>
       </article>)}</section>
       <section className="panel comparison-matrix">
-        <div className="panel-head"><div><h3>Trade-off matrix</h3><p>Longer bars are better within each row; spending is preference, not a score.</p></div><Badge tone="modelled">Like-for-like assumptions</Badge></div>
+        <div className="panel-head"><div><h3>Trade-off matrix</h3><p>{pct(sharedReturn, 1)} real return p.a. after inflation · age {sharedTargetAge} · {money(sharedHomeValue)} real home. Longer bars are better within each row; spending is preference, not a score.</p></div><Badge tone="modelled">Shared assumptions</Badge></div>
         {[{ label: "Lifestyle spending", field: "spend" as const }, { label: "Age-75 investments", field: "capital75" as const }, { label: "Age-85 investments", field: "capital85" as const }, { label: "Age-75 estate", field: "estate75" as const }].map((metric) => {
           const maximum = Math.max(...scenarios.map((scenario) => scenario[metric.field]));
           return <div className="matrix-row" key={metric.label}><b>{metric.label}</b>{scenarios.map((scenario) => <div key={scenario.key}><span>{scenario.label}</span><i><em style={{ width: `${scenario[metric.field] / maximum * 100}%` }} /></i><strong>{money(scenario[metric.field])}</strong></div>)}</div>;

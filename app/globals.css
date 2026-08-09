@@ -225,6 +225,8 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .compare-spend span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .compare-spend strong { margin: 5px 0 2px; font-size: 26px; }
 .compare-spend small { color: var(--muted); font-size: 10px; }
+.compare-spend .compare-assumption { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); line-height: 1.35; }
+.compare-spend .compare-assumption b { color: var(--text); font-weight: 700; }
 .compare-outcomes { grid-template-columns: repeat(2, 1fr); }
 .compare-outcomes dd { font-size: 13px; }
 .compare-delta { margin: 13px 0; padding-top: 12px; border-top: 1px solid var(--line); }
