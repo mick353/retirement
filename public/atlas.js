@@ -62,12 +62,14 @@
   const parsedReturn = Number(params.get("return"));
   const state = {
     rail: params.get("rail") === "A" ? "A" : "B",
-    spend: clamp(Number(params.get("spend")) || 110_000, 80_000, 140_000),
-    realReturn: clamp(Number.isFinite(parsedReturn) && parsedReturn > 0 ? parsedReturn : 0.05, 0.03, 0.07),
-    targetAge: clamp(Number(params.get("age")) || 75, 60, 95),
-    home: clamp(Number(params.get("home")) || HOME_FLOOR, 300_000, 800_000),
+    spend: clamp(Number(params.get("spend")) || 110_000, 76_000, 150_000),
+    realReturn: clamp(Number.isFinite(parsedReturn) && parsedReturn > 0 ? parsedReturn : 0.05, 0.02, 0.075),
+    targetAge: clamp(Number(params.get("age")) || 75, 70, 95),
+    home: clamp(Number(params.get("home")) || HOME_FLOOR, 300_000, 1_000_000),
+    taxYear: params.get("taxYear") === "2027-28" ? "2027-28" : "2026-27",
     selectedIncomeAge: 61,
     selectedCapitalAge: clamp(Number(params.get("age")) || 75, 60, 95),
+    inspectionAge: clamp(Number(params.get("age")) || 75, 60, 95),
     washCycles: 0,
   };
 
@@ -84,25 +86,26 @@
     return 0.14;
   }
 
-  function incomeTax(gross) {
+  function incomeTax(gross, taxYear = state.taxYear) {
+    const lowerRate = taxYear === "2027-28" ? 0.14 : 0.15;
     let tax = 0;
-    if (gross > 18_200) tax += (Math.min(gross, 45_000) - 18_200) * 0.15;
+    if (gross > 18_200) tax += (Math.min(gross, 45_000) - 18_200) * lowerRate;
     if (gross > 45_000) tax += (Math.min(gross, 135_000) - 45_000) * 0.30;
     if (gross > 135_000) tax += (Math.min(gross, 190_000) - 135_000) * 0.37;
     if (gross > 190_000) tax += (gross - 190_000) * 0.45;
     return Math.max(0, tax);
   }
 
-  function salaryNet(gross) {
-    return gross - incomeTax(gross) - gross * 0.02;
+  function salaryNet(gross, taxYear = state.taxYear) {
+    return gross - incomeTax(gross, taxYear) - gross * 0.02;
   }
 
-  function grossForNet(target) {
+  function grossForNet(target, taxYear = state.taxYear) {
     let low = target;
     let high = 500_000;
     for (let index = 0; index < 70; index += 1) {
       const midpoint = (low + high) / 2;
-      if (salaryNet(midpoint) < target) low = midpoint;
+      if (salaryNet(midpoint, taxYear) < target) low = midpoint;
       else high = midpoint;
     }
     return high;
@@ -130,7 +133,7 @@
         year: `${2033 + age - 60}-${String(34 + age - 60).slice(-2)}`,
         age, pension: rail.netPension, openingA, openingC, poolA, poolC, mandatory,
         draw, spend, reinvestment, externalTaxDrag, netIncome: rail.netPension + draw,
-        grossEquivalent: grossForNet(spend), ending: poolA + poolC,
+        grossEquivalent: grossForNet(rail.netPension + draw), ending: poolA + poolC,
       });
     }
     return rows;
@@ -156,19 +159,22 @@
       return: String(Number(state.realReturn.toFixed(4))),
       age: String(state.targetAge),
       home: String(Math.round(state.home)),
+      taxYear: state.taxYear,
     });
     return query.toString();
   }
 
   function persistScenario() {
-    const payload = { version: 2, updatedAt: new Date().toISOString(), rail: state.rail, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home };
+    const payload = { version: 3, updatedAt: new Date().toISOString(), rail: state.rail, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
     const v23 = `./deep-model.html?${scenarioQuery()}`;
     $("headerV23").href = v23;
     $("v23Link").href = v23;
     document.querySelectorAll('[data-target="v23"]').forEach((link) => { link.href = v23; });
-    $("commandLink").href = "./";
+    const command = `./?${scenarioQuery()}`;
+    $("commandLink").href = command;
+    document.querySelectorAll('[data-target="command"]').forEach((link) => { link.href = command; });
   }
 
   function showToast(message) {
@@ -239,6 +245,7 @@
   }
 
   function renderSelectedCashflow(row) {
+    $("incomeAgeSelect").value = String(row.age);
     $("selectedAge").textContent = row.age;
     $("selectedPension").textContent = money0.format(row.pension);
     $("selectedDraw").textContent = money0.format(row.draw);
@@ -276,6 +283,7 @@
   }
 
   function renderCapitalReadout(row) {
+    $("capitalAgeSelect").value = String(row.age);
     $("capitalAge").textContent = row.age;
     $("capitalPoolA").textContent = money0.format(row.poolA);
     $("capitalPoolC").textContent = money0.format(row.poolC);
@@ -284,7 +292,8 @@
   }
 
   function frontierPoints(rail) {
-    return Array.from({ length: 13 }, (_, index) => 80_000 + index * 5_000).map((spend) => {
+    const spends = [...new Set([state.spend, ...Array.from({ length: 13 }, (_, index) => 80_000 + index * 5_000)])].sort((a, b) => a - b);
+    return spends.map((spend) => {
       const capital = endingAt(rail, spend, state.realReturn, state.targetAge);
       return { spend, draw: Math.max(0, spend - rail.netPension), capital, estate: capital + state.home };
     });
@@ -320,15 +329,15 @@
 
   function renderMetrics(rail, targetRow) {
     $("metricPension").textContent = money0.format(rail.netPension);
-    $("metricPensionPf").textContent = `${money2.format(rail.netPension / 26)} per fortnight · for life`;
+    $("metricPensionPf").textContent = `[MODELLED] ${money2.format(rail.netPension / 26)} per fortnight · for life`;
     $("metricCapital60").textContent = money0.format(rail.capital);
-    $("metricCapitalSource").textContent = `${money0.format(rail.lumpSum)} PSS lump + ${money0.format(rail.hostplus)} Hostplus`;
+    $("metricCapitalSource").textContent = `[MODELLED] ${money0.format(rail.lumpSum)} PSS lump + ${money0.format(rail.hostplus)} Hostplus`;
     $("metricCapitalLabel").textContent = `Investments at ${state.targetAge}`;
     $("metricCapital").textContent = money0.format(targetRow.ending);
-    $("metricCapitalSub").textContent = `${pct(state.realReturn)} real · reconciled annual ledger`;
+    $("metricCapitalSub").textContent = `[MODELLED] ${pct(state.realReturn)} real · reconciled annual ledger`;
     $("metricEstateLabel").textContent = `Gross estate at ${state.targetAge}`;
     $("metricEstate").textContent = money0.format(targetRow.ending + state.home);
-    $("metricEstateSub").textContent = `Includes ${money0.format(state.home)} mortgage-free home`;
+    $("metricEstateSub").textContent = `[MODELLED] Includes ${money0.format(state.home)} assumed home`;
   }
 
   function renderArchitecture(rail) {
@@ -366,7 +375,10 @@
     const preservation = Math.max(0, lower - current);
     const years = Math.max(0, state.targetAge - 60);
     $("spendDelta").textContent = `${money0.format(preservation)} more investments at age ${state.targetAge}`;
-    $("spendDeltaDetail").textContent = `Benefit: higher estate and liquidity. Cost: ${money0.format((state.spend - lowerSpend) * years)} less real consumption across ${years} full retirement years.`;
+    const yearText = years === 1 ? "1 full retirement year" : `${years} full retirement years`;
+    $("spendDeltaDetail").textContent = years === 0
+      ? "Launch snapshot only: no full retirement-year spending has occurred."
+      : `Benefit: higher estate and liquidity. Cost: ${money0.format((state.spend - lowerSpend) * years)} less real consumption across ${yearText}.`;
   }
 
   function renderObjectives(rail, ledger) {
@@ -377,15 +389,16 @@
     const targetEstate = target.ending + state.home;
     const estateMargin = targetEstate - GROSS_ESTATE_FLOOR;
     const capitalRatio = target.ending / rail.capital;
+    const capitalChange = capitalRatio - 1;
     const drag = ledger.filter((row) => row.age <= state.targetAge).reduce((sum, row) => sum + row.externalTaxDrag, 0);
     const objectives = [
       ["1 · Retirement income", money0.format(rail.netPension), coverage >= .7 ? "Strong floor" : "Protected floor", `${pct(coverage)} of selected spending is covered by indexed PSS.`],
       ["2 · Spending power", money0.format(state.spend), state.spend <= 110_000 ? "Balanced" : state.spend <= 120_000 ? "Lifestyle-led" : "High utility", `${money2.format(state.spend / 26)} per fortnight; gross salary equivalent ${money0.format(grossForNet(state.spend))}.`],
-      ["3 · Capital preservation", pct(capitalRatio), capitalRatio >= 1 ? "Real growth" : capitalRatio >= .65 ? "Preserved" : "Drawdown", `${money0.format(target.ending)} remains from ${money0.format(rail.capital)} starting capital at age ${state.targetAge}.`],
+      ["3 · Capital preservation", `${capitalChange >= 0 ? "+" : ""}${pct(capitalChange)}`, capitalRatio >= 1 ? "Real growth" : capitalRatio >= .65 ? "Preserved" : "Drawdown", `${pct(capitalRatio)} of starting capital retained: ${money0.format(target.ending)} from ${money0.format(rail.capital)} at age ${state.targetAge} [MODELLED].`],
       ["4 · Age-75 wealth", money0.format(at75.ending), at75.ending >= 1_200_000 ? "Benchmark strong" : at75.ending >= 750_000 ? "Substantial" : "Lifestyle cost", `Investment-only capital; the home and pension replacement value are excluded.`],
       ["5 · Age-85 wealth", money0.format(at85.ending), at85.ending >= 750_000 ? "Substantial" : at85.ending >= 300_000 ? "Moderate" : "Guardrail", `Uses the same constant real spending and return assumptions through age 85.`],
       ["6 · Estate outcome", money0.format(targetEstate), estateMargin >= 500_000 ? "Strong margin" : estateMargin >= 0 ? "Floor retained" : "Below floor", `${estateMargin >= 0 ? money0.format(estateMargin) + " above" : money0.format(Math.abs(estateMargin)) + " below"} the $1.0m property-inclusive floor.`],
-      ["7 · Tax efficiency", money0.format(drag), "Controlled drag", `Cumulative modelled Pool C distribution drag to age ${state.targetAge}; pension-phase earnings tax is modelled at 0%.`],
+      ["7 · Tax efficiency", money0.format(drag), rail.key === "B" ? "Provisional" : "Partial model", rail.key === "B" ? `Known Pool C drag only [MODELLED] through age ${state.targetAge}; full Rail B death-benefit-tax exposure remains unknown until Hostplus components are supplied.` : `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; pension-phase earnings tax is modelled at 0%.`],
       ["8 · Optionality", money0.format(target.ending), target.ending >= 750_000 ? "High liquidity" : target.ending >= 300_000 ? "Meaningful" : "Narrowing", `Liquid investment capital remains separate from the mortgage-free home and lifelong PSS floor.`],
     ];
     $("objectiveGrid").innerHTML = objectives.map(([label, value, verdict, detail]) => `<article class="objective-card"><div><span>${label}</span><em>${verdict}</em></div><strong>${value}</strong><small>${detail}</small></article>`).join("");
@@ -435,13 +448,13 @@
     }
   }
 
-  function renderGuardrails(rail, targetRow) {
+  function renderGuardrails(rail, inspectionRow) {
     const coverage = rail.netPension / state.spend;
-    const estate = targetRow.ending + state.home;
+    const estate = inspectionRow.ending + state.home;
     const margin = estate - GROSS_ESTATE_FLOOR;
     $("guardrailIncome").textContent = `PSS covers ${pct(coverage)} of selected spending`;
-    $("guardrailCapital").textContent = `${money0.format(targetRow.ending)} at age ${state.targetAge}`;
-    $("guardrailEstate").textContent = margin >= 0 ? `${money0.format(margin)} above $1.0m gross floor` : `${money0.format(Math.abs(margin))} below $1.0m gross floor`;
+    $("guardrailCapital").textContent = `${money0.format(inspectionRow.ending)} at inspected age ${state.inspectionAge} [MODELLED]`;
+    $("guardrailEstate").textContent = margin >= 0 ? `${money0.format(margin)} above $1.0m gross floor at age ${state.inspectionAge}` : `${money0.format(Math.abs(margin))} below $1.0m gross floor at age ${state.inspectionAge}`;
   }
 
   function renderFrontierText(rail, points, targetRow) {
@@ -477,13 +490,14 @@
     $("returnOut").textContent = pct(state.realReturn);
     $("ageOut").textContent = state.targetAge;
     $("homeOut").textContent = money0.format(state.home);
-    $("cashflowContext").textContent = `Rail ${state.rail} · ${money0.format(state.spend)} spending · ${pct(state.realReturn)} real`;
+    $("cashflowContext").textContent = `Rail ${state.rail} · ${money0.format(state.spend)} spending · ${pct(state.realReturn)} real · ${state.taxYear} salary equivalent`;
   }
 
   function renderAll() {
     const rail = currentRail();
     const ledger = operationalLedger(rail, state.spend, state.realReturn);
     const targetRow = rowAt(ledger, state.targetAge);
+    const inspectionRow = rowAt(ledger, state.inspectionAge);
     state.selectedIncomeAge = clamp(state.selectedIncomeAge, 61, 95);
     state.selectedCapitalAge = clamp(state.selectedCapitalAge, 60, 95);
     const points = frontierPoints(rail);
@@ -499,8 +513,12 @@
     renderFrontierText(rail, points, targetRow);
     renderObjectives(rail, ledger);
     renderTax(rail, ledger);
-    renderGuardrails(rail, targetRow);
-    document.querySelectorAll("#timeline button").forEach((button) => button.classList.toggle("active", Number(button.dataset.age) === state.targetAge));
+    renderGuardrails(rail, inspectionRow);
+    document.querySelectorAll("#timeline button").forEach((button) => {
+      const active = Number(button.dataset.age) === state.inspectionAge;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
     persistScenario();
   }
 
@@ -517,11 +535,19 @@
   $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = 0; renderAll(); });
   $("spend").addEventListener("input", (event) => { state.spend = Number(event.target.value); renderAll(); });
   $("return").addEventListener("input", (event) => { state.realReturn = Number(event.target.value) / 100; renderAll(); });
-  $("targetAge").addEventListener("input", (event) => { state.targetAge = Number(event.target.value); state.selectedCapitalAge = state.targetAge; renderAll(); });
+  $("targetAge").addEventListener("input", (event) => { state.targetAge = Number(event.target.value); state.selectedCapitalAge = state.targetAge; state.inspectionAge = state.targetAge; renderAll(); });
   $("home").addEventListener("input", (event) => { state.home = Number(event.target.value); renderAll(); });
+  $("incomeAgeSelect").addEventListener("change", (event) => {
+    state.selectedIncomeAge = Number(event.target.value);
+    renderSelectedCashflow(rowAt(operationalLedger(currentRail(), state.spend, state.realReturn), state.selectedIncomeAge));
+  });
+  $("capitalAgeSelect").addEventListener("change", (event) => {
+    state.selectedCapitalAge = Number(event.target.value);
+    renderCapitalReadout(rowAt(operationalLedger(currentRail(), state.spend, state.realReturn), state.selectedCapitalAge));
+  });
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
-    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, selectedIncomeAge: 61, selectedCapitalAge: 75, washCycles: 0 });
+    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 0 });
     renderAll();
     showToast("Rail B central baseline restored.");
   });
@@ -537,10 +563,10 @@
     $("menuToggle").textContent = "Menu";
   }));
   $("timeline").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
-    state.targetAge = clamp(Number(button.dataset.age), 60, 95);
-    state.selectedCapitalAge = Number(button.dataset.age);
+    state.inspectionAge = clamp(Number(button.dataset.age), 60, 95);
+    state.selectedCapitalAge = state.inspectionAge;
     renderAll();
-    document.getElementById("trajectory").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("lifecycle").scrollIntoView({ behavior: "smooth", block: "start" });
   }));
   $("copyScenario").addEventListener("click", async () => {
     try {
@@ -564,6 +590,8 @@
   })();
   document.documentElement.dataset.theme = initialTheme === "dark" ? "dark" : "light";
   $("themeToggle").textContent = initialTheme === "dark" ? "Light" : "Dark";
+  $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
+  $("capitalAgeSelect").innerHTML = Array.from({ length: 36 }, (_, index) => 60 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
   state.washCycles = state.rail === "A" ? 6 : 0;
   renderAll();
 })();

@@ -64,7 +64,7 @@
         <div class="actions">
           <a class="button primary" href="./">Open interactive Command Centre</a>
           <a class="button" href="./deep-model.html">Open full V23 model</a>
-          <a class="button" href="./atlas-prototype.html">Open Retirement Atlas</a>
+          <a class="button" href="./atlas.html">Open Retirement Atlas</a>
           <a class="button" href="./model-reference.txt">Read plain-text version</a>
         </div>
       </div>
@@ -101,8 +101,8 @@
               <tr><td>Gross indexed PSS pension</td><td>$78,382.04 p.a.</td><td>$82,550.89 p.a.</td></tr>
               <tr><td>Net PSS pension used by model</td><td>$76,041.68 p.a.</td><td>$76,302.72 p.a.</td></tr>
               <tr><td>PSS lump sum</td><td>$574,801.66</td><td>$605,373.22</td></tr>
-              <tr><td>Hostplus balance</td><td>$317,447.66</td><td>$317,447.66</td></tr>
-              <tr><td>Total investment capital</td><td>$892,249.32</td><td>$922,820.88</td></tr>
+              <tr><td>Hostplus balance at age 60 [MODELLED]</td><td>$317,447.66</td><td>$317,447.66</td></tr>
+              <tr><td>Total investment capital at age 60 [MODELLED]</td><td>$892,249.32</td><td>$922,820.88</td></tr>
               <tr><td>DB special value</td><td>$1,254,112.64</td><td>$1,320,814.24</td></tr>
               <tr><td>Pool A — retirement pension account</td><td>$840,887.36</td><td>$774,185.76</td></tr>
               <tr><td>Pool C — external ETF</td><td>$51,361.96</td><td>$148,635.12</td></tr>
@@ -112,7 +112,7 @@
         </div>
         <h3>Shared planning controls</h3>
         <ul>
-          <li>General transfer balance cap planning value: <strong>$2,100,000</strong>.</li>
+          <li>General transfer balance cap planning value: <strong>$2,100,000</strong> under 2026–27 law; this is not guaranteed to be the applicable personal cap at commencement in 2033 and must be rechecked.</li>
           <li>Target buffer below the cap: <strong>$5,000</strong>, giving an illustrative TSB target near $2.095 million.</li>
           <li>Home baseline: <strong>$500,000</strong>, adjustable in the Command Centre.</li>
           <li>Pool C external investment drag: <strong>0.35% real per year</strong>.</li>
@@ -132,7 +132,7 @@ endingBalance = max(0, B × growth - monthlyDraw × ((growth - 1) / monthlyRetur
 
 If monthlyReturn is zero:
 endingBalance = max(0, B - monthlyDraw × n)</pre>
-        <p>The Command Centre sets <code>D = max(0, annual spending - net PSS pension)</code>. The spending frontier evaluates annual spending from $80,000 to $140,000 in $5,000 steps, projects to age 75 using an illustrative 5% real return, then adds the selected home value to show a gross estate.</p>
+        <p>The Command Centre sets <code>D = max(0, annual spending - net PSS pension)</code>. The active spending frontier follows the selected spending, real return and target age, then adds the selected home value to show a gross estate. Fixed 4% and 6.5% paths are retained only as explicitly labelled comparisons.</p>
 
         <h3>Operational annual ledger</h3>
         <pre>mandatoryDraw = openingPoolA × ageBasedMinimumRate

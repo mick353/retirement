@@ -17,7 +17,7 @@ const STORAGE_KEY = "robinson-retirement-ai-chat";
 const CHATGPT_SITE_ORIGIN = "https://robinson-retirement.mick353.chatgpt.site";
 const QUICK_PROMPTS = [
   ["Compare rails", "Compare Rail A and Rail B for my active scenario. Explain the source-date difference in the PSS figures and the practical trade-offs."],
-  ["Stress spending", "Stress-test my selected spending level. Focus on the age-75 capital floor, sequence risk and what would make the plan fragile."],
+  ["Stress spending", "Stress-test my selected spending level. Focus on the selected target age, the fixed age-75 benchmark, sequence risk and what would make the plan fragile."],
   ["Explain NCC wash", "Explain the NCC wash strategy in plain English using my current wash-cycle setting, including the separate-interest control and death-benefit-tax effect."],
   ["Annual review", "Prepare a concise annual-review brief for my active scenario: what is settled, what needs confirming, and the three most useful next checks."],
 ] as const;

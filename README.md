@@ -7,7 +7,7 @@ A responsive, interactive retirement planning command centre built from the Robi
 - GitHub Pages: <https://mick353.github.io/retirement/>
 - ChatGPT Sites: <https://robinson-retirement.mick353.chatgpt.site>
 - Deep V23 workbench: <https://mick353.github.io/retirement/deep-model.html>
-- Retirement Atlas: <https://mick353.github.io/retirement/atlas-prototype.html>
+- Retirement Atlas: <https://mick353.github.io/retirement/atlas.html>
 
 The main command centre and V23 workbench share scenario parameters, so a rail, spending target, return assumption, target age and home value can be carried into the deeper model.
 

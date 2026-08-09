@@ -51,7 +51,7 @@ endingBalance = max(0, B x growth - monthlyDraw x ((growth - 1) / monthlyReturn)
 If monthlyReturn is zero:
 endingBalance = max(0, B - monthlyDraw x n)
 
-The Command Centre uses D = max(0, annual spending - net PSS pension). The spending frontier evaluates annual spending from $80,000 to $140,000 in $5,000 steps, projects to age 75 at an illustrative 5% real return, and adds the selected home value for a gross-estate view.
+The Command Centre uses D = max(0, annual spending - net PSS pension). The active spending frontier follows the selected spending, real return and target age, and adds the selected home value for a gross-estate view. Fixed 4% and 6.5% paths are retained only as explicitly labelled comparisons.
 
 OPERATIONAL ANNUAL LEDGER
 mandatoryDraw = openingPoolA x ageBasedMinimumRate

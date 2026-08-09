@@ -833,7 +833,7 @@ main{min-width:0;}
 </style>
 </head>
 <body>
-<nav class="v23-page-links" aria-label="Main retirement pages"><a href="./">Command Centre</a><a href="./atlas-prototype.html">Atlas</a></nav>
+<nav class="v23-page-links" aria-label="Main retirement pages"><a id="v23-command-link" href="./">Command Centre</a><a id="v23-atlas-link" href="./atlas.html">Atlas</a></nav>
 <header>
   <div class="brand">
     <div class="logo">R</div>
@@ -964,7 +964,7 @@ main{min-width:0;}
         </div>
         <div class="slider-block highlight">
           <div class="lab"><span>📍 Target age (all outputs)</span><span class="val" id="lbl-targetage"></span></div>
-          <input type="range" id="sl_targetage" min="70" max="90" step="1" value="75"/>
+          <input type="range" id="sl_targetage" min="70" max="95" step="1" value="75"/>
         </div>
         <div class="slider-block">
           <div class="lab"><span>Gap real growth (on top of bands)</span><span class="val" id="lbl-gapgrowth"></span></div>
@@ -987,7 +987,7 @@ main{min-width:0;}
         </div>
         <div class="slider-block">
           <div class="lab"><span>Likely real return</span><span class="val" id="lbl-likely"></span></div>
-          <input type="range" id="sl_likely" min="3" max="10" step="0.5" value="6.5"/>
+          <input type="range" id="sl_likely" min="2" max="7.5" step="0.5" value="6.5"/>
         </div>
         <div class="slider-block">
           <div class="lab"><span>Volatility (std dev)</span><span class="val" id="lbl-vol"></span></div>
@@ -1585,7 +1585,7 @@ const PROFILES = {
     floor:1200, target:1500, strong:1750,
     defaultGap:24000,
     defaultGapBands:[{age:60, amount:24000, unit:"dollar"}],
-    poolA_day1:840887, poolB_day1:0, poolC_day1:51362,
+    poolA_day1:840887, poolB_day1:0, poolC_day1:51362, tsbBuffer:5000,
     washAge:61, washCapThrough:74,
     locked:true
   },
@@ -1597,7 +1597,7 @@ const PROFILES = {
     floor:1200, target:1500, strong:1750,
     defaultGap:24000,
     defaultGapBands:[{age:60, amount:24000, unit:"dollar"}],
-    poolA_day1:840887, poolB_day1:0, poolC_day1:51362,
+    poolA_day1:840887, poolB_day1:0, poolC_day1:51362, tsbBuffer:5000,
     washAge:61, washCapThrough:74,
     locked:false
   }
@@ -1655,7 +1655,7 @@ function bandsToString(bands){
 function formatBandValue(b){const u=b.unit||"dollar";return u==="returnPct"?`${b.amount}% return`:(u==="drawPct"?`${b.amount}% draw`:fmt$(b.amount));}
 function avgGapBand(bands,s,e){let sum=0,n=0;for(let a=s;a<=e;a++){const b=bandAtAge(a,bands);if((b?.unit||"dollar")==="dollar")sum+=b.amount;n++;}return n?sum/n:0;}
 function avgSimGap(rows,s,e){
-  const picked=rows.filter(r=>r.age>=s&&r.age<=e);
+  const picked=rows.filter(r=>!r.launchSnapshot&&r.age>=s&&r.age<=e);
   return picked.length?picked.reduce((sum,r)=>sum+r.gap,0)/picked.length:0;
 }
 function scaleBands(bands,f){return bands.map(b=>({...b,amount:Math.max(0,b.amount*f)}));}
@@ -1755,6 +1755,12 @@ function calcTBCAllocation(grossPension,lumpSum,otherSuper,tbc){
     poolA:lumpToABP+otherToABP,poolB:lumpToAccum+otherToAccum,headroomFinal};
 }
 
+function initialHeadroom(p,tbcAlloc){
+  return p.poolA_day1!==undefined
+    ? Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1-(p.tsbBuffer??0))
+    : tbcAlloc.headroomFinal;
+}
+
 function withdrawFromPools(amount,abp,acc){
   const fromAcc=Math.min(amount,acc);const remaining=amount-fromAcc;
   const fromAbp=Math.min(remaining,abp);
@@ -1786,10 +1792,19 @@ function runModel(opts){
   let abp=opts.startAbp??(p.poolA_day1??tbcAlloc.poolA);
   let acc=opts.startAcc??(p.poolB_day1??tbcAlloc.poolB);
   let poolC=opts.startPoolC??(p.poolC_day1??0);
-  let headroom=p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):tbcAlloc.headroomFinal;
+  let headroom=initialHeadroom(p,tbcAlloc);
   const rows=[];
-  for(let age=startAge;age<=endAge;age++){
-    const t=age-startAge;
+  let launchOneOff=0;
+  if(oneOff>0&&oneOffAge===startAge){
+    const w=withdrawFromPools(oneOff/oneOffSpread,abp,acc);abp=w.abp;acc=w.acc;launchOneOff=w.drawn;
+  }
+  rows.push({
+    age:startAge,gap:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,
+    extraDraw:0,oneOffDrawn:launchOneOff,abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,
+    pension:0,headroom,rA:0,rB:0,rC:0,launchSnapshot:true
+  });
+  for(let age=startAge+1;age<=endAge;age++){
+    const t=age-startAge-1;
     const rA=annualReturns?annualReturns[t]?.A??abpReturn:abpReturn;
     const rB=annualReturns?annualReturns[t]?.B??accumReturn:accumReturn;
     const rC=Math.max(-1,(annualReturns?annualReturns[t]?.A??abpReturn:abpReturn)-poolCDrag);
@@ -1907,12 +1922,12 @@ function runHealth(scenarioKey,opts={}){
   const p=opts.profile||getProfile();const sc=HEALTH_SCENARIOS[scenarioKey]||HEALTH_SCENARIOS.none;
   const startAge=p.retireAge,endAge=95;
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
-  let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):tbcAlloc.headroomFinal;
+  let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=initialHeadroom(p,tbcAlloc);
   const abpR=opts.abpReturn??STATE.likely;const accR=abpR*0.85;const poolCR=Math.max(-1,abpR-STATE.poolCDrag);
   const gapBands=opts.gapBands??STATE.gapBands;const gapGrowth=STATE.gapGrowth;
-  const rows=[];
-  for(let age=startAge;age<=endAge;age++){
-    const t=age-startAge;
+  const rows=[{age:startAge,abp,acc,poolC,total:abp+acc+poolC,launchSnapshot:true}];
+  for(let age=startAge+1;age<=endAge;age++){
+    const t=age-startAge-1;
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
     const gap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA:abpR,rB:accR,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)});
     const mandDraw=preAbp*mandRate(age);
@@ -1938,13 +1953,13 @@ function runHealth(scenarioKey,opts={}){
 function runCPI(opts={}){
   const p=opts.profile||getProfile();const startAge=p.retireAge,endAge=95;
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
-  let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):tbcAlloc.headroomFinal;
+  let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=initialHeadroom(p,tbcAlloc);
   const baseR=STATE.likely;const drag=STATE.cpiDrag/100;const poolCDrag=STATE.poolCDrag;
-  const shockMag=STATE.cpi/100;const shockDur=STATE.cpiDur;const shockStart=STATE.cpiAge;const shockEnd=shockStart+shockDur-1;
+  const shockMag=STATE.cpi/100;const shockDur=STATE.cpiDur;const shockStart=Math.max(startAge+1,STATE.cpiAge);const shockEnd=shockStart+shockDur-1;
   const gapBands=opts.gapBands??STATE.gapBands;const gapGrowth=STATE.gapGrowth;
-  let pensionReal=p.netPension;const rows=[];
-  for(let age=startAge;age<=endAge;age++){
-    const t=age-startAge;const inShock=age>=shockStart&&age<=shockEnd;
+  let pensionReal=p.netPension;const rows=[{age:startAge,abp,acc,poolC,total:abp+acc+poolC,pensionReal:p.netPension,inShock:false,launchSnapshot:true}];
+  for(let age=startAge+1;age<=endAge;age++){
+    const t=age-startAge-1;const inShock=age>=shockStart&&age<=shockEnd;
     const ageRetReal=inShock?baseR-drag:baseR;const poolCR=Math.max(-1,ageRetReal-poolCDrag);
     // Indexation lag bites for EVERY year of the shock window. The old code restored the pension
     // at shockStart+1, so the duration slider had no effect on the pension leg at all.
@@ -2167,20 +2182,21 @@ function renderExecutive(){
   const base_cap=base.rows[idx].total;
   const likely_cap=likely.rows[idx].total;
   const tsb=tbcAlloc.sv+(p.poolA_day1??tbcAlloc.poolA)+(p.poolB_day1??tbcAlloc.poolB);
-  let cumP=0,cumD=0;likely.rows.forEach(r=>{cumP+=p.netPension;cumD+=r.realExit;});
-  const avgIncome=(cumP+cumD)/likely.rows.length;
-  const floorStatus=targetStatus(conserv_cap,p);const baseStatus=targetStatus(base_cap,p);
+  const operatingRows=likely.rows.filter(r=>!r.launchSnapshot);
+  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit+r.extraDraw;});
+  const avgIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
+  const floorStatus=targetStatus(conserv_cap,p);const baseStatus=targetStatus(base_cap,p);const likelyStatus=targetStatus(likely_cap,p);
   const ncStatus=p.locked?{cls:"good",label:"Wash strategy",detail:`TSB ${Math.round((p.tbc-tsb)/1000)}k below TBC — NCC wash from age ${p.washAge??61}`}:(tsb>p.tbc?{cls:"good",label:"NCC blocked",detail:"TSB above TBC"}:{cls:"warn",label:"NCC possible",detail:"custom profile has headroom"});
   document.getElementById("exec_badges").innerHTML=[
-    pillHtml(floorStatus,"4% case: "),pillHtml(baseStatus,"5% case: "),pillHtml(ncStatus),
+    pillHtml(likelyStatus,`Active ${fmtPct(STATE.likely)}: `),pillHtml(floorStatus,"Reference 4%: "),pillHtml(baseStatus,"Reference 5%: "),pillHtml(ncStatus),
     `<span class="status-pill good">Today dollars<span class="muted"> · No nominal drift</span></span>`,
     `<span class="status-pill good">Target age ${ta}<span class="muted"> · Adjust via slider</span></span>`
   ].join("");
   document.getElementById("exec_cards").innerHTML=`
     <div class="card accent"><div class="label">Presentation answer</div><div class="value">60/40 settled</div><div class="sub">PSS floor plus ABP/accum/ETF pools carry lifestyle and legacy targets.</div></div>
     <div class="card"><div class="label">TBC planning anchor</div><div class="value">${fmt$(p.tbc)}</div><div class="sub">TBC headroom $${tbcAlloc.poolA.toLocaleString()}; Day 1 Pool A $${(p.poolA_day1??tbcAlloc.poolA).toLocaleString()} after $5k XD.</div></div>
-    <div class="card good"><div class="label">Capital @${ta}, 4% case</div><div class="value">${fmt$(conserv_cap)}</div><div class="sub">${floorStatus.detail}.</div></div>
-    <div class="card"><div class="label">Capital @${ta}, base case</div><div class="value">${fmt$(base_cap)}</div><div class="sub">${baseStatus.detail}.</div></div>
+    <div class="card good"><div class="label">Active capital @${ta}</div><div class="value">${fmt$(likely_cap)}</div><div class="sub">${fmtPct(STATE.likely)} real [MODELLED] · ${likelyStatus.detail}.</div></div>
+    <div class="card"><div class="label">Fixed comparison range @${ta}</div><div class="value">${fmt$(conserv_cap)} – ${fmt$(base_cap)}</div><div class="sub">Reference only: 4.0% conservative to 5.0% base. Active result is the green card.</div></div>
     <div class="card"><div class="label">Pool A / B / C start</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">${openingPoolNote(p)}</div></div>
     <div class="card"><div class="label">Average usable income</div><div class="value">${fmt$(avgIncome)}/yr</div><div class="sub">PSS plus consumed Pool A draw, likely path to 95.</div></div>
   `;
@@ -2222,8 +2238,9 @@ function renderOverview(){
     <div class="tier"><div class="lbl">Strong</div><div class="v">${fmt$(p.strong*1000)} @${ta}</div></div>
     <div class="tier"><div class="lbl">Aspirational</div><div class="v">${fmt$(2000000)} @${ta}</div></div>
   `;
-  let cumP=0,cumD=0;likely.rows.forEach(r=>{cumP+=p.netPension;cumD+=r.realExit;});
-  const avgTotalIncome=(cumP+cumD)/likely.rows.length;
+  const operatingRows=likely.rows.filter(r=>!r.launchSnapshot);
+  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit+r.extraDraw;});
+  const avgTotalIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
   document.getElementById("ovCards").innerHTML=`
     <div class="card accent"><div class="label">Combined capital @60</div><div class="value">${fmt$((p.poolA_day1??tbcAlloc.poolA)+(p.poolB_day1??tbcAlloc.poolB)+(p.poolC_day1??0))}</div><div class="sub">Pool A ${fmt$(p.poolA_day1??tbcAlloc.poolA)} · Pool B ${fmt$(p.poolB_day1??tbcAlloc.poolB)} · Pool C ${fmt$(p.poolC_day1??0)}</div></div>
     <div class="card"><div class="label">Net PSS pension</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight · CPI-indexed floor</div></div>
@@ -2427,20 +2444,21 @@ function tbcAlloc_waterfall(p){const a=calcTBCAllocation(p.grossPension,p.lumpSu
 function renderIncome(){
   const p=getProfile();const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const tc=getThemeColors();const ages=sim.rows.map(r=>r.age);
-  let cumP=0,cumD=0,cumX=0;sim.rows.forEach(r=>{cumP+=p.netPension;cumD+=r.realExit;cumX+=r.extraDraw;});
-  const lifetimeTotal=cumP+cumD+cumX;const avgAnnualTotal=lifetimeTotal/sim.rows.length;
-  const r60=sim.rows[0];const totalAt60=p.netPension+r60.realExit+r60.extraDraw;
+  const operatingRows=sim.rows.filter(r=>!r.launchSnapshot);
+  let cumP=0,cumD=0,cumX=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit;cumX+=r.extraDraw;});
+  const lifetimeTotal=cumP+cumD+cumX;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
+  const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pension||0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0);
   document.getElementById("in_cards").innerHTML=`
     <div class="card accent"><div class="label">Avg total usable income</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
     <div class="card"><div class="label">PSS net pension (CPI-flat)</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight</div></div>
     <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS ${fmt$(cumP)} + Pool A ${fmt$(cumD)}${cumX>0?` + Pool A extra ${fmt$(cumX)}`:``}</div></div>
-    <div class="card"><div class="label">Year 1 income (age ${p.retireAge})</div><div class="value">${fmt$(totalAt60)}/yr</div><div class="sub">${fmtPF(totalAt60/26)}/fortnight</div></div>
+    <div class="card"><div class="label">Year 1 income (age ${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
   makeChart("in_chart",{type:"bar",data:{labels:ages,datasets:[
-    {label:"PSS net pension",data:ages.map(()=>p.netPension),backgroundColor:tc.pension,stack:"s"},
+    {label:"PSS net pension",data:sim.rows.map(r=>r.pension),backgroundColor:tc.pension,stack:"s"},
     {label:"Pool A draw consumed",data:sim.rows.map(r=>r.realExit),backgroundColor:tc.poolA,stack:"s"},
     {label:"Pool A extra draw (gap above mandatory)",data:sim.rows.map(r=>r.extraDraw),backgroundColor:tc.poolB,stack:"s"},
-    {label:"Max without extra draw (PSS + mandatory draw)",data:sim.rows.map(r=>p.netPension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
+    {label:"Max without extra draw (PSS + mandatory draw)",data:sim.rows.map(r=>r.pension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
     {label:"Lifestyle band low ($95k)",data:ages.map(()=>95000),type:"line",borderColor:tc.acc3,borderDash:[4,4],pointRadius:0,fill:false,stack:"_l"},
     {label:"Lifestyle band high ($105k)",data:ages.map(()=>105000),type:"line",borderColor:tc.good,borderDash:[4,4],pointRadius:0,fill:false,stack:"_h"}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
@@ -2449,9 +2467,9 @@ function renderIncome(){
   let cumSpend=0;
   const sgn=v=>v<0?`<span style="color:var(--bad,#ff6b6b)">−${fmtFull(Math.abs(v))}</span>`:fmtFull(v);
   const T={earn:0,mand:0,drawn:0,extra:0,surp:0,ret:0,spend:0,inc:0};
-  sim.rows.forEach(r=>{const sp=r.realExit+r.extraDraw;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.spend+=sp;T.ret+=(r.investmentReturn-sp);T.inc+=(p.netPension+sp);});
+  sim.rows.forEach(r=>{const sp=r.realExit+r.extraDraw;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.spend+=sp;T.ret+=(r.investmentReturn-sp);T.inc+=(r.pension+sp);});
   const rows=phases.map(([a,b,lab])=>{
-    const segs=sim.rows.filter(r=>r.age>=a&&r.age<=b);
+    const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=a&&r.age<=b);
     const n=segs.length||1;
     const avgDrawn=segs.reduce((s,r)=>s+r.realExit,0)/n;
     const avgExtra=segs.reduce((s,r)=>s+r.extraDraw,0)/n;
@@ -4055,10 +4073,10 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Pool A / B / C start","Day-1 opening balances after the cap-kiss allocation."],
 ["Average usable income","PSS net pension plus the consumed part of Pool A draws, averaged over the likely path to 95. Surplus that is recycled to Pool C is excluded — it is savings, not spending."],
 ["Presentation answer","One-sentence verdict suitable for reading out: does the plan clear the bands, and with how much margin."],
-["Executive scenario table","Conservative 4% / Base 5% / Strong 6.5–7% real-return rows with capital, margins and status at the target age."],
-["Capital @target, 4% / base cards","End-capital at the target age under the conservative (4%) and base (5%) deterministic paths."],
+["Executive scenario table","Conservative 4%, reference 5%, and active-return rows with capital, margins and status at the target age."],
+["Active capital @target / reference range","The active card follows the selected likely-return control. The separate 4–5% range is a labelled comparison reference."],
 ["Day 1 values note","Confirms that opening balances follow the active profile: the governed Rail A V5.0 baseline or the newer July Rail B shared scenario."],
-["Capital @target — 4% case / base case","Deterministic end-capital at the target age under the conservative (4%) and base (5%) real-return scenarios — the two reference paths beneath your likely setting."],
+["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
 ["NCC blocked","Flags whether non-concessional contributions are unavailable because total super balance sits at or above the cap — the constraint that governs wash-loop timing."]]},
 decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting evidence cards — built to be printed and filed with the annual review.",h:["Use Print → Brief pack for a filing copy.","Each evidence card cites the page that proves it — follow them for depth.","If the recommendation ever changes between reviews, log why in the Decision log."],f:[
 ["Recommendation","The single action verdict under current assumptions (typically: maintain strategy, spend to plan)."],
@@ -4691,8 +4709,41 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       spend:Number(params.get("spend"))||110000,
       realReturn:Number(params.get("return"))||.05,
       targetAge:Number(params.get("age"))||75,
-      homeValue:Number(params.get("home"))||500000
+      homeValue:Number(params.get("home"))||500000,
+      taxYear:params.get("taxYear")==="2027-28"?"2027-28":"2026-27"
     };
+  }
+
+  function navigationScenario(){
+    let saved=null;
+    try{saved=JSON.parse(localStorage.getItem("robinson-retirement-shared-scenario")||"null");}catch(e){}
+    const query=sharedFromQuery();
+    const base=query||saved||{rail:"A",spend:90000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27"};
+    const profile=getProfile();
+    const rail=isRailBProfile(profile)?"B":"A";
+    const fixedGap=STATE.spendMode==="fixed"&&Array.isArray(STATE.gapBands)?gapAtAge(60,STATE.gapBands):null;
+    return{
+      rail,
+      spend:Math.max(0,Math.round(Number(profile.netPension||0)+Number(fixedGap??Math.max(0,base.spend-Number(profile.netPension||0))))),
+      realReturn:Number(STATE.likely||base.realReturn||.05),
+      targetAge:Number(STATE.targetAge||base.targetAge||75),
+      homeValue:Number(base.homeValue||500000),
+      taxYear:base.taxYear==="2027-28"?"2027-28":"2026-27"
+    };
+  }
+
+  function navigationUrl(path){
+    const scenario=navigationScenario();
+    const params=new URLSearchParams({shared:"1",rail:scenario.rail,spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear});
+    return `${path}?${params.toString()}`;
+  }
+  window.v23NavigationUrl=navigationUrl;
+
+  function updateNavigation(){
+    const command=navigationUrl("./");
+    const atlas=navigationUrl("./atlas.html");
+    ["v23-command-link","v23-shared-command-link","v23-mobile-command-link"].forEach(id=>{const link=document.getElementById(id);if(link)link.href=command;});
+    const atlasLink=document.getElementById("v23-atlas-link");if(atlasLink)atlasLink.href=atlas;
   }
 
   function applySharedScenario(shared){
@@ -4705,12 +4756,16 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
         lumpSum:605373.22,hostplus:317447.66,tbc:2100000,
         floor:500,target:1000,strong:1500,defaultGap:Math.max(0,shared.spend-netPension),
         defaultGapBands:[{age:60,amount:Math.max(0,shared.spend-netPension),unit:"dollar"}],
-        poolA_day1:774185.76,poolB_day1:0,poolC_day1:148635.12,locked:false
+        poolA_day1:774185.76,poolB_day1:0,poolC_day1:148635.12,tsbBuffer:5000,washAge:null,washCapThrough:null,locked:false
       });
       STATE.profile="custom";
-    }else STATE.profile="michael";
-    STATE.likely=Math.min(.10,Math.max(.03,shared.realReturn));
-    STATE.targetAge=Math.min(90,Math.max(70,Math.round(shared.targetAge)));
+      STATE.wash.enabled=false;
+    }else{
+      STATE.profile="michael";
+      STATE.wash.enabled=true;
+    }
+    STATE.likely=Math.min(.075,Math.max(.02,shared.realReturn));
+    STATE.targetAge=Math.min(95,Math.max(70,Math.round(shared.targetAge)));
     STATE.spendMode="fixed";
     STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-netPension)),unit:"dollar"}];
     try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:2,updatedAt:new Date().toISOString(),...shared}));}catch(e){}
@@ -4719,16 +4774,17 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     const main=document.querySelector("main");
     if(main&&!document.getElementById("v23-shared-banner")){
       const banner=document.createElement("div");banner.id="v23-shared-banner";
-      banner.innerHTML=`<span><b>Shared command-centre scenario loaded</b><br>Rail ${shared.rail} · ${money(shared.spend)} spending · ${percent(shared.realReturn)} real return · target age ${shared.targetAge}</span><a href="./">Back to command centre</a>`;
+      banner.innerHTML=`<span><b>Shared retirement scenario loaded</b><br>Rail ${shared.rail} · ${money(shared.spend)} spending · ${percent(shared.realReturn)} real return · target age ${shared.targetAge}</span><a id="v23-shared-command-link" href="./">Back to Command Centre</a>`;
       main.insertBefore(banner,main.firstChild);
     }
+    updateNavigation();
   }
 
   function buildMobileCompact(){
     const main=document.querySelector("main");const profile=document.querySelector(".profile-bar");
     if(!main||!profile||document.getElementById("v23-mobile-compactbar"))return;
     const bar=document.createElement("div");bar.id="v23-mobile-compactbar";
-    bar.innerHTML=`<div><span>Mobile workbench</span><b id="v23-mobile-summary">Task-focused view</b></div><div class="compact-actions"><a href="./" class="btn">Summary</a><button class="btn" id="v23-adjust-toggle" type="button" aria-expanded="false">Adjust</button></div>`;
+    bar.innerHTML=`<div><span>Mobile workbench</span><b id="v23-mobile-summary">Task-focused view</b></div><div class="compact-actions"><a id="v23-mobile-command-link" href="./" class="btn">Summary</a><button class="btn" id="v23-adjust-toggle" type="button" aria-expanded="false">Adjust</button></div>`;
     main.insertBefore(bar,profile);
     const dock=document.createElement("nav");dock.className="v23-mobile-dock";dock.setAttribute("aria-label","V23 mobile tasks");
     const pages=[["executive","Snapshot"],["income","Cashflow"],["montecarlo","Risk"],["estate","Estate"],["checklist","Review"]];
@@ -4750,6 +4806,9 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     enhanceRangeControls();
     buildMobileCompact();
     applySharedScenario(sharedFromQuery());
+    updateNavigation();
+    document.addEventListener("input",()=>setTimeout(updateNavigation,0),true);
+    document.addEventListener("change",()=>setTimeout(updateNavigation,0),true);
     try{if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});}catch(e){}
     new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(node=>{if(node.nodeType===1)enhanceRangeControls(node);}))).observe(document.body,{childList:true,subtree:true});
   }
@@ -4847,7 +4906,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       globalControls:controlSnapshot(globalRoot,40),
       deterministicOutputs:outputs,
       interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself."],
-      links:{commandCentre:new URL("./",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
+      links:{commandCentre:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./"):"./",document.baseURI).toString(),atlas:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./atlas.html"):"atlas.html",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
     };
   }
   function promptSet(){

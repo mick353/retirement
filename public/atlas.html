@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#eef3fb">
+  <meta name="description" content="Interactive Robinson Retirement strategy atlas: income floor, capital trajectory, spending-estate frontier, tax controls and governed scenario handoff.">
+  <title>Retirement Atlas — Robinson Retirement</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./atlas.css?v=6">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to analysis</a>
+
+  <header class="topbar">
+    <a class="brand" href="#overview" aria-label="Retirement Atlas overview">
+      <span class="brandmark" aria-hidden="true">R</span>
+      <span><b>Retirement Atlas</b><small>Robinson retirement · governed real-dollar map</small></span>
+    </a>
+    <nav class="desktop-nav" aria-label="Atlas sections">
+      <a href="#architecture">Architecture</a>
+      <a href="#cashflow">Income</a>
+      <a href="#trajectory">Capital</a>
+      <a href="#frontier">Frontier</a>
+      <a href="#tax">Tax</a>
+      <a href="#governance">Evidence</a>
+    </nav>
+    <div class="top-actions">
+      <a class="header-link" data-target="command" href="./">Command Centre</a>
+      <a class="header-link" id="headerV23" href="./deep-model.html">V23</a>
+      <button class="icon-button" id="themeToggle" type="button" aria-label="Switch to dark theme">Dark</button>
+      <button class="icon-button mobile-menu" id="menuToggle" type="button" aria-controls="mobileNav" aria-expanded="false">Menu</button>
+    </div>
+  </header>
+
+  <nav class="mobile-nav" id="mobileNav" aria-label="Mobile Atlas sections">
+    <a href="#architecture">Architecture</a><a href="#cashflow">Income</a><a href="#trajectory">Capital</a>
+    <a href="#frontier">Frontier</a><a href="#tax">Tax</a><a href="#governance">Evidence</a>
+  </nav>
+
+  <main id="main">
+    <section class="hero section" id="overview">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="status-dot"></span>Integrated decision map · baseline 18 July 2026</div>
+        <h1>The pension secures the floor.<br><span>The capital preserves choice.</span></h1>
+        <p class="lede">The core question is not whether retirement works. It is how much active-retirement spending to exchange for later investment capital, estate value and flexibility—without weakening the indexed PSS foundation.</p>
+        <div class="hero-actions">
+          <a class="primary" href="#frontier">Test the spending frontier</a>
+          <a class="secondary scenario-link" data-target="v23" href="./deep-model.html">Open this scenario in V23</a>
+          <button class="secondary" id="copyScenario" type="button">Copy scenario link</button>
+        </div>
+        <div class="classification-line">
+          <span class="badge exact">Exact inputs</span>
+          <span class="badge modelled">Modelled outcomes</span>
+          <span class="badge speculative">Future returns remain uncertain</span>
+        </div>
+      </div>
+
+      <aside class="scenario-card" aria-label="Active retirement scenario">
+        <div class="scenario-head">
+          <div><span>Active analytical rail</span><b id="railTitle">Rail B — spending frontier</b></div>
+          <span class="badge exact" id="railSourceBadge">July iEstimator</span>
+        </div>
+        <div class="rail-switch" role="tablist" aria-label="Choose modelling rail">
+          <button id="railB" role="tab" aria-selected="true" class="active" type="button"><b>Rail B</b><small>Current spending / lifestyle lens</small></button>
+          <button id="railA" role="tab" aria-selected="false" type="button"><b>Rail A</b><small>Conservative wealth benchmark</small></button>
+        </div>
+        <p id="railPurpose">Uses the newer 2 July iEstimator to test spending power against a property-inclusive estate floor.</p>
+
+        <div class="control-grid">
+          <label>
+            <span>Annual real spending <b id="spendOut">$110,000</b></span>
+            <input id="spend" type="range" min="76000" max="150000" step="1000" value="110000">
+          </label>
+          <label>
+            <span>Real return <b id="returnOut">5.0%</b></span>
+            <input id="return" type="range" min="2" max="7.5" step="0.25" value="5">
+          </label>
+          <label>
+            <span>Target age <b id="ageOut">75</b></span>
+            <input id="targetAge" type="range" min="70" max="95" step="1" value="75">
+          </label>
+          <label>
+            <span>Home value, real <b id="homeOut">$500,000</b></span>
+            <input id="home" type="range" min="300000" max="1000000" step="25000" value="500000">
+          </label>
+        </div>
+        <div class="scenario-actions">
+          <button class="text-button" id="resetScenario" type="button">Reset Rail B baseline</button>
+          <span>All results in 2026 purchasing-power dollars</span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="metric-strip" aria-label="Core scenario results">
+      <article class="metric violet"><span>Indexed net PSS floor</span><strong id="metricPension">$76,303</strong><small id="metricPensionPf">[MODELLED] $2,934.72 per fortnight · for life</small></article>
+      <article class="metric blue"><span>Flexible capital at 60</span><strong id="metricCapital60">$922,821</strong><small id="metricCapitalSource">[MODELLED] PSS lump + Hostplus projection</small></article>
+      <article class="metric green"><span id="metricCapitalLabel">Investments at 75</span><strong id="metricCapital">$1,174,679</strong><small id="metricCapitalSub">[MODELLED] 5.0% real · reconciled annual ledger</small></article>
+      <article class="metric amber"><span id="metricEstateLabel">Gross estate at 75</span><strong id="metricEstate">$1,674,679</strong><small id="metricEstateSub">[MODELLED] Includes $500,000 assumed home</small></article>
+    </section>
+
+    <section class="section" id="architecture">
+      <div class="section-heading">
+        <div class="eyebrow">01 · Structural architecture</div>
+        <h2>Income security and capital are separate engines.</h2>
+        <p>The indexed PSS pension funds the permanent income floor. The three-pool structure places only the transfer-balance headroom into pension phase and holds the remainder outside super for liquidity, growth and estate flexibility.</p>
+      </div>
+
+      <div class="two-column architecture-grid">
+        <article class="panel">
+          <div class="panel-head"><div><h3>Age-60 capital conservation</h3><p>Every dollar entering the investment architecture reconciles.</p></div><span class="badge modelled">Modelled opening</span></div>
+          <div class="capital-flow">
+            <div class="flow-source"><span>40% PSS lump</span><b id="flowLump">$605,373</b></div>
+            <div class="flow-plus">+</div>
+            <div class="flow-source"><span>Hostplus at 60</span><b id="flowHostplus">$317,448</b></div>
+            <div class="flow-equals">=</div>
+            <div class="flow-total"><span>Flexible capital</span><b id="flowCapital">$922,821</b></div>
+          </div>
+          <div class="allocation" aria-label="Pool allocation">
+            <div class="allocation-bar"><i id="poolABar"></i><i id="poolCBar"></i></div>
+            <dl>
+              <div><dt><span class="swatch pool-a"></span>Pool A · account-based pension</dt><dd id="poolAValue">$774,186</dd></div>
+              <div><dt><span class="swatch pool-c"></span>Pool C · external investments</dt><dd id="poolCValue">$148,635</dd></div>
+              <div><dt><span class="swatch pool-b"></span>Pool B · NCC transit only</dt><dd>$0 opening</dd></div>
+            </dl>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><h3>Transfer-balance control</h3><p>The defined-benefit special value consumes most of the cap.</p></div><span class="badge modelled">2026–27 law model</span></div>
+          <div class="tbc-bar" aria-label="Transfer balance cap use"><i id="tbcDbBar"></i><i id="tbcAbpBar"></i><i id="tbcBufferBar"></i></div>
+          <div class="tbc-legend">
+            <div><span>DB special value</span><b id="dbSpecial">$1,320,814</b><small>PSS gross pension × 16</small></div>
+            <div><span>Pool A pension phase</span><b id="tbcPoolA">$774,186</b><small>0% earnings tax under current law</small></div>
+            <div><span>Structural buffer</span><b>$5,000</b><small>Below the current $2.10m cap; recheck for 2033</small></div>
+          </div>
+          <div class="control-note"><b id="tbcTotal">$2,095,000 total super-balance structure</b><span>Pool C remains outside super and does not consume transfer-balance space.</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="cashflow">
+      <div class="section-heading">
+        <div class="eyebrow">02 · Income and spending power</div>
+        <h2>The PSS floor covers most spending before capital is drawn.</h2>
+        <p>The chart separates the permanent pension, the selected lifestyle target, the ABP draw and any mandatory-draw surplus recycled to Pool C. Select any year to inspect its reconciled cashflow.</p>
+      </div>
+      <div class="panel chart-panel">
+        <div class="panel-head"><div><h3>Annual retirement cashflow</h3><p id="cashflowContext">Rail B · $110,000 spending · 5.0% real</p></div><span class="badge modelled">Interactive</span></div>
+        <div class="chart-wrap"><canvas id="incomeChart" aria-label="Annual retirement cashflow chart" role="img"></canvas></div>
+        <label class="chart-age-control" for="incomeAgeSelect"><span>Keyboard age inspection</span><select id="incomeAgeSelect" aria-label="Inspect cashflow at age"></select></label>
+        <div class="selected-year" aria-live="polite">
+          <div><span>Selected age</span><b id="selectedAge">61</b></div>
+          <div><span>Net PSS pension</span><b id="selectedPension">$76,303</b></div>
+          <div><span>ABP draw</span><b id="selectedDraw">$33,697</b></div>
+          <div><span>Net spend</span><b id="selectedSpend">$110,000</b></div>
+          <div><span>Reinvested surplus</span><b id="selectedReinvestment">$0</b></div>
+          <div><span>Gross equivalent of net income</span><b id="selectedGross">$156,175</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="trajectory">
+      <div class="section-heading">
+        <div class="eyebrow">03 · Capital trajectory</div>
+        <h2>Spending is visible in the capital path—not hidden behind a terminal number.</h2>
+        <p>The central line uses the active scenario. The comparison lines hold spending constant and change only the real return. Click an age to inspect Pool A, Pool C and total investment capital.</p>
+      </div>
+      <div class="panel chart-panel">
+        <div class="panel-head"><div><h3>Reconciled three-pool capital</h3><p>Age 60 is the launch snapshot; age 61 is the first full retirement year.</p></div><span class="badge modelled">Annual real-dollar engine</span></div>
+        <div class="chart-wrap large"><canvas id="capitalChart" aria-label="Capital trajectory chart" role="img"></canvas></div>
+        <label class="chart-age-control" for="capitalAgeSelect"><span>Keyboard age inspection</span><select id="capitalAgeSelect" aria-label="Inspect capital at age"></select></label>
+        <div class="selected-year capital-readout" aria-live="polite">
+          <div><span>Selected age</span><b id="capitalAge">75</b></div>
+          <div><span>Pool A</span><b id="capitalPoolA">$0</b></div>
+          <div><span>Pool C</span><b id="capitalPoolC">$0</b></div>
+          <div><span>Total investments</span><b id="capitalTotal">$0</b></div>
+          <div><span>Gross estate</span><b id="capitalEstate">$0</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="frontier">
+      <div class="section-heading">
+        <div class="eyebrow">04 · Spending–estate frontier</div>
+        <h2>Every extra dollar spent has a measurable later-capital cost.</h2>
+        <p>The curve reruns the same rail, return, target age and home value across $80,000–$140,000 real annual spending. Click a point or table row to make it the active scenario.</p>
+      </div>
+      <div class="two-column frontier-grid">
+        <article class="panel chart-panel">
+          <div class="panel-head"><div><h3 id="frontierTitle">Estate frontier at age 75</h3><p id="frontierSub">5.0% real return · includes $500,000 home</p></div><span class="badge modelled">Click to select</span></div>
+          <div class="chart-wrap"><canvas id="frontierChart" aria-label="Interactive spending and estate frontier" role="img"></canvas></div>
+          <div class="frontier-callout"><span>Current balance</span><b id="frontierVerdict">Balanced lifestyle and estate</b><small id="frontierMargin">PSS covers 69.4% of spending; modelled estate remains above the $1.0m floor.</small></div>
+        </article>
+
+        <article class="panel trade-panel">
+          <div class="panel-head"><div><h3>Quantified trade-off</h3><p>Same assumptions; spending is the only variable.</p></div><span class="badge exact">Reconciled</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Spend</th><th>Annual capital draw</th><th id="tradeCapitalHead">Investments @75</th><th id="tradeEstateHead">Estate @75</th></tr></thead>
+              <tbody id="tradeRows"></tbody>
+            </table>
+          </div>
+          <div class="delta-box">
+            <span>$10,000 less spending preserves</span>
+            <b id="spendDelta">$210,761 more investments at age 75</b>
+            <small id="spendDeltaDetail">Benefit: higher estate and liquidity. Cost: $150,000 less real consumption from ages 61–75.</small>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="objectives">
+      <div class="section-heading">
+        <div class="eyebrow">05 · Eight-objective decision test</div>
+        <h2>One scenario, assessed against the full retirement objective set.</h2>
+        <p>No single terminal balance is allowed to stand in for income, spending, tax, estate and flexibility.</p>
+      </div>
+      <div class="objective-grid" id="objectiveGrid"></div>
+      <div class="priority-callout"><span>Current strategic reading</span><b id="priorityReading">Rail B at $110,000 is lifestyle-forward while retaining strong estate capacity.</b><small id="priorityTradeoff">It preserves the indexed PSS floor and liquidity, but sacrifices age-75 capital relative to $100,000 spending.</small></div>
+    </section>
+
+    <section class="section" id="tax">
+      <div class="section-heading">
+        <div class="eyebrow">06 · Tax and estate protection</div>
+        <h2>Tax efficiency is a governed implementation problem—not a chart decoration.</h2>
+        <p>The NCC wash remains a specialist strategy with eligibility, component and execution controls. The Atlas separates the canonical Rail A wash model from the still-preliminary Rail B component application.</p>
+      </div>
+      <div class="two-column tax-grid">
+        <article class="panel">
+          <div class="panel-head"><div><h3>NCC wash control</h3><p id="washStatus">Rail B requires a formal full-component recalculation before a canonical wash schedule is claimed.</p></div><span class="badge speculative" id="washBadge">Needs recalculation</span></div>
+          <label class="wash-control"><span>Illustrative completed wash cycles <b id="washCyclesOut">0</b></span><input id="washCycles" type="range" min="0" max="7" step="1" value="0"></label>
+          <div class="wash-track" aria-hidden="true"><i id="washTrack"></i></div>
+          <div class="wash-stats">
+            <div><span>Annual NCC cap used</span><b>$130,000</b><small>2026–27 current-law anchor; recheck annually</small></div>
+            <div><span>Taxable amount converted per canonical Rail A wash</span><b>$92,258</b><small>70.97% proportion</small></div>
+            <div><span>DBT reduction per canonical Rail A wash</span><b>$15,683.86</b><small>17% taxed-element rate</small></div>
+            <div><span id="washSavedLabel">Illustrative saving</span><b id="washSaved">$0</b><small id="washSavedSub">Not a Rail B canonical output</small></div>
+          </div>
+          <div class="warning-note"><b>Execution control</b><span>Clean NCC money must remain a separate super interest and commutations must come from the original taxable interest. Merging interests re-blends components and weakens later washes.</span></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><h3>Rail-specific evidence boundary</h3><p>What is known, modelled and still unknown.</p></div><span class="badge exact">Truth-first</span></div>
+          <div class="evidence-boundary" id="taxEvidence"></div>
+          <div class="tax-drag"><span>Pool C modelled distribution drag</span><b>0.35% p.a.</b><small id="poolCDragTotal">Cumulative drag is calculated inside every annual ledger row.</small></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="lifecycle">
+      <div class="section-heading">
+        <div class="eyebrow">07 · Lifecycle and guardrails</div>
+        <h2>The plan changes phase; the pension floor does not.</h2>
+        <p>Use the age markers to inspect key decision points without changing the long-term frontier horizon. Change the frontier target age only in the scenario controls above.</p>
+      </div>
+      <div class="timeline" id="timeline">
+        <button type="button" data-age="60"><span>2033 · age 60</span><b>Launch</b><small>PSS pension, lump sum and three-pool commencement.</small></button>
+        <button type="button" data-age="61"><span>Age 61</span><b>Wash window</b><small>First NCC wash attempt subject to prior 30 June TSB.</small></button>
+        <button type="button" data-age="75" class="active"><span>Age 75</span><b>Primary wealth test</b><small>Lifestyle/estate frontier and original benchmark comparison.</small></button>
+        <button type="button" data-age="85"><span>Age 85</span><b>Long-range estate</b><small>Higher minimum draw rate; capital still measured separately.</small></button>
+        <button type="button" data-age="95"><span>Age 95</span><b>Longevity guardrail</b><small>PSS remains the indexed lifetime income floor.</small></button>
+      </div>
+      <div class="guardrail-grid">
+        <article><span>Income guardrail</span><b id="guardrailIncome">PSS covers 69.4% of selected spending</b><small>Permanent income security remains intact under both rails.</small></article>
+        <article><span>Capital guardrail</span><b id="guardrailCapital">$1,174,679 at age 75</b><small>Modelled, not guaranteed; flex spending after weak sequences.</small></article>
+        <article><span>Estate guardrail</span><b id="guardrailEstate">$674,679 above $1.0m gross floor</b><small>Floor includes the separately assumed mortgage-free home.</small></article>
+        <article><span>Legislative guardrail</span><b>Reconfirm annually before transactions</b><small>TBC, TSB, NCC eligibility and death-benefit rules may change.</small></article>
+      </div>
+    </section>
+
+    <section class="section" id="governance">
+      <div class="section-heading">
+        <div class="eyebrow">08 · Evidence and model governance</div>
+        <h2>Every important figure carries a source class and a limit.</h2>
+        <p>The Atlas now uses the same rail definitions and annual three-pool ledger as the Command Centre. It does not claim that the working age-60 Hostplus projection or future returns are facts.</p>
+      </div>
+      <div class="classification-grid">
+        <article><span class="badge exact">EXACT</span><h3>Supplied / documented</h3><p>PSS iEstimator values, rail-specific lump sums, pension figures, TBC arithmetic and direct calculations.</p></article>
+        <article><span class="badge estimated">ESTIMATED</span><h3>Provider / market dependent</h3><p>External implementation costs, property pricing and future Hostplus balance when based on current projections.</p></article>
+        <article><span class="badge modelled">MODELLED</span><h3>Scenario engine</h3><p>Capital trajectories, spending trade-offs, estate outcomes, Pool C drag and gross-salary equivalents.</p></article>
+        <article><span class="badge speculative">SPECULATIVE</span><h3>Future state</h3><p>Returns, sequence, longevity, future legislation, health costs, beneficiary status and actual inheritance tax outcomes.</p></article>
+      </div>
+      <div class="governance-register panel">
+        <div class="panel-head"><div><h3>Alignment register</h3><p>Current controls applied to this Atlas release.</p></div><span class="badge exact">Aligned</span></div>
+        <div class="register-grid">
+          <div><b>Default rail</b><span>Rail B · July spending-frontier source</span></div>
+          <div><b>Age timing</b><span>Age 60 launch snapshot; first full year at age 61</span></div>
+          <div><b>Return basis</b><span>Real return only inside retirement scenarios</span></div>
+          <div><b>Pool C</b><span>0.35% annual modelled distribution drag</span></div>
+          <div><b>Estate definition</b><span>Investment capital + separately stated home value</span></div>
+          <div><b>Hostplus at 60</b><span>$317,447.66 working projection; pending revalidation</span></div>
+          <div><b>Rail separation</b><span>No silent mixing; tax evidence changes with rail</span></div>
+          <div><b>Scenario handoff</b><span>Exact rail, spending, return, target age, home and salary-equivalent tax year preserved across Command Centre, Atlas and V23</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="handoff section">
+      <div>
+        <div class="eyebrow">Continue through the retirement system</div>
+        <h2>Atlas explains the strategy. The other tools operate and interrogate it.</h2>
+      </div>
+      <div class="handoff-grid">
+        <a id="commandLink" data-target="command" href="./"><span>Operate</span><b>Command Centre</b><small>Scenario lab, seeded risk studio, comparisons, annual review and AI adviser.</small><em>Open exact Command Centre scenario</em></a>
+        <a id="v23Link" href="./deep-model.html"><span>Interrogate</span><b>V23 Deep Model</b><small>Full analytical workbench with the active rail, spending, return, target age and home.</small><em>Open exact V23 scenario</em></a>
+        <a id="referenceLink" href="./model-reference.html"><span>Verify</span><b>Static model reference</b><small>Formulas, assumptions, classifications and source lineage without interactive code.</small><em>Open reference</em></a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Robinson Retirement Atlas · integrated release 2026-08</span>
+    <span>Decision-support model only · current law assumed · verify before implementation</span>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./vendor/chart.umd.js"></script>
+  <script src="./atlas.js?v=6"></script>
+</body>
+</html>
