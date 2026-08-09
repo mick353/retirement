@@ -7,7 +7,7 @@
   const HOME_FLOOR = 500_000;
   const GROSS_ESTATE_FLOOR = 1_000_000;
   const PER_WASH_SAVING = 15_683.86;
-  const TAXABLE_SHARE = 0.7097;
+  const TAXABLE_SHARE = 0.709677;
   const WASH_AMOUNT = 130_000;
 
   const RAILS = {
