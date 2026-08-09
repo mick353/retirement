@@ -28,7 +28,7 @@
       poolC: 51_361.96,
       lumpTaxFree: null,
       lumpTaxableTaxed: null,
-      taxStatus: "Canonical Rail A wash model",
+      taxStatus: "Master-locked separate-interest wash convention",
     },
     B: {
       key: "B",
@@ -47,7 +47,7 @@
       poolC: 148_635.12,
       lumpTaxFree: 175_753.71,
       lumpTaxableTaxed: 429_619.52,
-      taxStatus: "Full-component wash schedule not yet recalculated",
+      taxStatus: "Master-locked separate-interest wash convention",
     },
   };
 
@@ -70,7 +70,7 @@
     selectedIncomeAge: 61,
     selectedCapitalAge: clamp(Number(params.get("age")) || 75, 60, 95),
     inspectionAge: clamp(Number(params.get("age")) || 75, 60, 95),
-    washCycles: 0,
+    washCycles: 6,
   };
 
   let charts = { income: null, capital: null, frontier: null };
@@ -398,7 +398,7 @@
       ["4 · Age-75 wealth", money0.format(at75.ending), at75.ending >= 1_200_000 ? "Benchmark strong" : at75.ending >= 750_000 ? "Substantial" : "Lifestyle cost", `Investment-only capital; the home and pension replacement value are excluded.`],
       ["5 · Age-85 wealth", money0.format(at85.ending), at85.ending >= 750_000 ? "Substantial" : at85.ending >= 300_000 ? "Moderate" : "Guardrail", `Uses the same constant real spending and return assumptions through age 85.`],
       ["6 · Estate outcome", money0.format(targetEstate), estateMargin >= 500_000 ? "Strong margin" : estateMargin >= 0 ? "Floor retained" : "Below floor", `${estateMargin >= 0 ? money0.format(estateMargin) + " above" : money0.format(Math.abs(estateMargin)) + " below"} the $1.0m property-inclusive floor.`],
-      ["7 · Tax efficiency", money0.format(drag), rail.key === "B" ? "Provisional" : "Partial model", rail.key === "B" ? `Known Pool C drag only [MODELLED] through age ${state.targetAge}; full Rail B death-benefit-tax exposure remains unknown until Hostplus components are supplied.` : `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; pension-phase earnings tax is modelled at 0%.`],
+      ["7 · Tax efficiency", money0.format(drag), "Modelled wash", `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; Rail ${rail.key} also uses the master-locked 70.97% separate-interest wash convention. Provider execution remains to be confirmed.`],
       ["8 · Optionality", money0.format(target.ending), target.ending >= 750_000 ? "High liquidity" : target.ending >= 300_000 ? "Meaningful" : "Narrowing", `Liquid investment capital remains separate from the mortgage-free home and lifelong PSS floor.`],
     ];
     $("objectiveGrid").innerHTML = objectives.map(([label, value, verdict, detail]) => `<article class="objective-card"><div><span>${label}</span><em>${verdict}</em></div><strong>${value}</strong><small>${detail}</small></article>`).join("");
@@ -417,35 +417,21 @@
     $("washTrack").style.width = `${state.washCycles / 7 * 100}%`;
     $("washSaved").textContent = money2.format(state.washCycles * PER_WASH_SAVING);
 
-    if (rail.key === "A") {
-      const taxableStart = rail.poolA * TAXABLE_SHARE;
-      const modelledDbtStart = taxableStart * .17;
-      const taxableRemaining = Math.max(0, taxableStart - state.washCycles * WASH_AMOUNT * TAXABLE_SHARE);
-      const remainingDbt = taxableRemaining * .17;
-      $("washStatus").textContent = "Rail A carries the documented V5 wash mechanics: up to seven $130,000 cycles from age 61, subject to annual eligibility and correct separate-interest execution.";
-      $("washBadge").className = "badge modelled";
-      $("washBadge").textContent = "Canonical Rail A model";
-      $("washSavedLabel").textContent = "Modelled DBT remaining";
-      $("washSaved").textContent = money2.format(remainingDbt);
-      $("washSavedSub").textContent = `${money2.format(modelledDbtStart - remainingDbt)} modelled reduction after ${state.washCycles} cycle${state.washCycles === 1 ? "" : "s"}`;
-      $("taxEvidence").innerHTML = `
-        <div class="evidence-row"><div><b>Pool A taxable-share assumption</b><span class="badge modelled">MODELLED</span></div><p>${pct(TAXABLE_SHARE, 2)} of the original interest; ${money0.format(taxableStart)} starting taxable component in the governed V5 model.</p></div>
-        <div class="evidence-row"><div><b>Illustrative DBT before washes</b><span class="badge modelled">MODELLED</span></div><p>${money2.format(modelledDbtStart)} at the 17% taxed-element planning rate for adult non-dependants.</p></div>
-        <div class="evidence-row"><div><b>Separate-interest execution</b><span class="badge exact">CONTROL</span></div><p>Commute only from the original interest; keep re-contributed NCC money separate to avoid component re-blending.</p></div>`;
-    } else {
-      const knownLumpExposure = rail.lumpTaxableTaxed * .17;
-      $("washStatus").textContent = "Rail B has exact July lump-sum components, but the full Pool A mix also depends on Hostplus components and has not been converted into a canonical wash schedule.";
-      $("washBadge").className = "badge speculative";
-      $("washBadge").textContent = "Needs recalculation";
-      $("washSavedLabel").textContent = "Illustrative saving";
-      $("washSaved").textContent = money2.format(state.washCycles * PER_WASH_SAVING);
-      $("washSavedSub").textContent = "Rail A per-cycle comparator only; not a Rail B canonical output";
-      $("taxEvidence").innerHTML = `
-        <div class="evidence-row"><div><b>July PSS lump tax-free component</b><span class="badge exact">EXACT</span></div><p>${money2.format(rail.lumpTaxFree)} from the 2 July 60/40 iEstimator.</p></div>
-        <div class="evidence-row"><div><b>July PSS lump taxable-taxed component</b><span class="badge exact">EXACT</span></div><p>${money2.format(rail.lumpTaxableTaxed)}; taxable-untaxed component is $0.</p></div>
-        <div class="evidence-row"><div><b>Known lump-only DBT exposure</b><span class="badge modelled">MODELLED</span></div><p>${money2.format(knownLumpExposure)} at 17% if this taxable component remained in super and were paid to adult non-dependants. Hostplus components are not included.</p></div>
-        <div class="evidence-row"><div><b>Unknown full Pool A composition</b><span class="badge speculative">UNKNOWN</span></div><p>A complete Rail B wash and net-inheritance schedule requires current Hostplus component data and formal recalculation.</p></div>`;
-    }
+    const taxableStart = rail.poolA * TAXABLE_SHARE;
+    const modelledDbtStart = taxableStart * .17;
+    const taxableRemaining = Math.max(0, taxableStart - state.washCycles * WASH_AMOUNT * TAXABLE_SHARE);
+    const remainingDbt = taxableRemaining * .17;
+    $("washStatus").textContent = `Rail ${rail.key} uses the master-locked separate-interest convention: up to seven $130,000 cycles from age 61, subject to annual eligibility and provider execution confirmation.`;
+    $("washBadge").className = "badge modelled";
+    $("washBadge").textContent = `Modelled Rail ${rail.key} convention`;
+    $("washSavedLabel").textContent = "Modelled DBT remaining";
+    $("washSaved").textContent = money2.format(remainingDbt);
+    $("washSavedSub").textContent = `${money2.format(modelledDbtStart - remainingDbt)} modelled reduction after ${state.washCycles} cycle${state.washCycles === 1 ? "" : "s"}`;
+    $("taxEvidence").innerHTML = `
+      <div class="evidence-row"><div><b>Master-locked Pool A taxable-share convention</b><span class="badge modelled">MODELLED</span></div><p>${pct(TAXABLE_SHARE, 2)} taxable-taxed, 29.03% tax-free and 0% untaxed for the engine on both rails; ${money0.format(taxableStart)} starting taxable component in this illustration.</p></div>
+      ${rail.key === "B" ? `<div class="evidence-row"><div><b>July PSS lump components</b><span class="badge exact">EXACT</span></div><p>${money2.format(rail.lumpTaxFree)} tax-free and ${money2.format(rail.lumpTaxableTaxed)} taxable-taxed; taxable-untaxed is $0.</p></div>` : ""}
+      <div class="evidence-row"><div><b>Illustrative DBT before washes</b><span class="badge modelled">MODELLED</span></div><p>${money2.format(modelledDbtStart)} at the 17% taxed-element planning rate for adult non-dependants.</p></div>
+      <div class="evidence-row"><div><b>Provider execution check</b><span class="badge speculative">UNKNOWN</span></div><p>Confirm the provider can preserve the re-contributed NCC money as a separate pension interest and refresh account components before acting.</p></div>`;
   }
 
   function renderGuardrails(rail, inspectionRow) {
@@ -532,7 +518,7 @@
   }
 
   $("railA").addEventListener("click", () => { state.rail = "A"; state.washCycles = 6; renderAll(); });
-  $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = 0; renderAll(); });
+  $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = 6; renderAll(); });
   $("spend").addEventListener("input", (event) => { state.spend = Number(event.target.value); renderAll(); });
   $("return").addEventListener("input", (event) => { state.realReturn = Number(event.target.value) / 100; renderAll(); });
   $("targetAge").addEventListener("input", (event) => { state.targetAge = Number(event.target.value); state.selectedCapitalAge = state.targetAge; state.inspectionAge = state.targetAge; renderAll(); });
@@ -547,7 +533,7 @@
   });
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
-    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 0 });
+    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6 });
     renderAll();
     showToast("Rail B central baseline restored.");
   });
@@ -580,7 +566,7 @@
   document.addEventListener("keydown", (event) => {
     if ((event.key === "r" || event.key === "R") && !/input|textarea|select/i.test(document.activeElement.tagName)) {
       state.rail = state.rail === "A" ? "B" : "A";
-      state.washCycles = state.rail === "A" ? 6 : 0;
+      state.washCycles = 6;
       renderAll();
     }
   });
@@ -592,6 +578,6 @@
   $("themeToggle").textContent = initialTheme === "dark" ? "Light" : "Dark";
   $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
   $("capitalAgeSelect").innerHTML = Array.from({ length: 36 }, (_, index) => 60 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
-  state.washCycles = state.rail === "A" ? 6 : 0;
+  state.washCycles = 6;
   renderAll();
 })();

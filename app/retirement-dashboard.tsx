@@ -467,7 +467,7 @@ export default function RetirementDashboard() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [navOpen, setNavOpen] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
-  const [washCycles, setWashCycles] = useState(0);
+  const [washCycles, setWashCycles] = useState(6);
   const [vrAge, setVrAge] = useState(57);
   const [vrMode, setVrMode] = useState<"immediate" | "preserve">("immediate");
   const [phase2, setPhase2] = useState(650);
@@ -500,9 +500,8 @@ export default function RetirementDashboard() {
   const atlasUrl = scenarioUrl("atlas.html", currentScenario);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
-  const railDbtKnown = railKey === "A";
-  const taxableStart = railDbtKnown ? rail.poolA * 0.7097 : 0;
-  const removedPerWash = 130_000 * 0.7097;
+  const taxableStart = rail.poolA * 0.709677;
+  const removedPerWash = 130_000 * 0.709677;
   const taxableRemaining = Math.max(0, taxableStart - washCycles * removedPerWash);
   const dbtStart = taxableStart * 0.17;
   const dbtRemaining = taxableRemaining * 0.17;
@@ -557,10 +556,10 @@ export default function RetirementDashboard() {
     },
     operationalLedger: ledger,
     nccWash: {
-      componentEvidence: railDbtKnown ? "Rail A canonical component split available" : "Rail B Hostplus/PSS tax components not yet supplied; DBT outputs withheld",
+      componentEvidence: "Master-locked 60/40 wash convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed for the decision-support engine on both rails. Rail B's July PSS lump agrees with this split; provider execution and annual account-component checks remain required.",
       completedCycles: washCycles,
       annualWash: 130_000,
-      taxableShare: 0.7097,
+      taxableShare: 0.709677,
       deathBenefitTaxRate: 0.17,
       taxableComponentAtStart: taxableStart,
       taxableComponentRemaining: taxableRemaining,
@@ -603,10 +602,6 @@ export default function RetirementDashboard() {
     if ("serviceWorker" in navigator) navigator.serviceWorker.register(siteAsset("sw.js")).catch(() => undefined);
     return () => { if (timer) clearTimeout(timer); };
   }, []);
-
-  useEffect(() => {
-    setWashCycles(railKey === "A" ? 6 : 0);
-  }, [railKey]);
 
   useEffect(() => {
     try {
@@ -747,7 +742,7 @@ export default function RetirementDashboard() {
             ["Age-75 wealth", Math.min(1, ledgerEndingAtAge(rail, spend, realReturn, 75, taxYear) / 1_500_000), "Investment target"],
             ["Age-85 wealth", Math.min(1, ledgerEndingAtAge(rail, spend, realReturn, 85, taxYear) / 1_500_000), "Longevity capital"],
             ["Estate", Math.min(1, estate / 2_000_000), "Property-inclusive"],
-            ["Tax efficiency", railDbtKnown ? (washCycles >= 6 ? 0.92 : 0.65) : 0.5, railDbtKnown ? "NCC wash model" : "Provisional · components unknown"],
+            ["Tax efficiency", washCycles >= 6 ? 0.92 : 0.65, "NCC wash model · master-locked"],
             ["Optionality", spend <= 120_000 ? 0.9 : 0.68, "Liquidity / reversibility"],
           ].map(([name, score, detail]) => <div className="objective" key={String(name)}><div><span>{name}</span><b>{Math.round(Number(score) * 100)}</b></div><div className="meter"><i style={{ width: `${Math.min(100, Number(score) * 100)}%` }} /></div><small>{detail}</small></div>)}
         </div>
@@ -966,8 +961,8 @@ export default function RetirementDashboard() {
   };
 
   const renderEstate = () => {
-    const taxableStart = railDbtKnown ? rail.poolA * 0.7097 : 0;
-    const removedPerWash = 130_000 * 0.7097;
+    const taxableStart = rail.poolA * 0.709677;
+    const removedPerWash = 130_000 * 0.709677;
     const taxableRemaining = Math.max(0, taxableStart - washCycles * removedPerWash);
     const dbtStart = taxableStart * 0.17;
     const dbtRemaining = taxableRemaining * 0.17;
@@ -975,23 +970,23 @@ export default function RetirementDashboard() {
     return <>
       <SectionHeading eyebrow="After-tax legacy" title="Tax, NCC wash and estate" copy="The estate question is not gross wealth alone. Super components, death-benefit tax and the location of capital determine what beneficiaries actually receive." />
       <div className="metrics four">
-        <Metric label="Starting taxable share" value={railDbtKnown ? "70.97%" : "Unknown"} sub={railDbtKnown ? "Rail A 60/40 lump taxable-taxed; untaxed = 0%" : "Rail B Hostplus and PSS tax components must be supplied before DBT modelling"} tone="amber" />
+        <Metric label="Starting taxable share" value="70.97%" sub="Master-locked 60/40 engine convention · taxable-untaxed = 0%" tone="amber" />
         <Metric label="DBT rate on taxable component" value="17%" sub="Adult non-tax dependant planning rate" tone="violet" />
-        <Metric label="DBT saved / full wash" value={railDbtKnown ? money(15_683.86) : "Withheld"} sub={railDbtKnown ? "$92,258 taxable component removed" : "No invented Rail B component split"} tone="green" />
+        <Metric label="DBT saved / full wash" value={money(15_683.86)} sub="$92,258 taxable component removed · master-locked convention" tone="green" />
         <Metric label="Pool C DBT exposure" value="$0" sub="External estate capital; ordinary tax rules remain" />
       </div>
       <section className="panel">
-        <div className="panel-head"><div><h3>NCC wash simulator</h3><p>{railDbtKnown ? "Separate-interest method: commute from the original taxable interest; recontribute $130k as a distinct tax-free interest." : "Rail B remains provisional until its actual taxable and tax-free components are available."}</p></div><Badge tone={railDbtKnown ? "modelled" : "warn"}>{railDbtKnown ? "Current-law mechanics" : "Evidence gap"}</Badge></div>
+        <div className="panel-head"><div><h3>NCC wash simulator</h3><p>Master-locked separate-interest model: commute from the original taxable interest; recontribute $130k as a distinct tax-free interest.</p></div><Badge tone="modelled">Modelled · execution confirmation required</Badge></div>
         <div className="wash-layout">
-          <div className="control-panel inline"><label><span>Completed wash cycles <b>{washCycles}</b></span><input type="range" min="0" max="7" step="1" value={washCycles} disabled={!railDbtKnown} onChange={(e) => setWashCycles(Number(e.target.value))} /></label><div className="cycle-dots">{Array.from({ length: 7 }, (_, i) => <i key={i} className={i < washCycles ? "done" : ""}>{i + 1}</i>)}</div></div>
-          <div className="wash-result"><div><span>Modelled DBT saved</span><strong>{railDbtKnown ? money(dbtSaved) : "Unknown"}</strong></div><div><span>Remaining DBT</span><strong>{railDbtKnown ? money(dbtRemaining) : "Unknown"}</strong></div><div><span>Taxable component remaining</span><strong>{railDbtKnown ? money(taxableRemaining) : "Unknown"}</strong></div></div>
+          <div className="control-panel inline"><label><span>Completed wash cycles <b>{washCycles}</b></span><input type="range" min="0" max="7" step="1" value={washCycles} onChange={(e) => setWashCycles(Number(e.target.value))} /></label><div className="cycle-dots">{Array.from({ length: 7 }, (_, i) => <i key={i} className={i < washCycles ? "done" : ""}>{i + 1}</i>)}</div></div>
+          <div className="wash-result"><div><span>Modelled DBT saved</span><strong>{money(dbtSaved)}</strong></div><div><span>Remaining DBT</span><strong>{money(dbtRemaining)}</strong></div><div><span>Taxable component remaining</span><strong>{money(taxableRemaining)}</strong></div></div>
         </div>
-        <div className="note"><b>{railDbtKnown ? "Execution dependency:" : "Evidence dependency:"}</b> {railDbtKnown ? "if the clean NCC money is merged back into the original interest, the pool re-blends and later washes become less effective. The separate-interest implementation is essential." : "obtain the actual Rail B Hostplus and PSS taxable/tax-free components before calculating wash benefits or net inheritance."}</div>
+        <div className="note"><b>Execution dependency:</b> the decision-support engine uses the master-locked 70.97% convention on both rails. Confirm the provider can preserve the clean NCC money as a separate pension interest and refresh account components before acting; merging interests re-blends the pool and weakens later washes.</div>
       </section>
       <section className="panel estate-composition">
         <div><h3>Selected gross estate at {targetAge}</h3><strong>{money(estate)}</strong><p>{money(endCapital)} investments + {money(homeValue)} home.</p></div>
         <div className="estate-bar"><i className="investment" style={{ width: `${(endCapital / estate) * 100}%` }}><span>Investments {pct(endCapital / estate)}</span></i><i className="home" style={{ width: `${(homeValue / estate) * 100}%` }}><span>Home {pct(homeValue / estate)}</span></i></div>
-        <div className="split-grid"><div><span>Gross per child · 2-way</span><b>{money(estate / 2)}</b></div><div><span>Illustrative residual DBT</span><b>{railDbtKnown ? `−${money(dbtRemaining)}` : "Unknown"}</b></div><div><span>After that DBT only</span><b>{railDbtKnown ? money(estate - dbtRemaining) : "Not modelled"}</b></div></div>
+        <div className="split-grid"><div><span>Gross per child · 2-way</span><b>{money(estate / 2)}</b></div><div><span>Illustrative residual DBT</span><b>−{money(dbtRemaining)}</b></div><div><span>After that DBT only</span><b>{money(estate - dbtRemaining)}</b></div></div>
         <small>Does not deduct administration, transaction costs, personal debts or tax arising outside super.</small>
       </section>
     </>;

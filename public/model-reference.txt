@@ -94,22 +94,22 @@ Stress controls:
 - The V23 CPI-lag stress models a temporary real PSS-pension dip and a capital real-return drag, with investments topping up the pension shortfall.
 
 NCC WASH AND DEATH-BENEFIT TAX
-Planning component split from the supplied 60/40 estimate:
+Master-locked planning component convention for both rails:
 - Tax-free 29.03%.
 - Taxable-taxed 70.97%.
 - Untaxed 0%.
 - Illustrative adult non-tax-dependant death-benefit-tax rate 17%.
 
-Corrected proportioning method, used for V23 default analysis:
-taxableRemoved = washAmount x currentTaxableShare
+Master-locked separate-interest engine:
+taxableRemoved = washAmount x 0.709677
 taxableAfter = max(0, taxableBefore - taxableRemoved)
 deathBenefitTax = taxableComponent x 0.17
 
-At a 70.97% taxable share, the first $130,000 wash removes about $92,258 taxable. The taxable share and benefit per wash decay. Illustrative corrected analysis may require up to 14 annual washes from ages 61-74 to approach a $10,000 DBT target.
+At the master-locked 70.97% taxable share, a $130,000 wash removes about $92,258 taxable and reduces modelled DBT by about $15,684 on both rails. Six separate-interest cycles reduce the modelled liability to the $10,000 target or below.
 
-Workbook separate/frozen-share method:
-- Reproduces the workbook component treatment and about $15,683.86 tax reduction per wash.
-- Useful for reconciliation, but freezes the share and is not the corrected proportioning default.
+Alternative analytic comparators:
+- The active cross-site engine reproduces the master-locked $15,683.86 tax reduction per full wash.
+- Corrected proportioning and merged-interest analysis must remain separately labelled and are not the cross-site decision-support engine.
 
 Full-conversion master-document comparison:
 - Treats the full $130,000 as taxable converted, implying $22,100 at 17%.
@@ -140,7 +140,7 @@ V23 separately tracks account components, external assets and illustrative death
 
 GOVERNANCE CONTROLS
 - Do not mix Rail A and Rail B silently.
-- Do not use the PSS statement whole-interest split for Pool A/B; use the supplied 60/40 lump-sum estimate for the wash model.
+- Do not present combined Pool A components as exact; the 70.97% taxable-taxed engine share is a master-locked planning convention for both rails.
 - Keep gross pension, net pension, net spending and gross salary equivalence distinct.
 - Keep real retirement projections and nominal pre-age-60 sensitivities distinct.
 - Keep corrected proportioning, workbook reconciliation and full-conversion wash methods separately labelled.

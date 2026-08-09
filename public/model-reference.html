@@ -176,13 +176,13 @@ closingPoolC  = max(0, openingPoolC × (1 + realReturn) - poolCDrag + reinvestme
       <section id="ncc">
         <p class="eyebrow">Estate and super sequencing</p>
         <h2>NCC wash and death-benefit-tax methods</h2>
-        <p>The planning objective is to reduce the taxable component exposed to an illustrative 17% adult non-tax-dependant death-benefit-tax rate, while respecting contribution eligibility, TSB/TBC headroom and transaction sequencing. The supplied 60/40 estimate uses a 29.03% tax-free and 70.97% taxable-taxed split.</p>
+        <p>The planning objective is to reduce the taxable component exposed to an illustrative 17% adult non-tax-dependant death-benefit-tax rate, while respecting contribution eligibility, TSB/TBC headroom and transaction sequencing. The decision-support engine is master-locked at 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed for both rails. Rail B’s exact July PSS lump agrees with that split; provider execution and actual account components require confirmation before any transaction.</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Method</th><th>How a $130,000 wash is represented</th><th>Interpretation</th></tr></thead>
             <tbody>
-              <tr><td>Corrected proportioning — V23 default analysis</td><td>Taxable amount removed is proportional to the current taxable share. At 70.97%, the first wash removes about $92,258 taxable.</td><td>Taxable share decays; the benefit per wash declines. Illustrative analysis may require up to 14 annual washes from ages 61–74 to approach a $10,000 DBT target.</td></tr>
-              <tr><td>Workbook separate/frozen-share method</td><td>Uses the workbook’s fixed component treatment and can reproduce about $15,683.86 of tax reduction per wash.</td><td>Useful for reconciliation with the workbook, but it freezes the share and is not the corrected proportioning default.</td></tr>
+              <tr><td>Master-locked separate-interest engine</td><td>Each $130,000 commutation comes from the original interest and removes taxable money at the locked 70.97% taxable-taxed proportion. The clean NCC is kept in a separate interest.</td><td>About $92,258 taxable removed and $15,683.86 DBT reduction per full wash on both rails [MODELLED]. Six cycles reduce the modelled liability to the $10,000 target or below.</td></tr>
+              <tr><td>Alternative analytic comparators</td><td>Corrected proportioning and merged-interest analysis may be displayed separately in V23.</td><td>They are not the cross-site decision-support engine and must remain explicitly labelled if used.</td></tr>
               <tr><td>Full-conversion master-document method</td><td>Treats the full $130,000 as taxable converted, implying $22,100 at 17%.</td><td>Shown as an explicit comparison method, not silently combined with proportioning.</td></tr>
             </tbody>
           </table>
@@ -221,7 +221,7 @@ deathBenefitTax = taxableComponent × 0.17</pre>
         <h2>Known mismatches and model governance</h2>
         <dl>
           <dt>Do not mix Rail A and Rail B silently.</dt><dd>Each output inherits a named rail. Cross-rail comparison is visible and intentional.</dd>
-          <dt>Do not use the PSS statement whole-interest split for Pool A/B.</dt><dd>The wash model uses the supplied 60/40 lump-sum estimate: 29.03% tax-free, 70.97% taxable-taxed, 0% untaxed.</dd>
+          <dt>Do not present combined Pool A components as exact.</dt><dd>The 70.97% taxable-taxed engine share is a master-locked planning convention for both rails, not a provider-confirmed combined Pool A statement.</dd>
           <dt>Keep gross, net and salary-equivalent values distinct.</dt><dd>Gross pension, modelled net pension, net spending and gross salary equivalence are separate fields.</dd>
           <dt>Keep real and nominal values distinct.</dt><dd>Retirement projections use real dollars. Pre-age-60 compounding is separately labelled nominal.</dd>
           <dt>Preserve method labels.</dt><dd>Corrected proportioning, workbook reconciliation and full-conversion comparison are not interchangeable NCC wash methods.</dd>
