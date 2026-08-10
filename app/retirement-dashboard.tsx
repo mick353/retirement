@@ -176,8 +176,9 @@ function scenarioUrl(path: string, scenario: ScenarioState) {
   return `${siteAsset(path)}?${scenarioQuery(scenario)}`;
 }
 
-function sharedModelUrl(scenario: ScenarioState) {
-  return scenarioUrl("deep-model.html", scenario);
+function sharedModelUrl(scenario: ScenarioState, page?: string) {
+  const url = scenarioUrl("deep-model.html", scenario);
+  return page ? `${url}&page=${encodeURIComponent(page)}` : url;
 }
 
 function seededGenerator(seed: number) {
@@ -497,6 +498,7 @@ export default function RetirementDashboard() {
   const retirementPf = spend / 26;
   const currentScenario = useMemo<ScenarioState>(() => ({ rail: railKey, spend, realReturn, targetAge, homeValue, taxYear }), [railKey, spend, realReturn, targetAge, homeValue, taxYear]);
   const deepModelUrl = sharedModelUrl(currentScenario);
+  const v23SpendPlanUrl = sharedModelUrl(currentScenario, "income");
   const atlasUrl = scenarioUrl("atlas.html", currentScenario);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
@@ -695,7 +697,7 @@ export default function RetirementDashboard() {
           <div className="hero-actions">
             <button className="primary" onClick={() => go("scenario")}>Run a scenario</button>
             <button className="secondary" onClick={() => go("frontier")}>Inspect the frontier</button>
-            <a className="secondary" href={deepModelUrl} target="_blank" rel="noreferrer">Open this scenario in V23 ↗</a>
+            <a className="secondary" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age-band spending in V23 ↗</a>
             <a className="secondary" href={atlasUrl} target="_blank" rel="noreferrer">Explore Atlas ↗</a>
           </div>
         </div>
@@ -719,6 +721,20 @@ export default function RetirementDashboard() {
         <div className="comparison-stat"><span>Selected spend</span><strong>{fmt1.format(retirementPf)} / pf</strong><small>{money(grossEquivalent)} salary equivalent</small></div>
         <div className="comparison-stat"><span>Visible current bank receipt</span><strong>{fmt1.format(currentPf)} / pf</strong><small>Before the retirement release of current obligations</small></div>
         <div className="comparison-stat positive"><span>Cashflow uplift</span><strong>+{fmt1.format(retirementPf - currentPf)} / pf</strong><small>{pct(retirementPf / currentPf - 1)} above current bank inflow</small></div>
+      </section>
+
+      <section className="panel spending-handoff" aria-labelledby="spending-handoff-title">
+        <div className="spending-handoff-copy">
+          <Badge tone="modelled">Two-level spending plan</Badge>
+          <h3 id="spending-handoff-title">Command Centre tests a flat annual-spending lens.</h3>
+          <p>The selected {money(spend)} is held constant in real dollars for every retirement year here. That makes the capital, estate and risk trade-offs comparable, but it is a starting point—not your detailed spending schedule.</p>
+        </div>
+        <div className="spending-handoff-cta">
+          <span>Fine-tune the actual plan in V23</span>
+          <b>Set the gap and drawdown periods by age</b>
+          <small>For example, set different gaps from ages 60, 63 and 75. V23 applies those bands across its income, drawdown and capital views.</small>
+          <a className="primary" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age bands in Income &amp; draws ↗</a>
+        </div>
       </section>
 
       <section className="next-actions" aria-label="Recommended next actions">
@@ -752,11 +768,12 @@ export default function RetirementDashboard() {
 
   const renderScenario = () => (
     <>
-      <SectionHeading eyebrow="Decision engine" title="Scenario lab" copy="Change one assumption at a time, preserve rail identity, and see capital, income and estate effects immediately." />
+      <SectionHeading eyebrow="Decision engine" title="Scenario lab" copy="Test one flat real annual-spend assumption at a time, preserve rail identity, and see capital, income and estate effects immediately. Set an age-by-age schedule in V23." />
       <section className="scenario-layout">
         <aside className="control-panel">
+          <div className="control-hint"><Badge tone="modelled">Flat comparison lens</Badge><p>The spending control below is held constant in real dollars each year. Use V23 when the plan needs different age bands or drawdown periods.</p><a href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age bands in V23 ↗</a></div>
           <label>Modelling rail<select value={railKey} onChange={(e) => setRailKey(e.target.value as RailKey)}><option value="A">Rail A — conservative wealth</option><option value="B">Rail B — spending frontier</option></select></label>
-          <AdjustableControl label="Net annual spending" value={spend} min={76_000} max={150_000} step={1_000} baseline={110_000} format={money} onChange={setSpend} />
+          <AdjustableControl label="Flat net annual spend" value={spend} min={76_000} max={150_000} step={1_000} baseline={110_000} format={money} onChange={setSpend} />
           <AdjustableControl label="Real investment return" value={realReturn} min={0.02} max={0.075} step={0.005} baseline={0.05} scale={100} format={(value) => pct(value, 1)} onChange={setRealReturn} />
           <AdjustableControl label="Target age" value={targetAge} min={70} max={95} step={1} baseline={75} format={(value) => `${Math.round(value)}`} onChange={setTargetAge} />
           <AdjustableControl label="Real home value" value={homeValue} min={300_000} max={1_000_000} step={25_000} baseline={HOME_BASELINE} format={money} onChange={setHomeValue} />
@@ -804,13 +821,13 @@ export default function RetirementDashboard() {
     const sharedTargetAge = baseline.targetAge;
     const sharedHomeValue = baseline.homeValue;
     return <>
-      <SectionHeading eyebrow="Decision workspace" title="Compare complete retirement plans" copy={`These are fixed governed presets, intentionally independent of the active sliders. All capital and estate figures use ${pct(sharedReturn, 1)} real return p.a. after inflation, age ${sharedTargetAge} and a ${money(sharedHomeValue)} real home. Load a card to make all assumptions active in the Command Centre or V23.`} />
+      <SectionHeading eyebrow="Decision workspace" title="Compare complete retirement plans" copy={`These are fixed governed presets, intentionally independent of the active sliders. Each card holds its net annual spend flat in real dollars every retirement year, so the trade-offs are comparable. For age-banded spending and drawdown periods, continue in V23. All capital and estate figures use ${pct(sharedReturn, 1)} real return p.a. after inflation, age ${sharedTargetAge} and a ${money(sharedHomeValue)} real home.`} />
       <section className="compare-cards">{scenarios.map((scenario, index) => <article key={scenario.key} className={scenario.key === "baseline" ? "recommended" : ""}>
         <div className="compare-head"><div><Badge tone={scenario.key === "baseline" ? "good" : scenario.key === "lifestyle" ? "estimated" : "modelled"}>{scenario.key === "baseline" ? "Recommended" : `Option ${index + 1}`}</Badge><h3>{scenario.label}</h3><p>{scenario.intent}</p></div><span>Rail {scenario.rail}</span></div>
-        <div className="compare-spend"><span>Net annual spending</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight</small><small className="compare-assumption">Figures use <b>{pct(scenario.realReturn, 1)} real return p.a.</b> after inflation · age {scenario.targetAge} · {money(scenario.homeValue)} real home</small></div>
+        <div className="compare-spend"><span>Flat net annual spend</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight · held constant in real dollars each retirement year</small><small className="compare-assumption">Figures use <b>{pct(scenario.realReturn, 1)} real return p.a.</b> after inflation · age {scenario.targetAge} · {money(scenario.homeValue)} real home</small></div>
         <dl className="compare-outcomes"><div><dt>Capital @75</dt><dd>{money(scenario.capital75)}</dd></div><div><dt>Capital @85</dt><dd>{money(scenario.capital85)}</dd></div><div><dt>Estate @75</dt><dd>{money(scenario.estate75)}</dd></div><div><dt>P(floor @75)</dt><dd>{pct(scenario.probability, 0)}</dd></div></dl>
         <div className="compare-delta"><span>Versus baseline</span><b>{scenario.key === "baseline" ? "Reference plan" : `${scenario.capital75 >= baseline.capital75 ? "+" : ""}${money(scenario.capital75 - baseline.capital75)} capital @75`}</b></div>
-        <div className="compare-actions"><button className="secondary" onClick={() => { applyScenario(scenario); go("scenario"); }}>Use this plan</button><a className="text-button" href={sharedModelUrl(scenario)} target="_blank" rel="noreferrer">Open in V23 ↗</a></div>
+        <div className="compare-actions"><button className="secondary" onClick={() => { applyScenario(scenario); go("scenario"); }}>Use this plan</button><a className="text-button" href={sharedModelUrl(scenario, "income")} target="_blank" rel="noreferrer">Set age bands in V23 ↗</a></div>
       </article>)}</section>
       <section className="panel comparison-matrix">
         <div className="panel-head"><div><h3>Trade-off matrix</h3><p>{pct(sharedReturn, 1)} real return p.a. after inflation · age {sharedTargetAge} · {money(sharedHomeValue)} real home. Longer bars are better within each row; spending is preference, not a score.</p></div><Badge tone="modelled">Shared assumptions</Badge></div>
@@ -891,7 +908,7 @@ export default function RetirementDashboard() {
     const selectedActiveCapital = ledgerEndingAtAge(rail, spend, realReturn, targetAge, taxYear);
     const selectedActiveEstate = selectedActiveCapital + homeValue;
     return <>
-      <SectionHeading eyebrow="Lifestyle ↔ legacy" title="Spending–estate frontier" copy="The same secure pension supports several valid retirement profiles. The cost of higher spending is lower future capital plus foregone compounding." />
+      <SectionHeading eyebrow="Lifestyle ↔ legacy" title="Spending–estate frontier" copy="The same secure pension supports several valid retirement profiles. Each point holds one real annual spend flat across retirement, so the cost of higher spending is lower future capital plus foregone compounding. Use V23 to shape the spending timing by age." />
       <section className="profile-strip">{FRONTIER_SPENDS.map((v, i) => <button key={v} className={spend === v ? "active" : ""} onClick={() => setSpend(v)}><span>{["Estate max", "Strong compromise", "Balanced", "Lifestyle-led", "High optionality"][i]}</span><b>{money(v)}</b><small>{fmt1.format(v / 26)} / pf</small></button>)}</section>
       <div className="metrics four">
         <Metric label="PSS coverage" value={pct(rail.netPension / spend, 1)} sub={`${money(portfolioDraw)} annual portfolio draw`} tone="violet" />
@@ -900,7 +917,7 @@ export default function RetirementDashboard() {
         <Metric label={`Gross estate @${targetAge} · ${pct(realReturn, 1)}`} value={money(selectedActiveEstate)} sub="[MODELLED] Before estate costs / residual DBT" tone="amber" />
       </div>
       <section className="panel">
-        <div className="panel-head"><div><h3>Interactive efficient frontier</h3><p>Drag spending or select a point. Colour shows the investment buffer at age {targetAge}: green ≥ $1m, amber ≥ $500k, red below the floor.</p></div><Badge tone="modelled">{pct(realReturn, 1)} real · age {targetAge}</Badge></div>
+        <div className="panel-head"><div><h3>Interactive efficient frontier</h3><p>Drag spending or select a point. Each point is a flat real annual-spend comparison; colour shows the investment buffer at age {targetAge}: green ≥ $1m, amber ≥ $500k, red below the floor.</p></div><Badge tone="modelled">{pct(realReturn, 1)} real · age {targetAge}</Badge></div>
         <FrontierCurve rail={rail} selectedSpend={spend} homeValue={homeValue} realReturn={realReturn} targetAge={targetAge} taxYear={taxYear} onSelect={setSpend} />
       </section>
       <section className="panel">
@@ -1088,7 +1105,7 @@ export default function RetirementDashboard() {
         <aside id="retirement-sidebar" aria-label="Retirement sections" className={`sidebar ${navOpen ? "open" : ""}`}>
           <div className="sidebar-context"><span>Retirement date</span><b>21 December 2033</b><small>Age 60 · preservation age 60</small></div>
           <nav>{NAV.map((item, index) => { const showGroup = index === 0 || item.group !== NAV[index - 1].group; return <div key={item.key}>{showGroup && <div className="nav-group">{item.group}</div>}<button aria-current={section === item.key ? "page" : undefined} className={section === item.key ? "active" : ""} onClick={() => go(item.key)}><span>{item.label}</span></button></div>; })}</nav>
-          <a className="deep-link" href={deepModelUrl} target="_blank" rel="noreferrer"><span>Full V23 model</span><small>Opens with this rail, return, spending and target age</small><b>Continue exact scenario ↗</b></a>
+          <a className="deep-link spending-deep-link" href={v23SpendPlanUrl} target="_blank" rel="noreferrer"><span>Set spending plan in V23</span><small>Fine-tune age-by-age gaps and drawdown periods. Command Centre spending is a flat comparison lens.</small><b>Open Income &amp; draws ↗</b></a>
           <a className="deep-link" href={atlasUrl} target="_blank" rel="noreferrer"><span>Retirement Atlas</span><small>Strategy map linking the floor, pools, tax, trajectory and estate</small><b>Open Atlas ↗</b></a>
           <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
           <div className="version">Baseline 2026-07-18 · integrated v3</div>

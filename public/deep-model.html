@@ -162,6 +162,19 @@ nav.side a.active{
   border:1px solid rgba(77,131,255,.25);
   box-shadow:0 0 0 1px rgba(77,131,255,.1);
 }
+nav.side a.spending-control-link{
+  position:relative;margin:5px 0 10px;padding:10px 12px;
+  color:var(--text);font-weight:800;
+  border:1px solid rgba(47,212,146,.42);
+  background:linear-gradient(90deg,rgba(47,212,146,.15),rgba(77,131,255,.11));
+  box-shadow:inset 3px 0 0 var(--acc2),0 5px 16px rgba(47,212,146,.08);
+}
+nav.side a.spending-control-link::after{
+  content:"SET AGE BANDS";float:right;margin-top:2px;
+  color:var(--good);font-size:8px;font-weight:800;letter-spacing:.08em;
+}
+nav.side a.spending-control-link:hover{border-color:var(--acc2);background:linear-gradient(90deg,rgba(47,212,146,.22),rgba(77,131,255,.16))}
+nav.side a.spending-control-link.active{color:var(--text);border-color:var(--acc2);box-shadow:inset 3px 0 0 var(--acc2),0 0 0 1px rgba(47,212,146,.12)}
 .nav-badge{
   float:right;display:inline-flex;align-items:center;justify-content:center;
   min-width:18px;height:18px;border-radius:999px;
@@ -185,6 +198,8 @@ nav.side a.active{
   nav.side{display:none;position:relative;top:auto;max-height:none;grid-row:1}
   body.nav-open nav.side{display:block}
   main{grid-row:2}
+  .spending-control-callout{align-items:flex-start;flex-direction:column}
+  .spending-control-callout .btn{width:100%;text-align:center}
   .profile-bar,.control-bar,.panel,.slider-block{min-width:0}
   .profile-row #profile-summary{flex:1 1 100%;overflow-wrap:anywhere}
   .slider-grid{grid-template-columns:minmax(0,1fr)}
@@ -211,6 +226,7 @@ body.print-pack section.page.print-pack-include{display:flex}
   margin:0 0 12px;font-size:10px;font-weight:700;
   color:var(--soft);text-transform:uppercase;letter-spacing:1.4px;
 }
+.control-caption{margin-left:8px;color:var(--muted);font-size:9px;font-weight:600;letter-spacing:.02em;text-transform:none}
 .profile-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .profile-row .pill{
   background:var(--chip);color:var(--muted);
@@ -247,6 +263,14 @@ body.print-pack section.page.print-pack-include{display:flex}
 .slider-block.highlight{border-color:rgba(77,131,255,.4);background:rgba(77,131,255,.06)}
 
 .band-block{grid-column:span 2;min-width:0}
+.primary-spend-control{border-color:rgba(47,212,146,.42);background:linear-gradient(145deg,rgba(47,212,146,.08),var(--panel2) 42%)}
+.control-kicker{margin:0 0 8px;color:var(--good);font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
+.spending-control-callout{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:2px;padding:12px 14px;border:1px solid rgba(47,212,146,.4);border-radius:12px;background:linear-gradient(90deg,rgba(47,212,146,.11),rgba(77,131,255,.08));}
+.spending-control-callout b,.spending-control-callout span{display:block}
+.spending-control-callout b{color:var(--text);font-size:13px}
+.spending-control-callout span{margin-top:2px;color:var(--muted);font-size:11px;line-height:1.4}
+.spending-control-callout .btn{flex:0 0 auto;color:#03120b;background:var(--acc2);border-color:var(--acc2);font-weight:800;text-decoration:none}
+.spending-control-callout .btn:hover{background:var(--good);color:#03120b}
 @media(max-width:720px){.band-block{grid-column:span 1}}
 .band-row{
   display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;
@@ -864,6 +888,9 @@ main{min-width:0;}
 
 <div class="layout">
   <nav class="side" id="side-nav">
+    <div class="group">Set your plan</div>
+    <a data-page="income" class="spending-control-link" aria-label="Income and draws — primary spending control">Income &amp; draws</a>
+
     <div class="group">Snapshot</div>
     <a data-page="executive" class="active">Executive summary</a>
     <a data-page="decisionbrief">Decision brief</a>
@@ -871,7 +898,6 @@ main{min-width:0;}
     <a data-page="pre60">Pre-60 tracker</a>
     <a data-page="twopool">Three-pool structure (A/B/C)</a>
     <a data-page="trajectory">Capital trajectory</a>
-    <a data-page="income">Income &amp; draws</a>
 
     <div class="group">Mechanics</div>
     <a data-page="guardrails">Guardrail spending</a>
@@ -935,9 +961,10 @@ main{min-width:0;}
 
     <!-- CONTROL BAR -->
     <div class="control-bar">
-      <h3>Controls</h3>
+      <h3>Plan controls <span class="control-caption">Change once · every V23 page updates</span></h3>
       <div class="slider-grid">
-        <div class="slider-block band-block">
+        <div class="slider-block band-block primary-spend-control" id="spend-control">
+          <div class="control-kicker">Primary spending control</div>
           <div class="lab">
             <span>Annual gap by age band</span>
             <span class="val" id="lbl-gap-summary"></span>
@@ -1011,6 +1038,10 @@ main{min-width:0;}
     <!-- ========== PAGES ========== -->
 
     <section class="page active" id="page-executive">
+      <div class="spending-control-callout">
+        <div><b>Set the age-by-age spending plan in Income &amp; draws.</b><span>The controls above are global; use age bands there for the actual gap and drawdown periods, then review their result on the Income &amp; draws page.</span></div>
+        <a href="#income" data-page="income" class="btn">Set age bands ↗</a>
+      </div>
       <div class="note good"><b>Presentation view.</b> All values in today's dollars. Target age is dynamically set via the slider above — all cards, charts and tables update automatically.</div>
       <div class="status-strip" id="exec_badges"></div>
       <div class="cards" id="exec_cards"></div>
@@ -1149,6 +1180,7 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-income">
+      <div class="note good"><b>Primary spending control.</b> Set the actual plan in the <b>Annual gap by age band</b> control above: each “From age” row creates a spending and drawdown period. Those global inputs drive every V23 view; this page is the clearest place to review the resulting income, draws and retained capital.</div>
       <div class="cards" id="in_cards"></div>
       <div class="panel">
         <h2>Income composition by year (likely path)</h2>
@@ -3727,7 +3759,12 @@ const PAGE_RENDERERS={
 };
 
 /* ========== NAVIGATION ========== */
-let currentPage="page-executive";
+function initialPageFromQuery(){
+  const requested=(window.location?.search||"").match(/[?&]page=([a-z]+)/i)?.[1];
+  const id=requested?`page-${requested}`:"page-executive";
+  return document.getElementById(id)?id:"page-executive";
+}
+let currentPage=initialPageFromQuery();
 function showPage(id){
   if(id&&!id.startsWith("page-"))id="page-"+id;
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
