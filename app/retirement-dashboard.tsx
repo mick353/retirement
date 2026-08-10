@@ -176,11 +176,6 @@ function scenarioUrl(path: string, scenario: ScenarioState) {
   return `${siteAsset(path)}?${scenarioQuery(scenario)}`;
 }
 
-function sharedModelUrl(scenario: ScenarioState, page?: string) {
-  const url = scenarioUrl("deep-model.html", scenario);
-  return page ? `${url}&page=${encodeURIComponent(page)}` : url;
-}
-
 function seededGenerator(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -497,8 +492,7 @@ export default function RetirementDashboard() {
   const currentPf = 2_795.57;
   const retirementPf = spend / 26;
   const currentScenario = useMemo<ScenarioState>(() => ({ rail: railKey, spend, realReturn, targetAge, homeValue, taxYear }), [railKey, spend, realReturn, targetAge, homeValue, taxYear]);
-  const deepModelUrl = sharedModelUrl(currentScenario);
-  const v23SpendPlanUrl = sharedModelUrl(currentScenario, "income");
+  const v23SpendPlanUrl = siteAsset("deep-model.html?page=income");
   const atlasUrl = scenarioUrl("atlas.html", currentScenario);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
@@ -577,7 +571,7 @@ export default function RetirementDashboard() {
     annualReview: { snapshot: reviewSnapshot, checks: reviewChecks },
     scenarioPresets: SCENARIO_PRESETS,
     sourceRegister: SOURCES,
-    links: { activeV23Scenario: deepModelUrl, activeAtlasScenario: atlasUrl, modelReference: "/model-reference.html", modelReferenceText: "/model-reference.txt" },
+    links: { activeV23Scenario: v23SpendPlanUrl, activeAtlasScenario: atlasUrl, modelReference: "/model-reference.html", modelReferenceText: "/model-reference.txt" },
   };
 
   useEffect(() => {
@@ -791,7 +785,7 @@ export default function RetirementDashboard() {
             {["A", "B", "C"].map((slot) => <div key={slot}><button className="secondary" onClick={() => saveSlot(slot)}>Save {slot}</button><button className="text-button" disabled={!saved[slot]} onClick={() => loadSlot(slot)}>Load</button></div>)}
             <button className="secondary" onClick={exportSettings}>Export JSON</button>
             <button className="secondary" onClick={() => importRef.current?.click()}>Import</button>
-            <a className="primary" href={deepModelUrl} target="_blank" rel="noreferrer">Continue in V23 ↗</a>
+            <a className="primary" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Continue to V23 spending plan ↗</a>
             <input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => importSettings(e.target.files?.[0])} />
           </div>
         </div>
@@ -827,7 +821,7 @@ export default function RetirementDashboard() {
         <div className="compare-spend"><span>Flat net annual spend</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight · held constant in real dollars each retirement year</small><small className="compare-assumption">Figures use <b>{pct(scenario.realReturn, 1)} real return p.a.</b> after inflation · age {scenario.targetAge} · {money(scenario.homeValue)} real home</small></div>
         <dl className="compare-outcomes"><div><dt>Capital @75</dt><dd>{money(scenario.capital75)}</dd></div><div><dt>Capital @85</dt><dd>{money(scenario.capital85)}</dd></div><div><dt>Estate @75</dt><dd>{money(scenario.estate75)}</dd></div><div><dt>P(floor @75)</dt><dd>{pct(scenario.probability, 0)}</dd></div></dl>
         <div className="compare-delta"><span>Versus baseline</span><b>{scenario.key === "baseline" ? "Reference plan" : `${scenario.capital75 >= baseline.capital75 ? "+" : ""}${money(scenario.capital75 - baseline.capital75)} capital @75`}</b></div>
-        <div className="compare-actions"><button className="secondary" onClick={() => { applyScenario(scenario); go("scenario"); }}>Use this plan</button><a className="text-button" href={sharedModelUrl(scenario, "income")} target="_blank" rel="noreferrer">Set age bands in V23 ↗</a></div>
+        <div className="compare-actions"><button className="secondary" onClick={() => { applyScenario(scenario); go("scenario"); }}>Use this plan</button><a className="text-button" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age bands in V23 ↗</a></div>
       </article>)}</section>
       <section className="panel comparison-matrix">
         <div className="panel-head"><div><h3>Trade-off matrix</h3><p>{pct(sharedReturn, 1)} real return p.a. after inflation · age {sharedTargetAge} · {money(sharedHomeValue)} real home. Longer bars are better within each row; spending is preference, not a score.</p></div><Badge tone="modelled">Shared assumptions</Badge></div>
@@ -1073,7 +1067,7 @@ export default function RetirementDashboard() {
       <section className="review-grid">
         <div className="panel checklist-panel"><div className="panel-head"><div><h3>Review checklist</h3><p>Complete in order; each task preserves an auditable decision trail.</p></div><button className="text-button" onClick={() => { setReviewChecks({}); localStorage.removeItem("robinson-retirement-review-checks"); }}>Reset</button></div>{checklist.map(([key, label, detail], index) => <label className={reviewChecks[key] ? "done" : ""} key={key}><input type="checkbox" checked={Boolean(reviewChecks[key])} onChange={() => toggleReviewCheck(key)} /><span>{index + 1}</span><div><b>{label}</b><small>{detail}</small></div></label>)}</div>
         <div className="review-side">
-          <section className="panel"><div className="panel-head"><div><h3>Current baseline</h3><p>Settings that will be handed to V23.</p></div><Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}</Badge></div><dl className="review-baseline"><div><dt>Spending</dt><dd>{money(spend)}</dd></div><div><dt>Return</dt><dd>{pct(realReturn, 1)}</dd></div><div><dt>Target</dt><dd>Age {targetAge}</dd></div><div><dt>Home</dt><dd>{money(homeValue)}</dd></div></dl><a className="primary wide-link" href={deepModelUrl} target="_blank" rel="noreferrer">Review this baseline in V23 ↗</a></section>
+          <section className="panel"><div className="panel-head"><div><h3>Command Centre comparison lens</h3><p>Flat assumptions shown here; the detailed V23 spending plan stays independently managed.</p></div><Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}</Badge></div><dl className="review-baseline"><div><dt>Flat spending lens</dt><dd>{money(spend)}</dd></div><div><dt>Return</dt><dd>{pct(realReturn, 1)}</dd></div><div><dt>Target</dt><dd>Age {targetAge}</dd></div><div><dt>Home</dt><dd>{money(homeValue)}</dd></div></dl><a className="primary wide-link" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Review age bands in V23 ↗</a></section>
           <section className="panel source-freshness"><div className="panel-head"><div><h3>Source freshness</h3><p>Inputs that require annual confirmation.</p></div></div>{[["PSS iEstimator", "2 Jul 2026", "Current"], ["Master baseline", "18 Jul 2026", "Current"], ["PSS annual statement", "20 Dec 2025", "Refresh when issued"], ["Tax and super caps", "2026–27", "Confirm annually"]].map(([name, date, status]) => <div key={name}><span><b>{name}</b><small>{date}</small></span><Badge tone={status === "Current" ? "good" : "warn"}>{status}</Badge></div>)}</section>
         </div>
       </section>
