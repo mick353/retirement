@@ -1162,6 +1162,7 @@ main{min-width:0;}
       </div>
       <div class="panel">
         <h2>Lifestyle phases &amp; ramped-draw strategy</h2>
+        <div class="muted smaller">Each row follows one age-band input exactly. Adding a new “From age” band creates a new lifestyle phase; it is never blended into a fixed calendar bucket. Age 60 is the opening balance snapshot, then annual cashflow begins.</div>
         <table id="in_tbl"></table>
       </div>
     </section>
@@ -1653,10 +1654,44 @@ function bandsToString(bands){
   }).join(" · ");
 }
 function formatBandValue(b){const u=b.unit||"dollar";return u==="returnPct"?`${b.amount}% return`:(u==="drawPct"?`${b.amount}% draw`:fmt$(b.amount));}
+function formatBandValueExact(b){const u=b.unit||"dollar";return u==="returnPct"?`${b.amount}% return`:(u==="drawPct"?`${b.amount}% draw`:`${fmtFull(b.amount)} p.a.`);}
 function avgGapBand(bands,s,e){let sum=0,n=0;for(let a=s;a<=e;a++){const b=bandAtAge(a,bands);if((b?.unit||"dollar")==="dollar")sum+=b.amount;n++;}return n?sum/n:0;}
 function avgSimGap(rows,s,e){
   const picked=rows.filter(r=>!r.launchSnapshot&&r.age>=s&&r.age<=e);
   return picked.length?picked.reduce((sum,r)=>sum+r.gap,0)/picked.length:0;
+}
+const SALARY_EQUIVALENT_TAX_YEAR="2026–27";
+function residentIncomeTax2026_27(gross){
+  let tax=0;
+  if(gross>18200)tax+=(Math.min(gross,45000)-18200)*.15;
+  if(gross>45000)tax+=(Math.min(gross,135000)-45000)*.30;
+  if(gross>135000)tax+=(Math.min(gross,190000)-135000)*.37;
+  if(gross>190000)tax+=(gross-190000)*.45;
+  return Math.max(0,tax);
+}
+function grossSalaryEquivalent(netIncome){
+  let lo=Math.max(0,netIncome),hi=500000;
+  for(let i=0;i<70;i++){
+    const mid=(lo+hi)/2;
+    const afterTax=mid-residentIncomeTax2026_27(mid)-mid*.02;
+    if(afterTax<netIncome)lo=mid;else hi=mid;
+  }
+  return hi;
+}
+function lifestylePhaseDefinitions(sim,p){
+  const operating=sim.rows.filter(r=>!r.launchSnapshot);
+  if(!operating.length)return[];
+  const firstOperatingAge=operating[0].age,lastOperatingAge=operating[operating.length-1].age;
+  if(STATE.spendMode!=="fixed"){
+    const rule=STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of mandatory draw`:`${fmtPctClean(STATE.spendReturnPct,0)} of investment earnings`;
+    return[{start:firstOperatingAge,end:lastOperatingAge,label:`Spend override (age ${p.retireAge}–${lastOperatingAge})`,input:rule}];
+  }
+  const bands=sortBands(STATE.gapBands).filter(b=>b.age<=lastOperatingAge);
+  return bands.map((band,index)=>{
+    const nextAge=bands[index+1]?.age;
+    const displayEnd=Math.min(lastOperatingAge,nextAge?nextAge-1:lastOperatingAge);
+    return{start:Math.max(firstOperatingAge,band.age),end:displayEnd,label:`Lifestyle phase ${index+1} (age ${band.age}–${displayEnd})`,input:`From age ${band.age}: ${formatBandValueExact(band)}`};
+  }).filter(phase=>phase.end>=phase.start);
 }
 function scaleBands(bands,f){return bands.map(b=>({...b,amount:Math.max(0,b.amount*f)}));}
 function makeBandsFromGap(amount,retireAge){return[{age:retireAge,amount,unit:"dollar"}];}
@@ -2443,8 +2478,9 @@ function tbcAlloc_waterfall(p){const a=calcTBCAllocation(p.grossPension,p.lumpSu
 /* ========== INCOME ========== */
 function renderIncome(){
   const p=getProfile();const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
-  const tc=getThemeColors();const ages=sim.rows.map(r=>r.age);
+  const tc=getThemeColors();
   const operatingRows=sim.rows.filter(r=>!r.launchSnapshot);
+  const operatingAges=operatingRows.map(r=>`${r.age-1}→${r.age}`);
   let cumP=0,cumD=0,cumX=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit;cumX+=r.extraDraw;});
   const lifetimeTotal=cumP+cumD+cumX;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
   const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pension||0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0);
@@ -2454,22 +2490,22 @@ function renderIncome(){
     <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS ${fmt$(cumP)} + Pool A ${fmt$(cumD)}${cumX>0?` + Pool A extra ${fmt$(cumX)}`:``}</div></div>
     <div class="card"><div class="label">Year 1 income (age ${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
-  makeChart("in_chart",{type:"bar",data:{labels:ages,datasets:[
-    {label:"PSS net pension",data:sim.rows.map(r=>r.pension),backgroundColor:tc.pension,stack:"s"},
-    {label:"Pool A draw consumed",data:sim.rows.map(r=>r.realExit),backgroundColor:tc.poolA,stack:"s"},
-    {label:"Pool A extra draw (gap above mandatory)",data:sim.rows.map(r=>r.extraDraw),backgroundColor:tc.poolB,stack:"s"},
-    {label:"Max without extra draw (PSS + mandatory draw)",data:sim.rows.map(r=>r.pension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
-    {label:"Lifestyle band low ($95k)",data:ages.map(()=>95000),type:"line",borderColor:tc.acc3,borderDash:[4,4],pointRadius:0,fill:false,stack:"_l"},
-    {label:"Lifestyle band high ($105k)",data:ages.map(()=>105000),type:"line",borderColor:tc.good,borderDash:[4,4],pointRadius:0,fill:false,stack:"_h"}
+  makeChart("in_chart",{type:"bar",data:{labels:operatingAges,datasets:[
+    {label:"PSS net pension",data:operatingRows.map(r=>r.pension),backgroundColor:tc.pension,stack:"s"},
+    {label:"Pool A draw consumed",data:operatingRows.map(r=>r.realExit),backgroundColor:tc.poolA,stack:"s"},
+    {label:"Pool A extra draw (gap above mandatory)",data:operatingRows.map(r=>r.extraDraw),backgroundColor:tc.poolB,stack:"s"},
+    {label:"Max without extra draw (PSS + mandatory draw)",data:operatingRows.map(r=>r.pension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
+    {label:"Lifestyle band low ($95k)",data:operatingAges.map(()=>95000),type:"line",borderColor:tc.acc3,borderDash:[4,4],pointRadius:0,fill:false,stack:"_l"},
+    {label:"Lifestyle band high ($105k)",data:operatingAges.map(()=>105000),type:"line",borderColor:tc.good,borderDash:[4,4],pointRadius:0,fill:false,stack:"_h"}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{stacked:true,ticks:{callback:moneyTick}},x:{stacked:true}}}});
-  const phases=[[60,61,"Phase 1 (60–61)"],[62,64,"Phase 2 (62–64)"],[65,67,"Phase 3 (65–67)"],[68,75,"Phase 4 (68–75)"],[76,84,"Phase 5 (76–84)"],[85,95,"Phase 6 (85–95)"]];
+  const phases=lifestylePhaseDefinitions(sim,p);
   let cumSpend=0;
   const sgn=v=>v<0?`<span style="color:var(--bad,#ff6b6b)">−${fmtFull(Math.abs(v))}</span>`:fmtFull(v);
   const T={earn:0,mand:0,drawn:0,extra:0,surp:0,ret:0,spend:0,inc:0};
   sim.rows.forEach(r=>{const sp=r.realExit+r.extraDraw;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.spend+=sp;T.ret+=(r.investmentReturn-sp);T.inc+=(r.pension+sp);});
-  const rows=phases.map(([a,b,lab])=>{
-    const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=a&&r.age<=b);
+  const rows=phases.map(phase=>{
+    const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=phase.start&&r.age<=phase.end);
     const n=segs.length||1;
     const avgDrawn=segs.reduce((s,r)=>s+r.realExit,0)/n;
     const avgExtra=segs.reduce((s,r)=>s+r.extraDraw,0)/n;
@@ -2482,25 +2518,27 @@ function renderIncome(){
     const spendVsMand=avgMand>0?(avgSpend/avgMand*100):0;
     const spendVsEarn=avgEarn>0?(avgSpend/avgEarn*100):0;
     const totalAnnual=p.netPension+avgSpend;
+    const grossEquivalent=grossSalaryEquivalent(totalAnnual);
     cumSpend+=totalAnnual*segs.length;
     const mandCell=spendVsMand>100.5?`<span style="color:var(--warn,#ffb454)">${spendVsMand.toFixed(1)}%</span>`:`${spendVsMand.toFixed(1)}%`;
-    return[lab,mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
+    return[phase.label,phase.input,fmtFull(avgSpend),mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
   });
-  rows.push(["<b>LIFETIME 60–95</b>",`<b>${(T.mand>0?T.spend/T.mand*100:0).toFixed(1)}%</b>`,`<b>${(T.earn>0?T.spend/T.earn*100:0).toFixed(1)}%</b>`,
+  const lifetimeAnnualIncome=T.inc/Math.max(1,operatingRows.length);
+  rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${(T.mand>0?T.spend/T.mand*100:0).toFixed(1)}%</b>`,`<b>${(T.earn>0?T.spend/T.earn*100:0).toFixed(1)}%</b>`,
     `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.surp)}</b>`,
-    `<b>${sgn(T.ret)}</b>`,`<b>${sgn(T.ret)}</b>`,`<b>${fmtFull(T.inc)}</b>`,"—",`<b>${fmtFull(T.inc)}</b>`]);
-  makeChart("in_chart2",{type:"line",data:{labels:ages,datasets:[
-    {label:"Investment earnings (Pool A + Pool C)",data:sim.rows.map(r=>r.investmentReturn),borderColor:tc.good,backgroundColor:(tc.good||"#2fd492")+"22",fill:"origin",tension:.2,borderWidth:2},
-    {label:"Lifestyle spending (gap)",data:sim.rows.map(r=>r.realExit+r.extraDraw),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
-    {label:"Retained earnings (compounds)",data:sim.rows.map(r=>r.investmentReturn-(r.realExit+r.extraDraw)),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
-    {label:"Zero line",data:ages.map(()=>0),borderColor:tc.soft,borderDash:[2,3],pointRadius:0,fill:false,borderWidth:1,order:99}
+    `<b>${sgn(T.ret)}</b>`,`<b>${sgn(T.ret)}</b>`,`<b>${fmtFull(T.inc)}</b>`,`<b>${fmtFull(grossSalaryEquivalent(lifetimeAnnualIncome))}/yr avg</b>`,"—",`<b>${fmtFull(T.inc)}</b>`]);
+  makeChart("in_chart2",{type:"line",data:{labels:operatingAges,datasets:[
+    {label:"Investment earnings (Pool A + Pool C)",data:operatingRows.map(r=>r.investmentReturn),borderColor:tc.good,backgroundColor:(tc.good||"#2fd492")+"22",fill:"origin",tension:.2,borderWidth:2},
+    {label:"Lifestyle spending (gap)",data:operatingRows.map(r=>r.realExit+r.extraDraw),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
+    {label:"Retained earnings (compounds)",data:operatingRows.map(r=>r.investmentReturn-(r.realExit+r.extraDraw)),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
+    {label:"Zero line",data:operatingAges.map(()=>0),borderColor:tc.soft,borderDash:[2,3],pointRadius:0,fill:false,borderWidth:1,order:99}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  renderTable("in_tbl",rows,["Phase","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg drawn","Avg Pool A extra","Avg surplus→C","Retained /yr","Retained (phase)","Total /yr","Total /pf","Cumulative"]);
+  renderTable("in_tbl",rows,["Lifestyle phase","Band input","Avg lifestyle gap","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
   const inTblNote=document.getElementById("in_tbl");
   if(inTblNote&&!document.getElementById("in_tbl_note")){const nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";
-    nz.innerHTML="Exact dollars (no $k rounding). Phase rows are per-year averages; the LIFETIME row is the 36-year total. 'Retained' = investment earnings minus what you actually spent — negative means you consumed capital.";
+    nz.innerHTML=`Exact dollars (no $k rounding). Each phase is generated directly from one active age-band input. “Avg lifestyle gap” = spending from the mandatory draw + any voluntary Pool A draw. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual operating periods.`;
     inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
 }
 
@@ -4126,14 +4164,17 @@ income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor p
 ["Spend % of earnings","The SAME spending measured against the other denominator: that year's investment earnings. Both columns sit side by side so the two rules are directly comparable — e.g. at Day-1 values, 50% of earnings = 86% of the mandatory draw."],
 ["Avg earnings","Average annual investment return generated by Pool A + Pool C in that phase (before anything is spent). This is the pot the '% of earnings' rule divides."],
 ["Avg mandatory","Average statutory minimum ABP draw for the phase — rises with the age-banded rates (4%→14%)."],
-["Avg drawn","Average spending funded from within the mandatory draw (the lesser of gap and minimum)."],
-["Avg Pool A extra","Average VOLUNTARY Pool A drawdown taken when the gap exceeds the compulsory ABP minimum — the minimum is a floor, not a ceiling, so the engine draws more when the spend rule demands it. This column is <b>structurally $0 at every setting</b> in 'Override: % of mandatory drawdown' mode, which cannot breach the minimum by construction. It only goes non-zero with large dollar bands, % return bands, or '% of earnings' override above ~58%. All extra draws come from Pool A: Pool B holds $0 throughout the projection and Pool C is never withdrawn."],
+["Band input","The exact age-band setting that created this lifestyle phase. Editing or adding a 'From age' band creates one matching row; it is never averaged into a preset calendar bucket."],
+["Avg lifestyle gap","The average annual amount actually spent above the PSS pension in that one band: amount spent from the mandatory draw plus any voluntary Pool A draw."],
+["Avg spent from mandatory","The portion of the lifestyle gap funded from the compulsory ABP minimum draw."],
+["Avg voluntary Pool A draw","The portion of the lifestyle gap that exceeds the compulsory ABP minimum. It is structurally $0 in 'Override: % of mandatory drawdown' mode, and can arise with large dollar bands, % return bands, or '% of earnings' override above ~58%. Pool B holds $0 and Pool C is never withdrawn."],
+["Gross salary equivalent","A comparison only: the 2026–27 resident salary, including the 2% Medicare levy, that would leave the same annual net usable income. It does not make post-60 pension or super draws taxable."],
 ["Max without extra draw (amber line)","Chart ceiling = PSS pension + the mandatory ABP draw for that year. Spending at or below it consumes only money the ABP is legally forced to pay out. Any orange stacked ABOVE the amber line is capital you chose to withdraw early."],
 ["Avg surplus→C","Average unconsumed mandatory draw recycled out of the ABP — the first $5,000 refills Pool A headroom, essentially everything after routes to Pool C."],
 ["Retained /yr","Earnings MINUS spending, per year — the portion of the return left inside the portfolio to compound. This is the number that answers 'how much of my growth did I not touch?'. Goes NEGATIVE (red) when spending exceeds earnings: you are consuming capital, not just growth."],
 ["Retained (phase)","The same figure summed across every year of the phase — the total unspent return for that period. Negative means net capital erosion over the phase."],
 ["Total /yr · /pf · Cumulative","Pension + funded gap for the phase (annual, per fortnight) and the running lifetime total."],
-["Lifestyle phases","Go-go / slow-go / no-go style ramp assumptions reflected in the spend bands."],
+["Lifestyle phases","The user-entered age bands themselves. Every active 'From age' setting creates one phase row, so the table maps one-to-one to the spend editor."],
 ["Investment earnings (Pool A + Pool C)","Second chart, green area: the total return the portfolio generated that year, before any spending. This is the pot the '% of earnings' rule divides."],
 ["Lifestyle spending (gap)","Second chart, amber line: everything you actually spent above the pension (drawn from the mandatory minimum + any voluntary extra). Where it rises ABOVE the green area you are consuming capital, not just growth."],
 ["Retained earnings (compounds)","Second chart, dashed line: earnings minus spending. Positive = growth left invested to compound. Below the zero line = net capital erosion."],
