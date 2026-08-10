@@ -285,6 +285,9 @@ body.print-pack section.page.print-pack-include{display:flex}
   border:1px solid var(--border);border-radius:6px;font-family:inherit;
   font-variant-numeric:tabular-nums;
 }
+.band-row input[type=number][aria-invalid="true"]{border-color:var(--bad);box-shadow:0 0 0 2px rgba(255,77,106,.13)}
+.band-validation{margin-top:7px;padding:7px 9px;border:1px solid rgba(255,77,106,.48);border-radius:7px;background:rgba(255,77,106,.09);color:var(--text);font-size:11px;line-height:1.4}
+.band-validation b{color:var(--bad)}
 .band-row .rm{
   cursor:pointer;background:transparent;border:1px solid var(--border);
   border-radius:6px;color:var(--muted);padding:3px 9px;font-size:14px;line-height:1;
@@ -1194,7 +1197,7 @@ main{min-width:0;}
       </div>
       <div class="panel">
         <h2>Lifestyle phases &amp; ramped-draw strategy</h2>
-        <div class="muted smaller">Each row follows one age-band input exactly. Adding a new “From age” band creates a new lifestyle phase; it is never blended into a fixed calendar bucket. Age 60 is the opening balance snapshot, then annual cashflow begins.</div>
+        <div class="muted smaller">Each row is an automatic cashflow sub-phase inside one age-band input. A band splits whenever its funding routine changes, so an extra Pool A draw and surplus to Pool C never appear in the same row. Age 60 is the opening balance snapshot, then annual cashflow begins.</div>
         <table id="in_tbl"></table>
       </div>
     </section>
@@ -1666,7 +1669,63 @@ const STATE = {
 };
 
 /* ========== GAP BAND HELPERS ========== */
-function sortBands(b){return [...b].sort((a,c)=>a.age-c.age)}
+const BAND_MIN_AGE=60,BAND_MAX_AGE=95;
+const bandAgeTimers=new Map();
+function sortBands(b){
+  const byAge=new Map();
+  (b||[]).forEach(raw=>{
+    const age=Math.round(Number(raw?.age));
+    if(Number.isFinite(age))byAge.set(age,{...raw,age}); // Last declared value wins deterministically.
+  });
+  return [...byAge.values()].sort((a,c)=>a.age-c.age);
+}
+function duplicateBandAges(bands){
+  const seen=new Set(),duplicates=[];
+  (bands||[]).forEach(b=>{const age=Math.round(Number(b?.age));if(seen.has(age)&&!duplicates.includes(age))duplicates.push(age);seen.add(age);});
+  return duplicates;
+}
+function normaliseGapBands(bands){
+  const cleaned=sortBands((bands||[]).map(b=>({...b,age:Math.max(BAND_MIN_AGE,Math.min(BAND_MAX_AGE,Math.round(Number(b?.age)||BAND_MIN_AGE))),unit:b?.unit||"dollar"})));
+  return{bands:cleaned,duplicateAges:duplicateBandAges(bands)};
+}
+function nextAvailableBandAge(){
+  const used=new Set(STATE.gapBands.map(b=>Number(b.age)));
+  const last=Math.max(BAND_MIN_AGE,...used);
+  for(let age=Math.min(BAND_MAX_AGE,last+1);age<=BAND_MAX_AGE;age++)if(!used.has(age))return age;
+  for(let age=BAND_MIN_AGE;age<=BAND_MAX_AGE;age++)if(!used.has(age))return age;
+  return null;
+}
+function bandAgeError(input,index){
+  const age=Number(input.value);
+  if(!Number.isInteger(age)||age<BAND_MIN_AGE||age>BAND_MAX_AGE)return`Enter a whole age from ${BAND_MIN_AGE} to ${BAND_MAX_AGE}.`;
+  if(STATE.gapBands.some((b,i)=>i!==index&&Number(b.age)===age))return`Age ${age} already starts another band. Keep moving through it if needed; calculations still use the last valid schedule until this age is unique.`;
+  return"";
+}
+function showBandAgeError(input,index,message){
+  input.setAttribute("aria-invalid",message?"true":"false");
+  input.setCustomValidity(message||"");
+  let note=document.getElementById(`band-age-validation-${index}`);
+  if(message){
+    if(!note){note=document.createElement("div");note.id=`band-age-validation-${index}`;note.className="band-validation";input.closest(".band-row")?.insertAdjacentElement("afterend",note);}
+    note.innerHTML=`<b>Band not applied.</b> ${message}`;
+  }else if(note)note.remove();
+}
+function commitBandAge(input,index){
+  clearTimeout(bandAgeTimers.get(index));bandAgeTimers.delete(index);
+  const message=bandAgeError(input,index);
+  showBandAgeError(input,index,message);
+  if(message)return false;
+  const age=Number(input.value);
+  if(Number(STATE.gapBands[index]?.age)===age)return true;
+  STATE.gapBands[index].age=age;STATE.gapBands=sortBands(STATE.gapBands);onBandChange();
+  return true;
+}
+function previewBandAge(input,index){
+  clearTimeout(bandAgeTimers.get(index));
+  const message=bandAgeError(input,index);
+  showBandAgeError(input,index,message);
+  if(!message)bandAgeTimers.set(index,setTimeout(()=>{if(document.body.contains(input))commitBandAge(input,index);},650));
+}
 function gapAtAge(age,bands){
   const band=bandAtAge(age,bands);
   return band?band.amount:0;
@@ -1725,6 +1784,29 @@ function lifestylePhaseDefinitions(sim,p){
     return{start:Math.max(firstOperatingAge,band.age),end:displayEnd,label:`Lifestyle phase ${index+1} (age ${band.age}–${displayEnd})`,input:`From age ${band.age}: ${formatBandValueExact(band)}`};
   }).filter(phase=>phase.end>=phase.start);
 }
+function cashflowRoutine(row){
+  if((row.extraDraw||0)>0.005)return"extra";
+  if((row.surplus||0)>0.005)return"surplus";
+  return"matched";
+}
+function cashflowRoutineLabel(routine){
+  return routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
+}
+function splitPhaseByCashflow(phase,sim){
+  const sourceRows=sim.rows.filter(row=>!row.launchSnapshot&&row.age>=phase.start&&row.age<=phase.end);
+  if(!sourceRows.length)return[];
+  const subphases=[];let start=0;
+  const append=(from,to)=>{
+    const first=sourceRows[from],last=sourceRows[to],routine=cashflowRoutine(first);
+    const phaseName=phase.label.replace(/\s*\(age .*$/,"");
+    subphases.push({...phase,start:first.age,end:last.age,routine,label:`${phaseName} · ${cashflowRoutineLabel(routine)} (age ${first.age}–${last.age})`});
+  };
+  for(let i=1;i<=sourceRows.length;i++){
+    if(i===sourceRows.length||cashflowRoutine(sourceRows[i])!==cashflowRoutine(sourceRows[start])){append(start,i-1);start=i;}
+  }
+  return subphases;
+}
+function cashflowSubPhases(phases,sim){return phases.flatMap(phase=>splitPhaseByCashflow(phase,sim));}
 function scaleBands(bands,f){return bands.map(b=>({...b,amount:Math.max(0,b.amount*f)}));}
 function makeBandsFromGap(amount,retireAge){return[{age:retireAge,amount,unit:"dollar"}];}
 function annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw,spendMode,spendReturnPct}) {
@@ -1845,7 +1927,8 @@ function runModel(opts){
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   const startAge=opts.startAge??p.retireAge;
   const endAge=opts.endAge??95;
-  const gapBands=opts.gapBands?opts.gapBands:(opts.gap!==undefined?makeBandsFromGap(opts.gap,startAge):STATE.gapBands);
+  const requestedBands=opts.gapBands?opts.gapBands:(opts.gap!==undefined?makeBandsFromGap(opts.gap,startAge):STATE.gapBands);
+  const gapBands=normaliseGapBands(requestedBands).bands;
   const gapGrowth=opts.gapGrowth??STATE.gapGrowth;
   const abpReturn=opts.abpReturn??STATE.likely;
   const accumReturn=opts.accumReturn??abpReturn*0.85;
@@ -2532,11 +2615,12 @@ function renderIncome(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{stacked:true,ticks:{callback:moneyTick}},x:{stacked:true}}}});
   const phases=lifestylePhaseDefinitions(sim,p);
+  const cashflowPhases=cashflowSubPhases(phases,sim);
   let cumSpend=0;
   const sgn=v=>v<0?`<span style="color:var(--bad,#ff6b6b)">−${fmtFull(Math.abs(v))}</span>`:fmtFull(v);
   const T={earn:0,mand:0,drawn:0,extra:0,surp:0,ret:0,spend:0,inc:0};
   sim.rows.forEach(r=>{const sp=r.realExit+r.extraDraw;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.spend+=sp;T.ret+=(r.investmentReturn-sp);T.inc+=(r.pension+sp);});
-  const rows=phases.map(phase=>{
+  const rows=cashflowPhases.map(phase=>{
     const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=phase.start&&r.age<=phase.end);
     const n=segs.length||1;
     const avgDrawn=segs.reduce((s,r)=>s+r.realExit,0)/n;
@@ -2567,10 +2651,10 @@ function renderIncome(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  renderTable("in_tbl",rows,["Lifestyle phase","Band input","Avg lifestyle gap","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
+  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg lifestyle gap","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
   const inTblNote=document.getElementById("in_tbl");
   if(inTblNote&&!document.getElementById("in_tbl_note")){const nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";
-    nz.innerHTML=`Exact dollars (no $k rounding). Each phase is generated directly from one active age-band input. “Avg lifestyle gap” = spending from the mandatory draw + any voluntary Pool A draw. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual operating periods.`;
+    nz.innerHTML=`Exact dollars (no $k rounding). Each row stays within one active age-band input, then automatically splits whenever the funding routine changes: extra Pool A draw, mandatory surplus to Pool C, or exact coverage. “Avg lifestyle gap” = spending from the mandatory draw + any voluntary Pool A draw. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual operating periods.`;
     inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
 }
 
@@ -3585,7 +3669,10 @@ function captureScenarioState(){
 function applyScenarioState(s){
   if(!s)return;
   ["profile","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
-  if(Array.isArray(s.gapBands)&&s.gapBands.length)STATE.gapBands=s.gapBands.map(b=>({...b,unit:b.unit||"dollar"}));
+  if(Array.isArray(s.gapBands)&&s.gapBands.length){
+    const clean=normaliseGapBands(s.gapBands);STATE.gapBands=clean.bands;
+    if(clean.duplicateAges.length)alert(`Duplicate start age${clean.duplicateAges.length>1?"s":""} ${clean.duplicateAges.join(", ")} removed from the imported plan; the later value was kept.`);
+  }
   applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
 }
 function slotKey(slot){return `v23_slot_${slot}`;}
@@ -3623,7 +3710,7 @@ function applyScenarioPreset(id){
     drawcap:{gapBands:[{age:ra,amount:100,unit:"drawPct"}],spendMode:"drawPct",spendReturnPct:1.00,oneOff:0,likely:.065,vol:.12,targetAge:75}
   };
   const p=presets[id];if(!p)return;
-  Object.assign(STATE,p,{gapBands:p.gapBands.map(b=>({...b}))});
+  Object.assign(STATE,p,{gapBands:normaliseGapBands(p.gapBands).bands});
   applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
 }
 function wireNotes(){
@@ -3888,8 +3975,8 @@ function renderBandRows(){
       : `<div class="note" style="margin-bottom:8px">Units convert automatically at that band age. <span class="kbd">$ pa</span> = fixed dollars · <span class="kbd">% return</span> = % of positive investment earnings (CAN exceed the mandatory draw) · <span class="kbd">% draw</span> = % of the mandatory ABP draw (never exceeds it; remainder goes to Pool C).</div>`;
   container.innerHTML=STATE.gapBands.map((b,i)=>`
     <div class="band-row">
-      <label>From age <input type="number" min="60" max="95" value="${b.age}"
-        onchange="STATE.gapBands[${i}].age=+this.value;STATE.gapBands.sort((a,c)=>a.age-c.age);onBandChange()"></label>
+      <label>From age <input type="number" min="${BAND_MIN_AGE}" max="${BAND_MAX_AGE}" value="${b.age}" data-band-age="${i}"
+        aria-describedby="band-age-validation-${i}"></label>
       <label>${(b.unit||"dollar")==="returnPct"?"Spend % earnings":((b.unit||"dollar")==="drawPct"?"Spend % draw":"Gap $pa")} <input type="number" min="0" step="${(b.unit||"dollar")==="dollar"?"500":"0.5"}" value="${b.amount}"
         onchange="STATE.gapBands[${i}].amount=+this.value;onBandChange()"></label>
       <label>Unit <select onchange="convertBandUnit(${i},this.value)">
@@ -3900,6 +3987,12 @@ function renderBandRows(){
       ${STATE.gapBands.length>1?`<button class="pill" type="button" aria-label="Remove band from age ${b.age}" title="Remove this band" onclick="STATE.gapBands.splice(${i},1);onBandChange()">×</button>`:""}
     </div>`).join("");
   container.innerHTML=modeNote+container.innerHTML;
+  container.querySelectorAll("input[data-band-age]").forEach(input=>{
+    const index=Number(input.dataset.bandAge);
+    input.addEventListener("input",()=>previewBandAge(input,index));
+    input.addEventListener("change",()=>previewBandAge(input,index));
+    input.addEventListener("blur",()=>commitBandAge(input,index));
+  });
   const p=getProfile();const tc=getThemeColors();
   const ages=[];for(let a=p.retireAge;a<=95;a++)ages.push(a);
   const units=[...new Set(STATE.gapBands.map(b=>b.unit||"dollar"))];
@@ -3912,7 +4005,11 @@ function onBandChange(){updateLabels();renderBandRows();rerenderAll();saveState(
 
 function wireBandEditor(){
   const add=document.getElementById("btn-add-band");
-  if(add)add.addEventListener("click",()=>{STATE.gapBands.push({age:75,amount:20000,unit:"dollar"});onBandChange();});
+  if(add)add.addEventListener("click",()=>{
+    const age=nextAvailableBandAge();
+    if(age===null){alert(`Every age from ${BAND_MIN_AGE} to ${BAND_MAX_AGE} already has a band.`);return;}
+    STATE.gapBands.push({age,amount:20000,unit:"dollar"});onBandChange();
+  });
   const reset=document.getElementById("btn-reset-bands");
   if(reset)reset.addEventListener("click",()=>{STATE.gapBands=[...getProfile().defaultGapBands.map(b=>({...b}))];onBandChange();});
   const flat=document.getElementById("btn-band-preset-flat");
@@ -4086,7 +4183,11 @@ function loadState(){
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
     ap("profile",s.profile);ap("targetAge",s.targetAge);
     ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);
-    if(Array.isArray(s.gapBands)&&s.gapBands.length)s.gapBands=s.gapBands.map(b=>({...b,unit:b.unit||"dollar"}));
+    if(Array.isArray(s.gapBands)&&s.gapBands.length){
+      const clean=normaliseGapBands(s.gapBands);
+      s.gapBands=clean.bands;
+      if(clean.duplicateAges.length)console.warn(`V23 duplicate band starts removed: ${clean.duplicateAges.join(", ")}. Later values were retained.`);
+    }
     ap("gapBands",Array.isArray(s.gapBands)&&s.gapBands.length?s.gapBands:undefined);
     ap("gapGrowth",s.gapGrowth);ap("oneOff",s.oneOff);ap("poolCDrag",s.poolCDrag);
     ap("spendMode",s.spendMode);ap("spendReturnPct",s.spendReturnPct);
