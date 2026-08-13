@@ -143,17 +143,19 @@
       <div class="section-heading">
         <div class="eyebrow">02 · Income and spending power</div>
         <h2>The PSS floor covers most spending before capital is drawn.</h2>
-        <p>The chart separates the permanent pension, the selected lifestyle target, the ABP draw and any mandatory-draw surplus recycled to Pool C. Select any year to inspect its reconciled cashflow.</p>
+        <p>The chart begins with the first planning year, age 60→61. It separates the permanent pension, target lifestyle spend, funded spend, ABP draw and any mandatory-draw surplus recycled to Pool C. The age-60 retirement-day position is a capital snapshot, not a zero-income year; the provider calculates legal ABP payments by financial year.</p>
       </div>
       <div class="panel chart-panel">
         <div class="panel-head"><div><h3>Annual retirement cashflow</h3><p id="cashflowContext">Rail B · $110,000 spending · 5.0% real</p></div><span class="badge modelled">Interactive</span></div>
         <div class="chart-wrap"><canvas id="incomeChart" aria-label="Annual retirement cashflow chart" role="img"></canvas></div>
         <label class="chart-age-control" for="incomeAgeSelect"><span>Keyboard age inspection</span><select id="incomeAgeSelect" aria-label="Inspect cashflow at age"></select></label>
         <div class="selected-year" aria-live="polite">
-          <div><span>Selected age</span><b id="selectedAge">61</b></div>
+          <div><span>Selected year · age span</span><b id="selectedAge">60→61</b></div>
           <div><span>Net PSS pension</span><b id="selectedPension">$76,303</b></div>
           <div><span>ABP draw</span><b id="selectedDraw">$33,697</b></div>
-          <div><span>Net spend</span><b id="selectedSpend">$110,000</b></div>
+          <div><span>Target spend</span><b id="selectedSpend">$110,000</b></div>
+          <div><span>Funded spend</span><b id="selectedFundedSpend">$110,000</b></div>
+          <div><span>Unfunded target</span><b id="selectedShortfall">—</b></div>
           <div><span>Reinvested surplus</span><b id="selectedReinvestment">$0</b></div>
           <div><span>Gross equivalent of net income</span><b id="selectedGross">$156,175</b></div>
         </div>
@@ -167,7 +169,7 @@
         <p>The central line uses the active scenario. The comparison lines hold spending constant and change only the real return. Click an age to inspect Pool A, Pool C and total investment capital.</p>
       </div>
       <div class="panel chart-panel">
-        <div class="panel-head"><div><h3>Reconciled three-pool capital</h3><p>Age 60 is the launch snapshot; age 61 is the first full retirement year.</p></div><span class="badge modelled">Annual real-dollar engine</span></div>
+        <div class="panel-head"><div><h3>Reconciled three-pool capital</h3><p>Age 60 is opening capital on 21 December 2033. The age-61 point is the end of Year 1 and includes the full age 60→61 PSSDB income, draw, spending and investment growth.</p></div><span class="badge modelled">Annual real-dollar engine</span></div>
         <div class="chart-wrap large"><canvas id="capitalChart" aria-label="Capital trajectory chart" role="img"></canvas></div>
         <label class="chart-age-control" for="capitalAgeSelect"><span>Keyboard age inspection</span><select id="capitalAgeSelect" aria-label="Inspect capital at age"></select></label>
         <div class="selected-year capital-readout" aria-live="polite">
@@ -234,7 +236,7 @@
           <div class="wash-stats">
             <div><span>Annual NCC cap used</span><b>$130,000</b><small>2026–27 current-law anchor; recheck annually</small></div>
             <div><span>Taxable amount converted per master-locked wash</span><b>$92,258</b><small>70.97% taxable-taxed proportion</small></div>
-            <div><span>DBT reduction per master-locked wash</span><b>$15,683.86</b><small>17% taxed-element rate</small></div>
+            <div><span>DBT reduction per master-locked wash</span><b>$15,683.86</b><small>17% taxed-element planning rate</small></div>
             <div><span id="washSavedLabel">Modelled DBT remaining</span><b id="washSaved">$0</b><small id="washSavedSub">Six-cycle default; live script recalculates</small></div>
           </div>
           <div class="warning-note"><b>Execution control</b><span>Clean NCC money must remain a separate super interest and commutations must come from the original taxable interest. Merging interests re-blends components and weakens later washes.</span></div>
@@ -285,11 +287,11 @@
         <div class="panel-head"><div><h3>Alignment register</h3><p>Current controls applied to this Atlas release.</p></div><span class="badge exact">Aligned</span></div>
         <div class="register-grid">
           <div><b>Default rail</b><span>Rail B · July spending-frontier source</span></div>
-          <div><b>Age timing</b><span>Age 60 launch snapshot; first full year at age 61</span></div>
+          <div><b>Age timing</b><span>Age 60 = opening position; age 61 = end of the age 60→61 first retirement year</span></div>
           <div><b>Return basis</b><span>Real return only inside retirement scenarios</span></div>
           <div><b>Pool C</b><span>0.35% annual modelled distribution drag</span></div>
           <div><b>Estate definition</b><span>Investment capital + separately stated home value</span></div>
-          <div><b>Hostplus at 60</b><span>$317,447.66 working projection; pending revalidation</span></div>
+          <div><b>Hostplus at 60</b><span>$289,620.63 workbook-reconciled 8.0% central case; $317,447.66 is an upper planning anchor</span></div>
           <div><b>Rail separation</b><span>No silent mixing; tax evidence changes with rail</span></div>
           <div><b>Scenario handoff</b><span>Exact rail, spending, return, target age, home and salary-equivalent tax year preserved across Command Centre, Atlas and V23</span></div>
         </div>
@@ -310,7 +312,7 @@
   </main>
 
   <footer>
-    <span>Robinson Retirement Atlas · integrated release 2026-08</span>
+    <span>Robinson Retirement Atlas · reconciled release 2026-08-13</span>
     <span>Decision-support model only · current law assumed · verify before implementation</span>
   </footer>
 

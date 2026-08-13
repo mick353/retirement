@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import RetirementAi from "./retirement-ai";
+import {
+  HOSTPLUS_BASELINE_RETURN,
+  HOSTPLUS_STARTING_BALANCE,
+  abpMinimumRateAtAgeOn1July,
+  firstFinancialYearMinimum,
+  projectHostplusAt60,
+} from "./retirement-core";
 
 type RailKey = "A" | "B";
 type TaxYear = "2026-27" | "2027-28";
@@ -49,6 +56,8 @@ type Rail = {
   poolA: number;
   poolC: number;
   fas: number;
+  washTaxableShare: number;
+  washEvidence: string;
 };
 
 const TBC = 2_100_000;
@@ -72,6 +81,8 @@ const RAILS: Record<RailKey, Rail> = {
     poolA: 840_887.36,
     poolC: 51_361.96,
     fas: 143_700.42,
+    washTaxableShare: 0.709677,
+    washEvidence: "Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
   },
   B: {
     key: "B",
@@ -88,6 +99,8 @@ const RAILS: Record<RailKey, Rail> = {
     poolA: 774_185.76,
     poolC: 148_635.12,
     fas: 151_343.31,
+    washTaxableShare: 0.709677,
+    washEvidence: "Master-locked 60/40 engine convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. The July PSS lump agrees; confirm provider execution and account components before acting.",
   },
 };
 
@@ -107,6 +120,7 @@ const NAV: { key: SectionKey; label: string; group: string }[] = [
 ];
 
 const FRONTIER_SPENDS = [90_000, 100_000, 110_000, 120_000, 130_000];
+const RETURNS = [0.04, 0.05, 0.065];
 
 const VR_IMMEDIATE = [
   { age: 57, pensionStart: 67_415, pension60: 72_599, netPf60: 2_709, lump: 521_345, capital60: 814_483, tbcCredit: 1_078_645, headroom: 1_021_355 },
@@ -131,7 +145,8 @@ const SOURCES = [
   ["PSS_Defined_Benefit_Calculator_V8_Baseline_2026-07-18.xlsx", "PSS net pension calculator", "Rail A"],
   ["PSS_iEstimator_60-40_2026-07-02.pdf", "July 60/40 source estimate", "Rail B source"],
   ["PSS_iEstimator_100_2026-07-02.pdf", "100% pension comparator", "Source only"],
-  ["PSS_Annual_Statement_2025_2025-12-20.pdf", "FAS, ABM and benefit components", "Source"],
+  ["PSS_Annual_Statement_2025_2025-12-20.pdf", "Prior FAS, ABM and benefit components", "Historical source"],
+  ["Statement 2026.pdf", "Current PSS statement — correction requested; do not use for revised retirement estimate until CSC reissues", "Pending reissue"],
   ["Robinson_PSSDB_VR_Deep_Research_2026-07-18.md", "VR mechanics and models", "Specialist"],
   ["Robinson_NCC_Wash_Drawdown_Research_2026-07-18.md", "NCC wash and draw sequencing", "Specialist"],
   ["Australian_Salary_Net_Gross_Analysis_2026-07-18.md", "Salary-equivalent bridge", "Reference"],
@@ -150,8 +165,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 function siteAsset(path: string) {
   const cleanPath = path.replace(/^\/+/, "");
-  if (typeof document === "undefined") return `/${cleanPath}`;
-  return new URL(cleanPath, document.baseURI).toString();
+  return `./${cleanPath}`;
 }
 
 const SCENARIO_PRESETS: Record<string, ScenarioState & { label: string; intent: string }> = {
@@ -160,8 +174,8 @@ const SCENARIO_PRESETS: Record<string, ScenarioState & { label: string; intent: 
   estate: { label: "Estate-first", intent: "Lower draw and conservative rail", rail: "A", spend: 90_000, realReturn: 0.05, targetAge: 75, homeValue: 500_000, taxYear: "2026-27" },
 };
 
-function scenarioQuery(scenario: ScenarioState) {
-  return new URLSearchParams({
+function sharedScenarioParams(scenario: ScenarioState) {
+  const params = new URLSearchParams({
     shared: "1",
     rail: scenario.rail,
     spend: String(Math.round(scenario.spend)),
@@ -169,11 +183,12 @@ function scenarioQuery(scenario: ScenarioState) {
     age: String(scenario.targetAge),
     home: String(Math.round(scenario.homeValue)),
     taxYear: scenario.taxYear,
-  }).toString();
+  });
+  return params.toString();
 }
 
-function scenarioUrl(path: string, scenario: ScenarioState) {
-  return `${siteAsset(path)}?${scenarioQuery(scenario)}`;
+function sharedPageUrl(path: string, scenario: ScenarioState) {
+  return `${siteAsset(path)}?${sharedScenarioParams(scenario)}`;
 }
 
 function seededGenerator(seed: number) {
@@ -254,29 +269,31 @@ function grossForNet(target: number, year: TaxYear) {
 }
 
 function drawRate(age: number) {
-  if (age < 65) return 0.04;
-  if (age < 75) return 0.05;
-  if (age < 80) return 0.06;
-  if (age < 85) return 0.07;
-  if (age < 90) return 0.09;
-  if (age < 95) return 0.11;
-  return 0.14;
+  // The row ends on this birthday; do not step the planning rate up early.
+  return abpMinimumRateAtAgeOn1July(Math.max(0, age - 1));
 }
 
 function operationalLedger(rail: Rail, spend: number, realReturn: number, taxYear: TaxYear) {
   let poolA = rail.poolA;
   let poolC = rail.poolC;
   const rows = [{
-    year: "2033 launch",
+    year: "Opening position",
+    period: "21 Dec 2033",
+    ageLabel: "60",
     age: 60,
+    isOpening: true,
+    opening: poolA + poolC,
     pension: 0,
     accumulation: 0,
     abp: poolA,
     poolC,
     draw: 0,
     spend: 0,
+    fundedSpend: 0,
+    shortfall: 0,
     reinvestment: 0,
     tax: 0,
+    investmentGrowth: 0,
     netIncome: 0,
     grossEquivalent: 0,
     ending: poolA + poolC,
@@ -287,23 +304,35 @@ function operationalLedger(rail: Rail, spend: number, realReturn: number, taxYea
     const mandatory = openingA * drawRate(age);
     const lifestyleGap = Math.max(0, spend - rail.netPension);
     const draw = Math.min(openingA, Math.max(mandatory, lifestyleGap));
-    const reinvestment = Math.max(0, rail.netPension + draw - spend);
+    const netIncome = rail.netPension + draw;
+    const fundedSpend = Math.min(spend, netIncome);
+    const shortfall = Math.max(0, spend - netIncome);
+    const reinvestment = Math.max(0, netIncome - spend);
     const externalTaxDrag = openingC * POOL_C_DRAG;
+    const investmentGrowth = (openingA + openingC) * realReturn - externalTaxDrag;
     poolA = Math.max(0, openingA * (1 + realReturn) - draw);
     poolC = Math.max(0, openingC * (1 + realReturn) - externalTaxDrag + reinvestment);
+    const startYear = 2033 + age - 61;
     rows.push({
-      year: `${2033 + age - 60}-${String(34 + age - 60).slice(-2)}`,
+      year: `Year ${age - 60}`,
+      period: `21 Dec ${startYear} → 21 Dec ${startYear + 1}`,
+      ageLabel: `${age - 1}→${age}`,
       age,
+      isOpening: false,
+      opening: openingA + openingC,
       pension: rail.netPension,
       accumulation: 0,
       abp: poolA,
       poolC,
       draw,
       spend,
+      fundedSpend,
+      shortfall,
       reinvestment,
       tax: externalTaxDrag,
-      netIncome: rail.netPension + draw,
-      grossEquivalent: grossForNet(rail.netPension + draw, taxYear),
+      investmentGrowth,
+      netIncome,
+      grossEquivalent: grossForNet(netIncome, taxYear),
       ending: poolA + poolC,
     });
   }
@@ -316,14 +345,7 @@ function ledgerEndingAtAge(rail: Rail, spend: number, realReturn: number, target
 }
 
 function contributionWhatIf(phase2: number, phase3: number, nominalReturn: number) {
-  const q = Math.pow(1 + nominalReturn, 1 / 26) - 1;
-  const project = (p2: number, p3: number) => {
-    let balance = 24_522;
-    for (let i = 0; i < 43; i += 1) balance = balance * (1 + q) + p2;
-    for (let i = 0; i < 157; i += 1) balance = balance * (1 + q) + p3;
-    return balance;
-  };
-  return 317_447.66 + project(phase2, phase3) - project(650, 1_200);
+  return projectHostplusAt60(phase2, phase3, nominalReturn);
 }
 
 function LineChart({ labels, series, height = 280 }: { labels: (string | number)[]; series: { name: string; values: number[]; color: string }[]; height?: number }) {
@@ -387,8 +409,8 @@ function FanChart({ fan, targetAge }: { fan: ReturnType<typeof monteCarloFan>; t
 }
 
 function FrontierCurve({ rail, selectedSpend, homeValue, realReturn, targetAge, taxYear, onSelect }: { rail: Rail; selectedSpend: number; homeValue: number; realReturn: number; targetAge: number; taxYear: TaxYear; onSelect: (value: number) => void }) {
-  const candidateSpends = [...new Set([selectedSpend, ...Array.from({ length: 13 }, (_, index) => 80_000 + index * 5_000)])].sort((a, b) => a - b);
-  const points = candidateSpends.map((candidateSpend) => {
+  const spendValues = [...new Set([selectedSpend, ...Array.from({ length: 13 }, (_, index) => 80_000 + index * 5_000)])].sort((a, b) => a - b);
+  const points = spendValues.map((candidateSpend) => {
     const capital = ledgerEndingAtAge(rail, candidateSpend, realReturn, targetAge, taxYear);
     return { spend: candidateSpend, capital, estate: capital + homeValue };
   });
@@ -397,8 +419,8 @@ function FrontierCurve({ rail, selectedSpend, homeValue, realReturn, targetAge, 
   const pad = { l: 78, r: 28, t: 22, b: 52 };
   const minEstate = Math.min(...points.map((point) => point.estate)) * .92;
   const maxEstate = Math.max(...points.map((point) => point.estate)) * 1.03;
-  const minSpend = Math.min(...candidateSpends);
-  const maxSpend = Math.max(...candidateSpends);
+  const minSpend = Math.min(...spendValues);
+  const maxSpend = Math.max(...spendValues);
   const x = (candidateSpend: number) => pad.l + ((candidateSpend - minSpend) / Math.max(1, maxSpend - minSpend)) * (width - pad.l - pad.r);
   const y = (candidateEstate: number) => pad.t + (1 - (candidateEstate - minEstate) / Math.max(1, maxEstate - minEstate)) * (height - pad.t - pad.b);
   const line = points.map((point) => `${x(point.spend)},${y(point.estate)}`).join(" ");
@@ -414,11 +436,11 @@ function FrontierCurve({ rail, selectedSpend, homeValue, realReturn, targetAge, 
             const tone = point.capital >= 1_000_000 ? "safe" : point.capital >= 500_000 ? "watch" : "risk";
             return <circle key={point.spend} cx={x(point.spend)} cy={y(point.estate)} r={active ? 8 : 5} className={`frontier-point ${tone} ${active ? "active" : ""}`} role="button" tabIndex={0} aria-label={`${money(point.spend)} spending, ${money(point.estate)} estate`} onClick={() => onSelect(point.spend)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSelect(point.spend); }}><title>{`${money(point.spend)} spend → ${money(point.estate)} estate`}</title></circle>;
           })}
-          {[...new Set([minSpend, 90_000, 100_000, 110_000, 120_000, 130_000, 140_000, maxSpend])].filter((candidateSpend) => candidateSpend >= minSpend && candidateSpend <= maxSpend).sort((a, b) => a - b).map((candidateSpend) => <text key={candidateSpend} x={x(candidateSpend)} y={height - 16} textAnchor="middle" className="chart-label">${candidateSpend / 1000}k</text>)}
+          {[...new Set([minSpend, 90_000, 100_000, 110_000, 120_000, 130_000, 140_000, maxSpend])].filter((value) => value >= minSpend && value <= maxSpend).sort((a, b) => a - b).map((candidateSpend) => <text key={candidateSpend} x={x(candidateSpend)} y={height - 16} textAnchor="middle" className="chart-label">${candidateSpend / 1000}k</text>)}
         </svg>
       </div>
       <label className="frontier-drag"><span>Drag annual spending <b>{money(selectedSpend)}</b></span><input type="range" min="76000" max="150000" step="1000" value={selectedSpend} onChange={(event) => onSelect(Number(event.target.value))} /></label>
-      <div className="frontier-readout"><span>Selected age-{targetAge} investments · {pct(realReturn, 1)} real <b>{money(nearest.capital)}</b></span><span>Property-inclusive estate <b>{money(nearest.estate)}</b></span></div>
+      <div className="frontier-readout"><span>Selected age-75 investments · {pct(realReturn, 1)} real <b>{money(nearest.capital)}</b></span><span>Property-inclusive estate <b>{money(nearest.estate)}</b></span></div>
     </div>
   );
 }
@@ -468,7 +490,7 @@ export default function RetirementDashboard() {
   const [vrMode, setVrMode] = useState<"immediate" | "preserve">("immediate");
   const [phase2, setPhase2] = useState(650);
   const [phase3, setPhase3] = useState(1_200);
-  const [nominalReturn, setNominalReturn] = useState(0.07);
+  const [nominalReturn, setNominalReturn] = useState(HOSTPLUS_BASELINE_RETURN);
   const [cashflowAge, setCashflowAge] = useState(65);
   const [saved, setSaved] = useState<Record<string, ScenarioState>>({});
   const [reviewSnapshot, setReviewSnapshot] = useState<ReviewSnapshot | null>(null);
@@ -478,34 +500,36 @@ export default function RetirementDashboard() {
   const rail = RAILS[railKey];
   const portfolioDraw = Math.max(0, spend - rail.netPension);
   const ledger = useMemo(() => operationalLedger(rail, spend, realReturn, taxYear), [rail, spend, realReturn, taxYear]);
+  const firstUnfundedYear = ledger.find((row) => !row.isOpening && row.shortfall > 0);
+  const firstYearStatutoryMinimum = firstFinancialYearMinimum(rail.poolA, 60);
   const endCapital = ledger.find((row) => row.age === targetAge)?.ending ?? rail.capital;
   const estate = endCapital + homeValue;
   const grossEquivalent = grossForNet(spend, taxYear);
   const fan = useMemo(() => monteCarloFan(rail, spend, realReturn), [rail, spend, realReturn]);
   const trajectoryLabels = Array.from({ length: Math.max(1, targetAge - 60 + 1) }, (_, i) => 60 + i);
   const trajectoryReturns = [...new Set([0.04, realReturn, 0.065].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
-  const trajectorySeries = trajectoryReturns.map((r) => ({
-    name: `${pct(r, 1)} real · ${r === realReturn ? "active" : "comparison"}`,
-    color: r === realReturn ? "#47d6a0" : r === 0.04 ? "#f3a950" : r === 0.065 ? "#9d79ff" : "#6f8cff",
+  const trajectorySeries = trajectoryReturns.map((r, i) => ({
+    name: `${pct(r, 1)} real${r === realReturn ? " · active" : " · comparison"}`,
+    color: r === realReturn ? "#47d6a0" : ["#f3a950", "#6f8cff", "#9d79ff"][i],
     values: trajectoryLabels.map((age) => ledgerEndingAtAge(rail, spend, r, age, taxYear)),
   }));
   const currentPf = 2_795.57;
   const retirementPf = spend / 26;
   const currentScenario = useMemo<ScenarioState>(() => ({ rail: railKey, spend, realReturn, targetAge, homeValue, taxYear }), [railKey, spend, realReturn, targetAge, homeValue, taxYear]);
   const v23SpendPlanUrl = siteAsset("deep-model.html?page=income");
-  const atlasUrl = scenarioUrl("atlas.html", currentScenario);
+  const atlasUrl = sharedPageUrl("atlas.html", currentScenario);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
-  const taxableStart = rail.poolA * 0.709677;
-  const removedPerWash = 130_000 * 0.709677;
+  const taxableStart = rail.poolA * rail.washTaxableShare;
+  const removedPerWash = 130_000 * rail.washTaxableShare;
   const taxableRemaining = Math.max(0, taxableStart - washCycles * removedPerWash);
   const dbtStart = taxableStart * 0.17;
   const dbtRemaining = taxableRemaining * 0.17;
   const dbtSaved = dbtStart - dbtRemaining;
   const aiContext: Record<string, unknown> = {
     metadata: {
-      modelVersion: "2026-07-18.integrated.3",
-      baselineDate: "2026-07-18",
+      modelVersion: "2026-08-13.reconciled.1",
+      baselineDate: "2026-07-18 · reconciled 13 Aug 2026",
       currency: "AUD",
       valueBasis: "Real dollars unless specifically labelled nominal",
       activeSection: section,
@@ -523,6 +547,9 @@ export default function RetirementDashboard() {
       homeValue,
       taxYear,
       annualPortfolioDraw: portfolioDraw,
+      firstUnfundedPlanningYear: firstUnfundedYear?.year ?? null,
+      firstUnfundedPlanningYearShortfall: firstUnfundedYear?.shortfall ?? 0,
+      firstFinancialYearMinimumIllustration: firstYearStatutoryMinimum,
       modelledInvestmentCapitalAtTarget: endCapital,
       modelledGrossEstateAtTarget: estate,
       salaryGrossEquivalent: grossEquivalent,
@@ -548,25 +575,25 @@ export default function RetirementDashboard() {
       percentile50: fan.p50,
       percentile75: fan.p75,
       percentile90: fan.p90,
-      limitation: "Not a forecast of market regimes, fees, legislation or personal spending shocks. Raw paths are omitted from the chat payload; governed percentile curves and the exact target test are supplied.",
+      limitation: "A simplified model success frequency, not a forecast probability. It excludes market regimes, fees, legislation, account routing and personal spending shocks. Raw paths are omitted from the chat payload; governed percentile curves and the exact target test are supplied.",
     },
     operationalLedger: ledger,
     nccWash: {
-      componentEvidence: "Master-locked 60/40 wash convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed for the decision-support engine on both rails. Rail B's July PSS lump agrees with this split; provider execution and annual account-component checks remain required.",
+      componentEvidence: rail.washEvidence,
       completedCycles: washCycles,
       annualWash: 130_000,
-      taxableShare: 0.709677,
+      taxableShare: rail.washTaxableShare,
       deathBenefitTaxRate: 0.17,
       taxableComponentAtStart: taxableStart,
       taxableComponentRemaining: taxableRemaining,
       illustrativeDeathBenefitTaxAtStart: dbtStart,
       illustrativeDeathBenefitTaxRemaining: dbtRemaining,
       illustrativeDeathBenefitTaxSaved: dbtSaved,
-      executionControl: "Commute from the original taxable interest and recontribute as a distinct tax-free interest. Merging it back re-blends the pool and reduces later-wash effectiveness.",
-      comparators: ["Corrected proportioning (V23)", "Workbook separate/frozen share", "Full conversion comparator"],
+      executionControl: "Commute from the original taxable interest and recontribute as a distinct tax-free interest. Confirm Hostplus can maintain the required separate interests before acting.",
+      comparators: ["Separate-interest strategy", "Merged-interest warning comparator"],
     },
     voluntaryRedundancy: { selectedAge: vrAge, selectedMode: vrMode, immediatePensionPath: VR_IMMEDIATE, preserveTo60Path: VR_PRESERVE },
-    preRetirement: { phase2ContributionPerFortnight: phase2, phase3ContributionPerFortnight: phase3, nominalReturn },
+    preRetirement: { phase2ContributionPerFortnight: phase2, phase3ContributionPerFortnight: phase3, nominalReturn, hostplusStartingBalance: HOSTPLUS_STARTING_BALANCE, workbookReconciledAt8Percent: projectHostplusAt60(650, 1_200, HOSTPLUS_BASELINE_RETURN), upperPlanningAnchor: 317_447.66 },
     savedScenarios: saved,
     annualReview: { snapshot: reviewSnapshot, checks: reviewChecks },
     scenarioPresets: SCENARIO_PRESETS,
@@ -663,10 +690,10 @@ export default function RetirementDashboard() {
       const parsed = JSON.parse(await file.text());
       if (parsed.current) {
         setRailKey(parsed.current.rail === "A" ? "A" : "B");
-        setSpend(Number(parsed.current.spend) || 110_000);
-        setRealReturn(Number(parsed.current.realReturn) || 0.05);
-        setTargetAge(Number(parsed.current.targetAge) || 75);
-        setHomeValue(Number(parsed.current.homeValue) || HOME_BASELINE);
+        setSpend(clamp(Number(parsed.current.spend) || 110_000, 76_000, 150_000));
+        setRealReturn(clamp(Number(parsed.current.realReturn) || 0.05, 0.02, 0.075));
+        setTargetAge(clamp(Number(parsed.current.targetAge) || 75, 70, 95));
+        setHomeValue(clamp(Number(parsed.current.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
         setTaxYear(parsed.current.taxYear === "2027-28" ? "2027-28" : "2026-27");
       }
       if (parsed.saved && typeof parsed.saved === "object") {
@@ -685,7 +712,7 @@ export default function RetirementDashboard() {
     <>
       <section className="hero">
         <div className="hero-copy">
-          <div className="eyebrow">Integrated retirement command centre · 18 July 2026 baseline</div>
+          <div className="eyebrow">Integrated retirement command centre · 18 July baseline · reconciled 13 Aug 2026</div>
           <h1>Your pension secures the floor.<br /><span>Your capital buys optionality.</span></h1>
           <p>The core decision is no longer whether retirement works. It is how deliberately to trade present lifestyle against later capital and estate value.</p>
           <div className="hero-actions">
@@ -696,8 +723,8 @@ export default function RetirementDashboard() {
           </div>
         </div>
         <div className="hero-rail">
-          <div className="rail-switch" aria-label="Select modelling rail">
-            {(["A", "B"] as RailKey[]).map((key) => <button key={key} className={railKey === key ? "active" : ""} onClick={() => setRailKey(key)}><b>Rail {key}</b><span>{RAILS[key].short}</span></button>)}
+          <div className="rail-switch" role="group" aria-label="Select modelling rail">
+            {(["A", "B"] as RailKey[]).map((key) => <button type="button" key={key} className={railKey === key ? "active" : ""} aria-pressed={railKey === key} onClick={() => setRailKey(key)}><b>Rail {key}</b><span>{RAILS[key].short}</span></button>)}
           </div>
           <div className="rail-note"><Badge tone={railKey === "A" ? "modelled" : "exact"}>{rail.source}</Badge><p>{rail.purpose}</p><p><b>Why the PSS figures differ:</b> Rail B uses the newer 2 July iEstimator and higher FAS; Rail A preserves the March/V5 control baseline. The spending objective determines which lens to use—it does not create the pension uplift.</p></div>
         </div>
@@ -707,7 +734,7 @@ export default function RetirementDashboard() {
         <Metric label="Indexed PSS net floor" value={money(rail.netPension)} sub={`${fmt1.format(rail.netPension / 26)} per fortnight · for life`} tone="violet" />
         <Metric label="Flexible capital at 60" value={money(rail.capital)} sub={`${money(rail.lumpSum)} PSS lump + ${money(rail.hostplus)} Hostplus`} />
         <Metric label={`Investments at ${targetAge}`} value={money(endCapital)} sub={`${pct(realReturn, 1)} real · reconciled age-${targetAge} ledger`} tone="green" />
-        <Metric label={`Full estate at ${targetAge}`} value={money(estate)} sub={`Includes ${money(homeValue)} real home`} tone="amber" />
+        <Metric label={`Gross modelled estate at ${targetAge}`} value={money(estate)} sub={`Includes ${money(homeValue)} real home · before costs and residual DBT`} tone="amber" />
       </div>
 
       <section className="panel decision-banner">
@@ -733,7 +760,7 @@ export default function RetirementDashboard() {
 
       <section className="next-actions" aria-label="Recommended next actions">
         <button onClick={() => go("compare")}><span>1</span><div><b>Compare three plans</b><small>Baseline · lifestyle · estate</small></div></button>
-        <button onClick={() => go("risk")}><span>2</span><div><b>Stress the plan</b><small>Probability · sequence · cashflow</small></div></button>
+        <button onClick={() => go("risk")}><span>2</span><div><b>Stress the plan</b><small>Simulations · sequence · cashflow</small></div></button>
         <button onClick={() => go("review")}><span>3</span><div><b>Complete annual review</b><small>Changes · sources · action checklist</small></div></button>
       </section>
 
@@ -778,7 +805,7 @@ export default function RetirementDashboard() {
           <div className="metrics three">
             <Metric label="Portfolio draw required" value={money(portfolioDraw)} sub={`${pct(rail.netPension / spend, 1)} of spending covered by PSS`} tone="violet" />
             <Metric label={`Ending investment capital @${targetAge}`} value={money(endCapital)} sub={`${money(endCapital - 500_000)} vs $500k investment floor`} tone={endCapital >= 500_000 ? "green" : "amber"} />
-            <Metric label="Salary gross equivalent" value={money(grossEquivalent)} sub={`${taxYear} resident rates + 2% Medicare`} />
+            <Metric label="Selected spend gross equivalent" value={money(grossEquivalent)} sub={`${taxYear} resident rates + 2% Medicare`} />
           </div>
           <section className="panel compact"><LineChart labels={trajectoryLabels} series={trajectorySeries} height={260} /></section>
           <div className="scenario-actions">
@@ -792,10 +819,14 @@ export default function RetirementDashboard() {
       </section>
 
       <section className="panel">
-        <div className="panel-head"><div><h3>Reconciled annual operating ledger</h3><p>Age 60 is the retirement-date launch snapshot; later rows are balances on each birthday. Every ending-capital row equals Hostplus pension + accumulation + Pool C.</p></div><button className="secondary" onClick={() => setShowLedger(!showLedger)}>{showLedger ? "Hide table" : "Show ages 60–95"}</button></div>
-        <div className="table-wrap desktop-ledger"><table><thead><tr><th>Year</th><th>Age</th><th>PSSDB pension</th><th>Hostplus accumulation</th><th>Hostplus pension</th><th>Pool C</th><th>Draw</th><th>Spend</th><th>Reinvestment</th><th>Tax drag</th><th>Net income</th><th>Gross equivalent of income</th><th>Ending capital</th></tr></thead><tbody>{ledger.slice(0, showLedger ? ledger.length : 6).map((r) => <tr key={r.age}><td>{r.year}</td><td>{r.age}</td><td>{money(r.pension)}</td><td>{money(r.accumulation)}</td><td>{money(r.abp)}</td><td>{money(r.poolC)}</td><td>{money(r.draw)}</td><td>{money(r.spend)}</td><td>{money(r.reinvestment)}</td><td>{money(r.tax)}</td><td>{money(r.netIncome)}</td><td>{money(r.grossEquivalent)}</td><td><b>{money(r.ending)}</b></td></tr>)}</tbody></table></div>
-        <div className="mobile-ledger">{ledger.slice(0, showLedger ? ledger.length : 6).map((row) => <article key={row.age}><header><div><span>{row.year}</span><b>Age {row.age}</b></div><strong>{money(row.ending)}</strong></header><dl><div><dt>PSS pension</dt><dd>{money(row.pension)}</dd></div><div><dt>Portfolio draw</dt><dd>{money(row.draw)}</dd></div><div><dt>Annual spend</dt><dd>{money(row.spend)}</dd></div><div><dt>Pool C</dt><dd>{money(row.poolC)}</dd></div></dl></article>)}</div>
-        <div className="assumption-row"><Badge tone="modelled">4–14% statutory draw bands</Badge><Badge tone="modelled">Pool C 0.35% annual drag</Badge><Badge tone="modelled">Real dollars</Badge><Badge tone="speculative">Current law held constant</Badge></div>
+        <div className="panel-head"><div><h3>Reconciled annual planning ledger</h3><p>The opening position is capital on retirement day before annual cashflow. Each following row is a birthday-to-birthday planning year, not a fund payment instruction.</p></div><button className="secondary" onClick={() => setShowLedger(!showLedger)}>{showLedger ? "Hide table" : "Show full retirement ledger"}</button></div>
+        <div className="first-year-explainer"><Badge tone="exact">OPENING POSITION</Badge><span>{money(ledger[0].ending)} on 21 Dec 2033</span><b>→</b><Badge tone="modelled">FIRST PLANNING YEAR</Badge><span>{money(ledger[1].pension)} PSSDB + {money(ledger[1].draw)} planning portfolio draw funds up to {money(ledger[1].fundedSpend)} of the {money(ledger[1].spend)} target</span></div>
+        <div className="note"><b>ABP payment control:</b> the first statutory minimum is an illustrative {money(firstYearStatutoryMinimum)} for 21 Dec 2033–30 Jun 2034, pro-rated from the Pool A opening balance under current-law assumptions. Your fund calculates the actual financial-year minimum; this birthday-year ledger is for planning only.</div>
+        {firstUnfundedYear ? <div className="note warn"><b>Funding shortfall:</b> {firstUnfundedYear.year} has {money(firstUnfundedYear.shortfall)} of the selected spending target unfunded after PSSDB and Pool A draw. Pool C is deliberately not spent automatically—choose and model a separate draw policy before treating it as income.</div> : <div className="note"><b>Funding check:</b> all displayed planning years are funded by PSSDB plus Pool A at this setting. Pool C remains a reserve and is not silently counted as spending money.</div>}
+        <div className="table-wrap desktop-ledger"><table><thead><tr><th>Period</th><th>Age span</th><th>Opening capital</th><th>PSSDB pension</th><th>Hostplus accumulation</th><th>Hostplus pension</th><th>Pool C</th><th>Planning portfolio draw</th><th>Target spend</th><th>Funded spend</th><th>Shortfall</th><th>Reinvestment</th><th>Net investment growth</th><th>Pool C drag</th><th>Net income</th><th>Gross equivalent of income</th><th>Capital at period end</th></tr></thead><tbody>{ledger.slice(0, showLedger ? ledger.length : 6).map((r) => <tr key={r.age} className={r.isOpening ? "opening-row" : ""}><td><b>{r.year}</b><small className="ledger-period">{r.period}</small></td><td>{r.ageLabel}</td><td>{money(r.opening)}</td><td>{r.isOpening ? "—" : money(r.pension)}</td><td>{money(r.accumulation)}</td><td>{money(r.abp)}</td><td>{money(r.poolC)}</td><td>{r.isOpening ? "—" : money(r.draw)}</td><td>{r.isOpening ? "—" : money(r.spend)}</td><td>{r.isOpening ? "—" : money(r.fundedSpend)}</td><td>{r.isOpening ? "—" : r.shortfall > 0 ? money(r.shortfall) : "—"}</td><td>{r.isOpening ? "—" : money(r.reinvestment)}</td><td>{r.isOpening ? "—" : money(r.investmentGrowth)}</td><td>{r.isOpening ? "—" : money(r.tax)}</td><td>{r.isOpening ? "—" : money(r.netIncome)}</td><td>{r.isOpening ? "—" : money(r.grossEquivalent)}</td><td><b>{money(r.ending)}</b></td></tr>)}</tbody></table></div>
+        <div className="mobile-ledger">{ledger.slice(0, showLedger ? ledger.length : 6).map((row) => row.isOpening ? <article className="opening-position" key={row.age}><header><div><span>Opening position</span><b>Age 60 · 21 Dec 2033</b></div><strong>{money(row.ending)}<small>opening capital</small></strong></header><p>No annual income or spending belongs in this snapshot. Your first retirement-year cashflow starts in the next card.</p><dl><div><dt>Hostplus pension</dt><dd>{money(row.abp)}</dd></div><div><dt>Pool C</dt><dd>{money(row.poolC)}</dd></div></dl></article> : <article key={row.age}><header><div><span>{row.year} · {row.period}</span><b>Age {row.ageLabel}</b></div><strong>{money(row.ending)}<small>ending capital</small></strong></header><dl><div><dt>PSSDB pension received</dt><dd>{money(row.pension)}</dd></div><div><dt>Planning portfolio draw</dt><dd>{money(row.draw)}</dd></div><div><dt>Target annual spending</dt><dd>{money(row.spend)}</dd></div><div><dt>Funded spending</dt><dd>{money(row.fundedSpend)}</dd></div>{row.shortfall > 0 && <div><dt>Unfunded target</dt><dd>{money(row.shortfall)}</dd></div>}<div><dt>Reinvested surplus</dt><dd>{money(row.reinvestment)}</dd></div><div><dt>Net investment growth</dt><dd>{money(row.investmentGrowth)}</dd></div><div><dt>Net income received</dt><dd>{money(row.netIncome)}</dd></div><div><dt>Gross salary equivalent</dt><dd>{money(row.grossEquivalent)}</dd></div><div><dt>Pool C at year end</dt><dd>{money(row.poolC)}</dd></div></dl></article>)}</div>
+        <div className="ledger-equation"><b>Annual reconciliation:</b> ending capital = opening capital + net investment growth − planning portfolio draw + reinvested surplus. The table separates the target spend from the amount actually funded; Pool C is a reserve unless an explicit draw policy is modelled.</div>
+        <div className="assumption-row"><Badge tone="modelled">Birthday-year planning bands</Badge><Badge tone="modelled">Current ABP rates, provider-calculated by FY</Badge><Badge tone="modelled">Pool C 0.35% annual drag</Badge><Badge tone="modelled">Real dollars</Badge><Badge tone="speculative">Current law held constant</Badge></div>
       </section>
     </>
   );
@@ -804,8 +835,8 @@ export default function RetirementDashboard() {
     const scenarios = Object.entries(SCENARIO_PRESETS).map(([key, scenario]) => {
       const scenarioRail = RAILS[scenario.rail];
       const draw = Math.max(0, scenario.spend - scenarioRail.netPension);
-      const capital75 = ledgerEndingAtAge(scenarioRail, scenario.spend, scenario.realReturn, 75, scenario.taxYear);
-      const capital85 = ledgerEndingAtAge(scenarioRail, scenario.spend, scenario.realReturn, 85, scenario.taxYear);
+      const capital75 = ledgerEndingAtAge(scenarioRail, scenario.spend, scenario.realReturn, 75, taxYear);
+      const capital85 = ledgerEndingAtAge(scenarioRail, scenario.spend, scenario.realReturn, 85, taxYear);
       const scenarioFan = monteCarloFan(scenarioRail, scenario.spend, scenario.realReturn, .12, 360);
       const probability = scenarioFan.paths[15].filter((value) => value >= 500_000).length / scenarioFan.paths[15].length;
       return { key, ...scenario, draw, capital75, capital85, estate75: capital75 + scenario.homeValue, probability };
@@ -819,7 +850,7 @@ export default function RetirementDashboard() {
       <section className="compare-cards">{scenarios.map((scenario, index) => <article key={scenario.key} className={scenario.key === "baseline" ? "recommended" : ""}>
         <div className="compare-head"><div><Badge tone={scenario.key === "baseline" ? "good" : scenario.key === "lifestyle" ? "estimated" : "modelled"}>{scenario.key === "baseline" ? "Recommended" : `Option ${index + 1}`}</Badge><h3>{scenario.label}</h3><p>{scenario.intent}</p></div><span>Rail {scenario.rail}</span></div>
         <div className="compare-spend"><span>Flat net annual spend</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight · held constant in real dollars each retirement year</small><small className="compare-assumption">Figures use <b>{pct(scenario.realReturn, 1)} real return p.a.</b> after inflation · age {scenario.targetAge} · {money(scenario.homeValue)} real home</small></div>
-        <dl className="compare-outcomes"><div><dt>Capital @75</dt><dd>{money(scenario.capital75)}</dd></div><div><dt>Capital @85</dt><dd>{money(scenario.capital85)}</dd></div><div><dt>Estate @75</dt><dd>{money(scenario.estate75)}</dd></div><div><dt>P(floor @75)</dt><dd>{pct(scenario.probability, 0)}</dd></div></dl>
+        <dl className="compare-outcomes"><div><dt>Capital @75</dt><dd>{money(scenario.capital75)}</dd></div><div><dt>Capital @85</dt><dd>{money(scenario.capital85)}</dd></div><div><dt>Estate @75</dt><dd>{money(scenario.estate75)}</dd></div><div><dt>Sim. frequency ≥$500k @75</dt><dd>{pct(scenario.probability, 0)}</dd></div></dl>
         <div className="compare-delta"><span>Versus baseline</span><b>{scenario.key === "baseline" ? "Reference plan" : `${scenario.capital75 >= baseline.capital75 ? "+" : ""}${money(scenario.capital75 - baseline.capital75)} capital @75`}</b></div>
         <div className="compare-actions"><button className="secondary" onClick={() => { applyScenario(scenario); go("scenario"); }}>Use this plan</button><a className="text-button" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age bands in V23 ↗</a></div>
       </article>)}</section>
@@ -839,8 +870,8 @@ export default function RetirementDashboard() {
     return <>
       <SectionHeading eyebrow="Accumulation runway" title="Present → age 60" copy="The pre-retirement plan protects liquidity first, then increases Hostplus contributions after the bank and loan targets are complete." />
       <div className="metrics four">
-        <Metric label="Current Hostplus baseline" value={money(24_522)} sub="April 2026 source value" />
-        <Metric label="Working Hostplus @60" value={money(317_447.66)} sub="Canonical real working figure" tone="green" />
+        <Metric label="Hostplus opening balance" value={money(HOSTPLUS_STARTING_BALANCE)} sub="April 2026 statement balance; refresh when a current Hostplus statement arrives" />
+        <Metric label="Workbook-reconciled Hostplus @60" value={money(projectHostplusAt60(650, 1_200, HOSTPLUS_BASELINE_RETURN))} sub="8.0% nominal central case; $317,448 is an upper planning anchor, not the baseline" tone="green" />
         <Metric label="Current visible net pay" value={fmt1.format(2_795.57)} sub="Per fortnight after tax, PSS and child support" tone="violet" />
         <Metric label="PSS contribution rate" value="10%" sub="Maintain until ABM caps near mid-2032" tone="amber" />
       </div>
@@ -850,16 +881,16 @@ export default function RetirementDashboard() {
         <article><span>3</span><div><Badge tone="modelled">Active control</Badge><h3>Contribution acceleration</h3><p>{money(phase3)} total per fortnight under the selected Phase 3 contribution setting.</p></div><strong>Mar 2028 → Dec 2033</strong></article>
       </section>
       <section className="panel">
-        <div className="panel-head"><div><h3>Contribution sensitivity</h3><p>The locked $317,448 working figure remains the comparison anchor; every what-if output below follows the active contribution and return controls.</p></div><Badge tone="modelled">Active {pct(nominalReturn, 1)} nominal · separate from real retirement models</Badge></div>
+        <div className="panel-head"><div><h3>Contribution sensitivity</h3><p>The calculator starts at the April 2026 {money(HOSTPLUS_STARTING_BALANCE)} balance, follows the workbook’s fractional contribution timing, nets 15% contributions tax from salary sacrifice, and treats the balance of Phase 3 as direct NCC.</p></div><Badge tone="modelled">Active {pct(nominalReturn, 1)} nominal · separate from real retirement models</Badge></div>
         <div className="sensitivity-layout">
           <div className="control-panel inline">
             <label><span>Phase 2 / fortnight <b>{money(phase2)}</b></span><input type="range" min="400" max="1000" step="50" value={phase2} onChange={(e) => setPhase2(Number(e.target.value))} /></label>
             <label><span>Phase 3 / fortnight <b>{money(phase3)}</b></span><input type="range" min="800" max="1600" step="50" value={phase3} onChange={(e) => setPhase3(Number(e.target.value))} /></label>
-            <label><span>Nominal accumulation return <b>{pct(nominalReturn, 1)}</b></span><input type="range" min="0.04" max="0.09" step="0.005" value={nominalReturn} onChange={(e) => setNominalReturn(Number(e.target.value))} /></label>
+            <label><span>Nominal accumulation return <b>{pct(nominalReturn, 1)}</b></span><input type="range" min="0.04" max="0.10" step="0.005" value={nominalReturn} onChange={(e) => setNominalReturn(Number(e.target.value))} /></label>
           </div>
-          <div className="whatif-result"><span>What-if Hostplus at 60</span><strong>{money(projected)}</strong><small>{projected >= 317_447.66 ? "+" : ""}{money(projected - 317_447.66)} versus locked working figure</small></div>
+          <div className="whatif-result"><span>Workbook-timed Hostplus at 60</span><strong>{money(projected)}</strong><small>{projected >= 289_620.63 ? "+" : ""}{money(projected - 289_620.63)} versus the workbook-reconciled 8.0% central case · $317,448 remains an upper planning anchor</small></div>
         </div>
-        <div className="note warn"><b>Control point:</b> verify the exact PSS defined-benefit concessional amount on the August 2026 statement before finalising salary sacrifice. Nominal and real returns are not mixed in this block.</div>
+        <div className="note warn"><b>Control point:</b> the 2026 PSS statement is pending payroll/CSC correction and reissue. Do not replace the locked retirement iEstimator inputs or finalise a changed sacrifice plan until that corrected source is issued. Nominal and real returns are not mixed in this block.</div>
       </section>
     </>;
   };
@@ -886,48 +917,50 @@ export default function RetirementDashboard() {
       <section className="pool-grid">
         <article><i className="pool-dot a" /><h3>Pool A</h3><strong>{money(rail.poolA)}</strong><p>Account-based pension. Earnings taxed at 0%; mandatory draws apply; commutations restore TBC headroom.</p></article>
         <article><i className="pool-dot b" /><h3>Pool B</h3><strong>$0 Day 1</strong><p>Hostplus accumulation is a transit bucket for NCC wash transactions, not a standing balance.</p></article>
-        <article><i className="pool-dot c" /><h3>Pool C</h3><strong>{money(rail.poolC)}</strong><p>External indexed ETF overflow. Canonical annual distribution drag 0.35%; outside super death-benefit tax.</p></article>
+        <article><i className="pool-dot c" /><h3>Pool C</h3><strong>{money(rail.poolC)}</strong><p>External indexed ETF overflow and legacy reserve. It has a 0.35% modelled distribution drag and is outside super death-benefit tax; it is not automatically used to fund spending.</p></article>
       </section>
-      <section className="panel comparator"><div><Badge tone="exact">Source-only comparator</Badge><h3>July 100% pension estimate</h3><p>Gross {money(137_584.82)} · net {fmt1.format(4_941.65)} per fortnight. The 60/40 election remains settled because the flexible capital and estate optionality dominate the extra pension for this objective set.</p></div><strong>Not reopened</strong></section>
+      <section className="panel comparator"><div><Badge tone="exact">Source-only comparator</Badge><h3>July 100% pension estimate</h3><p>Gross {money(137_584.82)} · net {fmt1.format(4_941.65)} per fortnight ({money(128_482.90)} a year). The selected 60/40 Rail B path nets {money(76_302.72)} a year and retains {money(605_373.22)} as a lump: the extra 100% pension is {money(52_180.18)} a year net, with a simple no-return income/lump comparison of about 11.6 years. The election remains settled because flexible capital and estate optionality dominate for this objective set.</p></div><strong>Not reopened</strong></section>
     </>
   );
 
   const renderFrontier = () => {
-    const activeReturn = Number(realReturn.toFixed(4));
-    const frontierReturns = [...new Set([0.04, activeReturn, 0.065])].sort((a, b) => a - b);
-    const activeIndex = frontierReturns.indexOf(activeReturn);
-    const rows = FRONTIER_SPENDS.map((s) => ({ spend: s, draw: Math.max(0, s - rail.netPension), gross: grossForNet(s, taxYear), values: frontierReturns.map((r) => ledgerEndingAtAge(rail, s, r, targetAge, taxYear)) }));
-    const marginalCost = frontierReturns.map((_, index) => Math.max(0, rows[0].values[index] - rows[1].values[index]));
-    const selected = rows.find((r) => r.spend === Math.round(spend / 10_000) * 10_000) ?? rows[2];
-    const selectedActiveCapital = ledgerEndingAtAge(rail, spend, realReturn, targetAge, taxYear);
-    const selectedActiveEstate = selectedActiveCapital + homeValue;
+    const rows = FRONTIER_SPENDS.map((s) => ({
+      spend: s,
+      draw: Math.max(0, s - rail.netPension),
+      gross: grossForNet(s, taxYear),
+      values: RETURNS.map((r) => ledgerEndingAtAge(rail, s, r, targetAge, taxYear)),
+      activeCapital: ledgerEndingAtAge(rail, s, realReturn, targetAge, taxYear),
+    }));
+    const marginalCost = RETURNS.map((_, index) => Math.max(0, rows[0].values[index] - rows[1].values[index]));
+    const activeCapitalAtTarget = ledgerEndingAtAge(rail, spend, realReturn, targetAge, taxYear);
+    const activeEstateAtTarget = activeCapitalAtTarget + homeValue;
     return <>
       <SectionHeading eyebrow="Lifestyle ↔ legacy" title="Spending–estate frontier" copy="The same secure pension supports several valid retirement profiles. Each point holds one real annual spend flat across retirement, so the cost of higher spending is lower future capital plus foregone compounding. Use V23 to shape the spending timing by age." />
       <section className="profile-strip">{FRONTIER_SPENDS.map((v, i) => <button key={v} className={spend === v ? "active" : ""} onClick={() => setSpend(v)}><span>{["Estate max", "Strong compromise", "Balanced", "Lifestyle-led", "High optionality"][i]}</span><b>{money(v)}</b><small>{fmt1.format(v / 26)} / pf</small></button>)}</section>
       <div className="metrics four">
         <Metric label="PSS coverage" value={pct(rail.netPension / spend, 1)} sub={`${money(portfolioDraw)} annual portfolio draw`} tone="violet" />
         <Metric label="Selected spend gross equivalent" value={money(grossEquivalent)} sub={`${taxYear} rates`} />
-        <Metric label={`Investments @${targetAge} · ${pct(realReturn, 1)}`} value={money(selectedActiveCapital)} sub="[MODELLED] Selected real return · home excluded" tone="green" />
-        <Metric label={`Gross estate @${targetAge} · ${pct(realReturn, 1)}`} value={money(selectedActiveEstate)} sub="[MODELLED] Before estate costs / residual DBT" tone="amber" />
+        <Metric label={`Investments @${targetAge} · ${pct(realReturn, 1)}`} value={money(activeCapitalAtTarget)} sub="[MODELLED] Selected real return · home excluded" tone="green" />
+        <Metric label={`Gross estate @${targetAge} · ${pct(realReturn, 1)}`} value={money(activeEstateAtTarget)} sub="[MODELLED] Before estate costs / residual DBT" tone="amber" />
       </div>
       <section className="panel">
         <div className="panel-head"><div><h3>Interactive efficient frontier</h3><p>Drag spending or select a point. Each point is a flat real annual-spend comparison; colour shows the investment buffer at age {targetAge}: green ≥ $1m, amber ≥ $500k, red below the floor.</p></div><Badge tone="modelled">{pct(realReturn, 1)} real · age {targetAge}</Badge></div>
         <FrontierCurve rail={rail} selectedSpend={spend} homeValue={homeValue} realReturn={realReturn} targetAge={targetAge} taxYear={taxYear} onSelect={setSpend} />
       </section>
       <section className="panel">
-        <div className="panel-head"><div><h3>Full age-{targetAge} outcome matrix</h3><p>Annual reconciled three-pool path with statutory draw bands and Pool C drag. Current selected rail: {rail.short}.</p></div><Badge tone="modelled">Deterministic</Badge></div>
-        <div className="table-wrap"><table><thead><tr><th>Net spend</th><th>Per fortnight</th><th>Gross equivalent</th><th>Portfolio draw</th>{frontierReturns.map((r) => <th key={r}>Investments · {pct(r, 1)}{r === activeReturn ? " active" : " comparison"}</th>)}<th>Estate · active</th></tr></thead><tbody>{rows.map((r) => <tr key={r.spend} className={spend === r.spend ? "selected-row" : ""} onClick={() => setSpend(r.spend)}><td><b>{money(r.spend)}</b></td><td>{fmt1.format(r.spend / 26)}</td><td>{money(r.gross)}</td><td>{money(r.draw)}</td>{r.values.map((v, i) => <td key={i}>{money(v)}</td>)}<td><b>{money(r.values[activeIndex] + homeValue)}</b></td></tr>)}</tbody></table></div>
+        <div className="panel-head"><div><h3>Full age-{targetAge} outcome matrix</h3><p>Birthday-year planning path using current ABP rate bands and Pool C drag. The fund calculates legal financial-year payments; current selected rail: {rail.short}.</p></div><Badge tone="modelled">Deterministic</Badge></div>
+        <div className="table-wrap"><table><thead><tr><th>Net spend</th><th>Per fortnight</th><th>Gross equivalent</th><th>Portfolio draw</th>{RETURNS.map((r) => <th key={r}>Investments · {pct(r, 1)}</th>)}<th>Estate · active {pct(realReturn, 1)}</th></tr></thead><tbody>{rows.map((r) => <tr key={r.spend} className={spend === r.spend ? "selected-row" : ""} onClick={() => setSpend(r.spend)}><td><b>{money(r.spend)}</b></td><td>{fmt1.format(r.spend / 26)}</td><td>{money(r.gross)}</td><td>{money(r.draw)}</td>{r.values.map((v, i) => <td key={i}>{money(v)}</td>)}<td><b>{money(r.activeCapital + homeValue)}</b></td></tr>)}</tbody></table></div>
       </section>
       <section className="panel tradeoff">
-        <div><Badge tone="warn">Marginal cost</Badge><h3>Each extra $10,000 of annual spending</h3><p>Reduces age-{targetAge} investment capital by the amounts shown under the active and clearly labelled comparison returns.</p></div>
-        <div className="tradeoff-bars">{frontierReturns.map((r, i) => { const cost = marginalCost[i]; return <div key={r}><span>{pct(r, 1)}{r === activeReturn ? " active" : ""}</span><i style={{ width: `${cost / 2_600}%` }} /><b>{money(cost)}</b></div>; })}</div>
+        <div><Badge tone="warn">Marginal cost</Badge><h3>Each extra $10,000 of annual spending</h3><p>Reduces age-{targetAge} investment capital by approximately {money(marginalCost[0])} at 4%, {money(marginalCost[1])} at 5%, and {money(marginalCost[2])} at 6.5% on the selected rail.</p></div>
+        <div className="tradeoff-bars">{RETURNS.map((r, i) => { const cost = marginalCost[i]; return <div key={r}><span>{pct(r, 1)}</span><i style={{ width: `${cost / 2_600}%` }} /><b>{money(cost)}</b></div>; })}</div>
       </section>
-      <section className="panel two-models"><article><Badge tone="modelled">Fixed framework comparison</Badge><h3>Age-75 investment benchmark</h3><p>$1.2m / $1.5m / $1.75m investments at 4% / 5% / 6.5%. This benchmark is fixed and is not the active scenario output.</p></article><article><Badge tone="good">Active model</Badge><h3>Spending frontier</h3><p>At least $500k investments + the selected home value preserves the property-inclusive estate floor.</p></article><div><strong>Selected position</strong><p>{money(spend)} spend · {money(selectedActiveCapital)} investments · {money(selectedActiveEstate)} estate at age {targetAge}, {pct(realReturn, 1)} real.</p></div></section>
+      <section className="panel two-models"><article><Badge tone="modelled">Fixed comparison</Badge><h3>Investment benchmarks</h3><p>$1.2m / $1.5m / $1.75m age-75 investments at 4% / 5% / 6.5%. Home excluded; these remain fixed framework benchmarks, not active-scenario outputs.</p></article><article><Badge tone="good">Model B</Badge><h3>Spending frontier</h3><p>At least $500k investments + $500k home = $1m property-inclusive gross estate floor.</p></article><div><strong>Active selected position · age {targetAge}</strong><p>{money(spend)} spend · {money(activeCapitalAtTarget)} investments · {money(activeEstateAtTarget)} estate at {pct(realReturn, 1)} real.</p></div></section>
     </>;
   };
 
   const renderRisk = () => {
-    const row = ledger.find((item) => item.age === cashflowAge) ?? ledger[0];
+    const row = ledger.find((item) => item.age === cashflowAge && !item.isOpening) ?? ledger[1];
     const p10 = fan.p10[targetIndex];
     const p50 = fan.p50[targetIndex];
     const p90 = fan.p90[targetIndex];
@@ -936,15 +969,15 @@ export default function RetirementDashboard() {
     return <>
       <SectionHeading eyebrow="Uncertainty made visible" title="Risk studio" copy="The pension protects essential income. These views show how markets change optionality, recovery margin and estate—not whether the lifetime floor keeps paying." />
       <div className="metrics four">
-        <Metric label={`P(≥$500k) at ${targetAge}`} value={pct(targetProbability, 0)} sub="600 seeded stochastic paths · 12% volatility" tone={targetProbability >= .8 ? "green" : "amber"} />
+        <Metric label={`Model success frequency ≥$500k at ${targetAge}`} value={pct(targetProbability, 0)} sub="600 seeded simplified simulations · 12% volatility · not a forecast probability" tone={targetProbability >= .8 ? "green" : "amber"} />
         <Metric label={`P10 capital @${targetAge}`} value={money(p10)} sub="Nine in ten paths finish above this level" tone="amber" />
         <Metric label={`Median capital @${targetAge}`} value={money(p50)} sub="Middle stochastic outcome" />
         <Metric label={`P90 capital @${targetAge}`} value={money(p90)} sub="Strong-path reference, not a forecast" tone="green" />
       </div>
       <section className="panel">
-        <div className="panel-head"><div><h3>Capital probability fan</h3><p>Percentile ranges widen over time. The vertical marker follows the selected target age.</p></div><Badge tone="modelled">600 deterministic-seed simulations</Badge></div>
+        <div className="panel-head"><div><h3>Capital simulation fan</h3><p>Percentile ranges widen over time. The vertical marker follows the selected target age.</p></div><Badge tone="modelled">600 deterministic-seed simulations</Badge></div>
         <FanChart fan={fan} targetAge={targetAge} />
-        <div className="note warn"><b>Read the band, not just the median:</b> this is an uncertainty lens using a constant mean and 12% annual volatility. It does not forecast market regimes, fees, legislation or personal spending shocks.</div>
+        <div className="note warn"><b>Read the band, not just the median:</b> this is a simplified uncertainty lens using a constant mean and 12% annual volatility, not a forecast probability. It does not model market regimes, fees, legislation, statutory payment timing, account routing or personal spending shocks.</div>
       </section>
       <section className="panel">
         <div className="panel-head"><div><h3>Sequence-risk heatmap</h3><p>Ending investment capital after one adverse return at different early-retirement ages; all other years use the selected real return.</p></div><Badge tone="modelled">Timing sensitivity</Badge></div>
@@ -958,12 +991,12 @@ export default function RetirementDashboard() {
         </div>
       </section>
       <section className="panel">
-        <div className="panel-head"><div><h3>Selected-year cashflow map</h3><p>Choose an age to see where the pension and compulsory/voluntary portfolio draw flow.</p></div><label className="age-select">Age<select value={cashflowAge} onChange={(event) => setCashflowAge(Number(event.target.value))}>{ledger.map((item) => <option key={item.age}>{item.age}</option>)}</select></label></div>
+        <div className="panel-head"><div><h3>Selected-year cashflow map</h3><p>Choose a planning year to see how the PSSDB pension and portfolio draw map to the spending target. The retirement-day opening snapshot is capital only.</p></div><label className="age-select">Year<select value={cashflowAge} onChange={(event) => setCashflowAge(Number(event.target.value))}>{ledger.filter((item) => !item.isOpening).map((item) => <option key={item.age} value={item.age}>{item.year} · age {item.ageLabel}</option>)}</select></label></div>
         <div className="cashflow-map">
           <div className="flow-source pension"><span>Indexed PSS pension</span><strong>{money(row.pension)}</strong><small>Lifetime income floor</small></div>
-          <div className="flow-source draw"><span>Portfolio draw</span><strong>{money(row.draw)}</strong><small>{pct(drawRate(row.age), 0)} statutory band</small></div>
+          <div className="flow-source draw"><span>Planning portfolio draw</span><strong>{money(row.draw)}</strong><small>{pct(drawRate(row.age), 0)} current-law rate band · provider calculates FY minimum</small></div>
           <div className="flow-total"><span>Cash received</span><strong>{money(row.netIncome)}</strong><small>Before any recycled surplus</small></div>
-          <div className="flow-use spend"><span>Lifestyle spending</span><strong>{money(row.spend)}</strong><small>Selected real-dollar plan</small></div>
+          <div className="flow-use spend"><span>Funded lifestyle spending</span><strong>{money(row.fundedSpend)}</strong><small>{row.shortfall > 0 ? `${money(row.shortfall)} target remains unfunded` : "Selected real-dollar plan fully funded"}</small></div>
           <div className="flow-use recycle"><span>Reinvested to Pool C</span><strong>{money(row.reinvestment)}</strong><small>Unspent draw remains invested</small></div>
           <div className="flow-use drag"><span>Pool C tax drag</span><strong>{money(row.tax)}</strong><small>0.35% modelled distribution drag</small></div>
         </div>
@@ -975,8 +1008,8 @@ export default function RetirementDashboard() {
   };
 
   const renderEstate = () => {
-    const taxableStart = rail.poolA * 0.709677;
-    const removedPerWash = 130_000 * 0.709677;
+    const taxableStart = rail.poolA * rail.washTaxableShare;
+    const removedPerWash = 130_000 * rail.washTaxableShare;
     const taxableRemaining = Math.max(0, taxableStart - washCycles * removedPerWash);
     const dbtStart = taxableStart * 0.17;
     const dbtRemaining = taxableRemaining * 0.17;
@@ -984,18 +1017,18 @@ export default function RetirementDashboard() {
     return <>
       <SectionHeading eyebrow="After-tax legacy" title="Tax, NCC wash and estate" copy="The estate question is not gross wealth alone. Super components, death-benefit tax and the location of capital determine what beneficiaries actually receive." />
       <div className="metrics four">
-        <Metric label="Starting taxable share" value="70.97%" sub="Master-locked 60/40 engine convention · taxable-untaxed = 0%" tone="amber" />
+        <Metric label="Starting taxable share" value={pct(rail.washTaxableShare, 2)} sub={rail.washEvidence} tone="amber" />
         <Metric label="DBT rate on taxable component" value="17%" sub="Adult non-tax dependant planning rate" tone="violet" />
-        <Metric label="DBT saved / full wash" value={money(15_683.86)} sub="$92,258 taxable component removed · master-locked convention" tone="green" />
+        <Metric label="DBT saved / full wash" value={money(removedPerWash * 0.17)} sub={`${money(removedPerWash)} modelled taxable component removed`} tone="green" />
         <Metric label="Pool C DBT exposure" value="$0" sub="External estate capital; ordinary tax rules remain" />
       </div>
       <section className="panel">
-        <div className="panel-head"><div><h3>NCC wash simulator</h3><p>Master-locked separate-interest model: commute from the original taxable interest; recontribute $130k as a distinct tax-free interest.</p></div><Badge tone="modelled">Modelled · execution confirmation required</Badge></div>
+        <div className="panel-head"><div><h3>NCC wash simulator</h3><p>Separate-interest model: commute from the original interest; recontribute $130k as a distinct tax-free interest.</p></div><Badge tone="modelled">Modelled · provider confirmation required</Badge></div>
         <div className="wash-layout">
           <div className="control-panel inline"><label><span>Completed wash cycles <b>{washCycles}</b></span><input type="range" min="0" max="7" step="1" value={washCycles} onChange={(e) => setWashCycles(Number(e.target.value))} /></label><div className="cycle-dots">{Array.from({ length: 7 }, (_, i) => <i key={i} className={i < washCycles ? "done" : ""}>{i + 1}</i>)}</div></div>
           <div className="wash-result"><div><span>Modelled DBT saved</span><strong>{money(dbtSaved)}</strong></div><div><span>Remaining DBT</span><strong>{money(dbtRemaining)}</strong></div><div><span>Taxable component remaining</span><strong>{money(taxableRemaining)}</strong></div></div>
         </div>
-        <div className="note"><b>Execution dependency:</b> the decision-support engine uses the master-locked 70.97% convention on both rails. Confirm the provider can preserve the clean NCC money as a separate pension interest and refresh account components before acting; merging interests re-blends the pool and weakens later washes.</div>
+        <div className="note"><b>Execution dependency:</b> the decision-support engine uses the master-locked 70.97% taxable share on both rails. Confirm Hostplus can preserve the clean NCC money as a separate pension interest and refresh account components before acting.</div>
       </section>
       <section className="panel estate-composition">
         <div><h3>Selected gross estate at {targetAge}</h3><strong>{money(estate)}</strong><p>{money(endCapital)} investments + {money(homeValue)} home.</p></div>
@@ -1027,7 +1060,7 @@ export default function RetirementDashboard() {
   const renderBenchmark = () => (
     <>
       <SectionHeading eyebrow="Comparative context" title="Global retirement position" copy="The structure ranks unusually strongly because lifetime indexed income, flexible capital and a mortgage-free home solve different risks rather than forcing one portfolio to solve all of them." />
-      <div className="benchmark-hero"><div><span>Defensible overall band</span><strong>Top 5–10%</strong><p>Australian retirement security and structure. Precision beyond this band would be false accuracy.</p></div><div><span>Economic-equivalence frame</span><strong>~$3.19m</strong><p>Illustrative pension replacement value + flexible capital + home; not liquid wealth or estate value.</p></div></div>
+      <div className="benchmark-hero"><div><span>Defensible overall band</span><strong>Top 5–10%</strong><p>Australian retirement security and structure. Precision beyond this band would be false accuracy.</p></div><div><span>Economic-equivalence frame · Rail {railKey}</span><strong>~{money(1_800_000 * (rail.netPension / RAILS.A.netPension) + rail.capital + homeValue)}</strong><p>[ESTIMATED] Pension replacement value scaled to the selected rail + flexible capital + selected real home value; not liquid wealth or estate value.</p></div></div>
       <section className="risk-grid">
         {[ ["Longevity", "Transferred", "Indexed PSS pension payable for life"], ["Sequence risk", "Income neutralised", "Markets affect optionality and bequest more than the floor"], ["Inflation", "Strong hedge", "PSS floor indexed; growth capital targets real returns"], ["Depletion", "Floor protected", "Capital is not required to sustain basic income"], ["Estate tax", "Actively managed", "NCC wash targets taxable super components"], ["Liquidity", "Strong", "Three pools plus mortgage-free home"] ].map(([name, state, copy]) => <article key={name}><div><span>{name}</span><Badge tone="good">{state}</Badge></div><p>{copy}</p></article>)}
       </section>
@@ -1047,11 +1080,16 @@ export default function RetirementDashboard() {
       ["backup", "Export the new baseline", "Keep the dated JSON with the source statements used for the review."],
     ];
     const completed = checklist.filter(([key]) => reviewChecks[key]).length;
+    const priorComparableCapital = reviewSnapshot
+      ? ledgerEndingAtAge(RAILS[reviewSnapshot.rail], reviewSnapshot.spend, reviewSnapshot.realReturn, targetAge, reviewSnapshot.taxYear ?? "2026-27")
+      : 0;
+    const priorComparableEstate = reviewSnapshot ? priorComparableCapital + reviewSnapshot.homeValue : 0;
     const deltas = reviewSnapshot ? [
       { label: "Annual spending", value: spend - reviewSnapshot.spend, format: money },
       { label: "Real return assumption", value: realReturn - reviewSnapshot.realReturn, format: (value: number) => pct(value, 1) },
-      { label: `Capital @${targetAge}`, value: endCapital - reviewSnapshot.endCapital, format: money },
-      { label: `Estate @${targetAge}`, value: estate - reviewSnapshot.estate, format: money },
+      { label: "Target age", value: targetAge - reviewSnapshot.targetAge, format: (value: number) => `${Math.round(value)} years` },
+      { label: `Capital @${targetAge} · like-for-like horizon`, value: endCapital - priorComparableCapital, format: money },
+      { label: `Estate @${targetAge} · like-for-like horizon`, value: estate - priorComparableEstate, format: money },
     ] : [];
     return <>
       <SectionHeading eyebrow="Governed update cycle" title="Annual retirement review" copy="Turn a complex model into a repeatable professional process: refresh evidence, compare changes, decide actions and preserve a dated baseline." />
@@ -1080,7 +1118,7 @@ export default function RetirementDashboard() {
       <section className="classification-grid"><article><Badge tone="exact">EXACT</Badge><h3>Documented inputs</h3><p>PSS iEstimator figures, annual-statement values, supplied balances and directly calculated arithmetic.</p></article><article><Badge tone="estimated">ESTIMATED</Badge><h3>External pricing</h3><p>Economic replacement values, market comparisons and provider-dependent implementation costs.</p></article><article><Badge tone="modelled">MODELLED</Badge><h3>Scenario outputs</h3><p>Returns, drawdowns, spending paths, VR values, capital projections and death-tax wash effects.</p></article><article><Badge tone="speculative">SPECULATIVE</Badge><h3>Unknown future state</h3><p>Future legislation, market sequences, exact preserved PSS components, longevity and future tax.</p></article></section>
       <section className="panel audit-alert"><Badge tone="warn">Reconciliation control</Badge><div><h3>Do not mix the rails silently</h3><p>Rail A controls the V5 workbook and V23 dashboard. Rail B controls the July spending frontier. The July source is newer, but the conservative rail remains a valid benchmark model.</p></div></section>
       <section className="panel"><div className="panel-head"><div><h3>Source register</h3><p>Raw personal PDFs are not re-published by this site; only the governed financial inputs are integrated.</p></div><span>{SOURCES.length} reviewed files</span></div><div className="source-list">{SOURCES.map(([name, role, status]) => <article key={name}><div><code>{name}</code><p>{role}</p></div><Badge tone={status === "Authoritative" ? "good" : status.includes("Rail B") ? "exact" : "modelled"}>{status}</Badge></article>)}</div></section>
-      <section className="panel"><div className="panel-head"><div><h3>Known mismatch controls</h3><p>Explicitly resolved in this integrated view.</p></div><Badge tone="good">Controlled</Badge></div><div className="control-register"><div><b>DBT component source</b><p>Use the 60/40 lump split: 29.03% tax-free / 70.97% taxable-taxed / 0% untaxed. Do not apply the PSS statement’s 19/38/44 whole-interest split to Pool A/B.</p></div><div><b>July PSS uplift</b><p>Visible in Rail B without overwriting Rail A’s workbook values.</p></div><div><b>Gross vs net</b><p>Gross pension, net pension, net spending and salary gross-equivalent are distinct fields everywhere.</p></div><div><b>Real vs nominal</b><p>Retirement scenarios use real dollars and real returns. The pre-60 sensitivity block is separately labelled nominal.</p></div></div></section>
+      <section className="panel"><div className="panel-head"><div><h3>Known mismatch controls</h3><p>Explicitly resolved in this integrated view.</p></div><Badge tone="good">Controlled</Badge></div><div className="control-register"><div><b>DBT component convention</b><p>The engine is master-locked at 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed for both rails. Rail B’s July PSS lump agrees; actual account components and provider execution remain an annual implementation check.</p></div><div><b>Wash execution</b><p>Six cycles assume clean NCC money remains in a separate pension interest. Confirm provider capability before acting; merging interests weakens later washes.</p></div><div><b>July PSS uplift</b><p>Visible in Rail B without overwriting Rail A’s workbook values.</p></div><div><b>Gross vs net</b><p>Gross pension, net pension, net spending and salary gross-equivalent are distinct fields everywhere.</p></div><div><b>Real vs nominal</b><p>Retirement scenarios use real dollars and real returns. The pre-60 sensitivity block is separately labelled nominal.</p></div></div></section>
       <section className="official-links"><a href="https://www.ato.gov.au/tax-rates-and-codes/tax-rates-australian-residents" target="_blank" rel="noreferrer"><span>ATO</span><b>Resident tax rates</b><small>2026–27 and later ↗</small></a><a href="https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/growing-and-keeping-track-of-your-super/caps-limits-and-tax-on-super-contributions/non-concessional-contributions-cap" target="_blank" rel="noreferrer"><span>ATO</span><b>NCC caps</b><small>$130k from 1 July 2026 ↗</small></a><a href="https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/self-managed-super-funds-smsf/smsf-newsroom/general-transfer-balance-cap-indexation-on-1-july-2026" target="_blank" rel="noreferrer"><span>ATO</span><b>TBC indexation</b><small>$2.1m from 1 July 2026 ↗</small></a><a href="https://www.csc.gov.au/defined-benefit-members/funds/pss" target="_blank" rel="noreferrer"><span>CSC</span><b>PSS scheme</b><small>Formula and access options ↗</small></a></section>
       <div className="disclaimer">Decision-support model only. It does not replace CSC benefit estimates, licensed personal financial advice, tax advice, legal advice or annual confirmation of legislation.</div>
     </>

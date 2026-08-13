@@ -58,7 +58,7 @@
   <body>
     <header>
       <div class="wrap">
-        <p class="eyebrow">Static model documentation · 18 July 2026 baseline</p>
+        <p class="eyebrow">Static model documentation · 18 July 2026 baseline · reconciled release 13 August 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the data rails, formulas, scenario engines, governance controls and source lineage used by the interactive Command Centre and the linked V23 deep model.</p>
         <div class="actions">
@@ -101,7 +101,8 @@
               <tr><td>Gross indexed PSS pension</td><td>$78,382.04 p.a.</td><td>$82,550.89 p.a.</td></tr>
               <tr><td>Net PSS pension used by model</td><td>$76,041.68 p.a.</td><td>$76,302.72 p.a.</td></tr>
               <tr><td>PSS lump sum</td><td>$574,801.66</td><td>$605,373.22</td></tr>
-              <tr><td>Hostplus balance at age 60 [MODELLED]</td><td>$317,447.66</td><td>$317,447.66</td></tr>
+              <tr><td>Hostplus upper planning anchor at age 60 [MODELLED]</td><td>$317,447.66</td><td>$317,447.66</td></tr>
+              <tr><td>Hostplus workbook-reconciled central case [MODELLED]</td><td colspan="2">$289,620.63 at 8.0% nominal; $24,522 opening balance, $650/pf salary sacrifice and $1,200/pf Phase 3 total</td></tr>
               <tr><td>Total investment capital at age 60 [MODELLED]</td><td>$892,249.32</td><td>$922,820.88</td></tr>
               <tr><td>DB special value</td><td>$1,254,112.64</td><td>$1,320,814.24</td></tr>
               <tr><td>Pool A — retirement pension account</td><td>$840,887.36</td><td>$774,185.76</td></tr>
@@ -123,31 +124,25 @@
       <section id="projection">
         <p class="eyebrow">Calculation layer</p>
         <h2>Deterministic projection and annual cash ledger</h2>
-        <h3>Closed-form monthly projection</h3>
-        <p>For a starting balance <code>B</code>, annual real return <code>r</code>, annual investment draw <code>D</code>, and <code>n = years × 12</code> months:</p>
-        <pre>monthlyReturn = (1 + r)^(1/12) - 1
-monthlyDraw   = max(0, D) / 12
-growth        = (1 + monthlyReturn)^n
-endingBalance = max(0, B × growth - monthlyDraw × ((growth - 1) / monthlyReturn))
-
-If monthlyReturn is zero:
-endingBalance = max(0, B - monthlyDraw × n)</pre>
-        <p>The Command Centre sets <code>D = max(0, annual spending - net PSS pension)</code>. The active spending frontier follows the selected spending, real return and target age, then adds the selected home value to show a gross estate. Fixed 4% and 6.5% paths are retained only as explicitly labelled comparisons.</p>
+        <p>The Command Centre derives its spending frontier by re-running the operational annual planning ledger for each selected spending, return and target-age combination. It does not use a separate terminal monthly-draw formula. The selected home value is added only for a clearly labelled gross-estate view; fixed 4% and 6.5% paths are explicit comparisons.</p>
 
         <h3>Operational annual ledger</h3>
         <pre>mandatoryDraw = openingPoolA × ageBasedMinimumRate
 lifestyleGap  = max(0, spending - netPssPension)
 actualDraw    = min(openingPoolA, max(mandatoryDraw, lifestyleGap))
-reinvestment = max(0, netPssPension + actualDraw - spending)
+netIncome     = netPssPension + actualDraw
+fundedSpend   = min(spending, netIncome)
+shortfall     = max(0, spending - netIncome)
+reinvestment  = max(0, netIncome - spending)
 poolCDrag     = openingPoolC × 0.0035
 closingPoolA  = max(0, openingPoolA × (1 + realReturn) - actualDraw)
 closingPoolC  = max(0, openingPoolC × (1 + realReturn) - poolCDrag + reinvestment)</pre>
-        <p>Minimum draw rates represented in the integrated ledger are: under 65, 4%; 65–74, 5%; 75–79, 6%; 80–84, 7%; 85–89, 9%; 90–94, 11%; 95+, 14%. These are model assumptions tied to the baseline and must be reconfirmed against current law.</p>
+        <p>Birthday-year planning rows apply the rate for age at the preceding 1 July: under 65, 4%; 65–74, 5%; 75–79, 6%; 80–84, 7%; 85–89, 9%; 90–94, 11%; 95+, 14%. This prevents an age threshold being stepped up early. The provider calculates the actual financial-year minimum, including first-year pro-rating; Pool C is a reserve, not an automatic source of a displayed shortfall.</p>
 
         <h3>V23 deterministic governor</h3>
         <ol>
           <li>Apply the age-based mandatory draw from Pool A.</li>
-          <li>Use pension plus the required draw to meet the selected spending rule.</li>
+          <li>Show the selected spending target separately from the amount actually funded.</li>
           <li>Draw extra from Pool A only when the spending gap exceeds the mandatory draw.</li>
           <li>Route surplus to available super headroom when permitted, otherwise to Pool C.</li>
           <li>Keep Pool B as a transit account for wash/recontribution modelling rather than a permanent growth pool.</li>
@@ -163,10 +158,10 @@ closingPoolC  = max(0, openingPoolC × (1 + realReturn) - poolCDrag + reinvestme
           <li>600 reproducible seeded paths from age 60 through age 95.</li>
           <li>Annual returns are sampled from a normal distribution with the selected real mean and 12% volatility, clamped between −55% and +45%.</li>
           <li>Each year: <code>capital = max(0, capital × (1 + sampledReturn) - annualDraw)</code>.</li>
-          <li>The chart reports the P10, P25, P50, P75 and P90 balance paths. Percentiles are scenario outputs, not guarantees.</li>
+          <li>The chart reports P10, P25, P50, P75 and P90 balance paths plus a model success frequency. These are simplified stress-test outputs, not forecast probabilities or guarantees.</li>
         </ul>
         <h3>V23 stochastic lab</h3>
-        <p>V23 exposes run count, expected real return, volatility, target age and guardrail thresholds. It reports estimated probabilities of clearing the selected floor, target and strong-estate levels. Sampling noise remains; V23 notes that a 500-run result may vary by roughly one to three percentage points between samples.</p>
+        <p>V23 exposes run count, expected real return, volatility, target age and guardrail thresholds. It reports sampled success frequencies of clearing the selected floor, target and strong-estate levels—not forecast probabilities. Sampling noise remains; a 500-run result may vary by roughly one to three percentage points between samples. These simulations do not model fees, legislation, statutory payment timing, account routing or personal spending shocks.</p>
         <h3>Sequence-risk isolation</h3>
         <p>The sequence test reorders the same set of annual returns into worst-first, smooth and best-first paths. Because the arithmetic average is held constant, the resulting balance spread isolates the effect of return order while withdrawals occur.</p>
         <h3>Stress controls</h3>
@@ -195,13 +190,13 @@ Illustrative DBT exposure:
 deathBenefitTax = taxableComponent × 0.17</pre>
         <h3>Modelled sequence</h3>
         <ol>
-          <li>Before the relevant 30 June snapshot, confirm TSB, contribution eligibility, cap space and implementation advice.</li>
+          <li>Before the relevant 30 June snapshot, confirm actual TSB, current cap, contribution eligibility, legal timing and implementation advice.</li>
           <li>Commute the selected amount from Pool A under the chosen component method.</li>
           <li>Contribute the eligible NCC amount to Pool B.</li>
           <li>Recommence or consolidate according to provider and advice requirements.</li>
           <li>Preserve the intended $5,000 planning buffer and route mandatory-draw surplus according to the governor.</li>
         </ol>
-        <div class="note warning"><strong>Implementation control:</strong> the integrated Command Centre contains a simplified 0–7 wash-cycle illustration. V23 carries the method comparison and expanded corrected analysis. Neither is an instruction to transact.</div>
+        <div class="note warning"><strong>Implementation control:</strong> the integrated Command Centre contains a simplified 0–7 wash-cycle illustration. V23 uses a birthday-model planning proxy and cannot establish actual prior-30-June TSB eligibility or provider timing. Neither is an instruction to transact.</div>
       </section>
 
       <section id="tax">
@@ -211,7 +206,7 @@ deathBenefitTax = taxableComponent × 0.17</pre>
         <p>The dashboard compares retirement cash flow with employment salary by calculating resident individual income tax plus a 2% Medicare levy, then solving by binary search for the gross salary that produces the selected net income. The baseline tax function uses a $18,200 tax-free threshold, bracket points at $45,000, $135,000 and $190,000, rates of 30%, 37% and 45% above those points, and a lower bracket rate of 15% for 2026–27 or 14% for 2027–28.</p>
         <p>This deliberately simplified comparator excludes offsets, Medicare levy variations, Medicare levy surcharge, HELP, deductions and household-specific effects. It is a modelled comparison, not a tax return estimate.</p>
         <h3>Spending guardrails</h3>
-        <p>V23 supports three distinguishable spending modes: age-band spending; a percentage of positive investment earnings, which produces no earnings-based gap after a negative return and can require extra Pool A draw in strong years; and a percentage of the mandatory draw, which cannot exceed the mandatory draw and routes the unused surplus through the reinvestment governor.</p>
+        <p>V23 supports three distinguishable spending modes: age-band spending, where each input maps to its own phase and the display creates a sub-phase if the funding routine changes; a percentage of positive investment earnings, which produces no earnings-based gap after a negative return and can require extra Pool A draw in strong years; and a percentage of the mandatory draw, which cannot exceed the mandatory draw and routes the unused surplus through the reinvestment governor.</p>
         <h3>Estate view</h3>
         <p>The simplified frontier reports <code>gross estate = projected investments + selected home value</code>. V23 separately tracks account components, external assets and illustrative death-benefit tax so gross and after-tax outcomes are not conflated.</p>
       </section>
@@ -225,6 +220,9 @@ deathBenefitTax = taxableComponent × 0.17</pre>
           <dt>Keep gross, net and salary-equivalent values distinct.</dt><dd>Gross pension, modelled net pension, net spending and gross salary equivalence are separate fields.</dd>
           <dt>Keep real and nominal values distinct.</dt><dd>Retirement projections use real dollars. Pre-age-60 compounding is separately labelled nominal.</dd>
           <dt>Preserve method labels.</dt><dd>Corrected proportioning, workbook reconciliation and full-conversion comparison are not interchangeable NCC wash methods.</dd>
+          <dt>Do not silently fund spending from Pool C.</dt><dd>A target-spend shortfall remains visible until an explicit Pool C draw policy is chosen and modelled.</dd>
+          <dt>Keep current PSS evidence provisional.</dt><dd>The 2026 PSS statement is pending payroll/CSC correction and reissue; it does not replace the locked iEstimator inputs.</dd>
+          <dt>Keep the Hostplus anchor honest.</dt><dd>$317,447.66 is an upper planning anchor. The governed workbook reconciles to $289,620.63 at 8.0% nominal under its documented timing and contribution assumptions.</dd>
           <dt>Review annually.</dt><dd>PSS estimates, balances, tax rates, Medicare, draw rates, contribution caps, TBC/TSB rules and provider processes can change.</dd>
         </dl>
         <h3>Machine-analysis contract</h3>
@@ -241,6 +239,7 @@ deathBenefitTax = taxableComponent × 0.17</pre>
           <li><code>PSS_iEstimator_60-40_2026-07-02.pdf</code> — 60/40 PSS option and component input.</li>
           <li><code>PSS_iEstimator_100_2026-07-02.pdf</code> — 100% pension comparison.</li>
           <li><code>PSS_Annual_Statement_2025_2025-12-20.pdf</code> — annual PSS statement reference.</li>
+          <li><code>Statement 2026.pdf</code> — current PSS statement, pending payroll/CSC correction and reissue; not yet a replacement retirement input.</li>
           <li><code>Robinson_Retirement_Master_2026-07-18.md</code> — master narrative and operating assumptions.</li>
           <li><code>Robinson_Retirement_Spending_Estate_Frontier_Analysis_2026-07-18.md</code> — Rail B spending and estate frontier.</li>
           <li><code>Robinson_PSSDB_VR_Deep_Research_2026-07-18.md</code> — PSS/VR research and valuation context.</li>
@@ -254,6 +253,6 @@ deathBenefitTax = taxableComponent × 0.17</pre>
       </section>
     </main>
 
-    <footer><div class="wrap">Robinson Retirement Command Centre · Baseline 2026-07-18 · Static reference v1 · <a href="./">Return to dashboard</a></div></footer>
+    <footer><div class="wrap">Robinson Retirement Command Centre · Baseline 2026-07-18 · Reconciled static reference 2026-08-13 · <a href="./">Return to dashboard</a></div></footer>
   </body>
 </html>

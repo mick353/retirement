@@ -6,8 +6,6 @@
   const POOL_C_DRAG = 0.0035;
   const HOME_FLOOR = 500_000;
   const GROSS_ESTATE_FLOOR = 1_000_000;
-  const PER_WASH_SAVING = 15_683.86;
-  const TAXABLE_SHARE = 0.709677;
   const WASH_AMOUNT = 130_000;
 
   const RAILS = {
@@ -28,7 +26,9 @@
       poolC: 51_361.96,
       lumpTaxFree: null,
       lumpTaxableTaxed: null,
-      taxStatus: "Master-locked separate-interest wash convention",
+      washTaxableShare: 0.709677,
+      washEvidence: "Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
+      taxStatus: "Modelled Rail A wash profile",
     },
     B: {
       key: "B",
@@ -47,7 +47,9 @@
       poolC: 148_635.12,
       lumpTaxFree: 175_753.71,
       lumpTaxableTaxed: 429_619.52,
-      taxStatus: "Master-locked separate-interest wash convention",
+      washTaxableShare: 0.709677,
+      washEvidence: "Master-locked 60/40 engine convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. The July PSS lump agrees; confirm provider execution and account components before acting.",
+      taxStatus: "Modelled Rail B wash profile",
     },
   };
 
@@ -77,12 +79,13 @@
   let toastTimer;
 
   function drawRate(age) {
-    if (age < 65) return 0.04;
-    if (age < 75) return 0.05;
-    if (age < 80) return 0.06;
-    if (age < 85) return 0.07;
-    if (age < 90) return 0.09;
-    if (age < 95) return 0.11;
+    const ageAt1July = Math.max(0, age - 1);
+    if (ageAt1July < 65) return 0.04;
+    if (ageAt1July < 75) return 0.05;
+    if (ageAt1July < 80) return 0.06;
+    if (ageAt1July < 85) return 0.07;
+    if (ageAt1July < 90) return 0.09;
+    if (ageAt1July < 95) return 0.11;
     return 0.14;
   }
 
@@ -116,7 +119,7 @@
     let poolC = rail.poolC;
     const rows = [{
       year: "2033 launch", age: 60, pension: 0, openingA: poolA, openingC: poolC,
-      poolA, poolC, mandatory: 0, draw: 0, spend: 0, reinvestment: 0,
+      poolA, poolC, mandatory: 0, draw: 0, spend: 0, fundedSpend: 0, shortfall: 0, reinvestment: 0,
       externalTaxDrag: 0, netIncome: 0, grossEquivalent: 0, ending: poolA + poolC,
     }];
     for (let age = 61; age <= 95; age += 1) {
@@ -125,15 +128,18 @@
       const mandatory = openingA * drawRate(age);
       const lifestyleGap = Math.max(0, spend - rail.netPension);
       const draw = Math.min(openingA, Math.max(mandatory, lifestyleGap));
-      const reinvestment = Math.max(0, rail.netPension + draw - spend);
+      const netIncome = rail.netPension + draw;
+      const fundedSpend = Math.min(spend, netIncome);
+      const shortfall = Math.max(0, spend - netIncome);
+      const reinvestment = Math.max(0, netIncome - spend);
       const externalTaxDrag = openingC * POOL_C_DRAG;
       poolA = Math.max(0, openingA * (1 + realReturn) - draw);
       poolC = Math.max(0, openingC * (1 + realReturn) - externalTaxDrag + reinvestment);
       rows.push({
         year: `${2033 + age - 60}-${String(34 + age - 60).slice(-2)}`,
         age, pension: rail.netPension, openingA, openingC, poolA, poolC, mandatory,
-        draw, spend, reinvestment, externalTaxDrag, netIncome: rail.netPension + draw,
-        grossEquivalent: grossForNet(rail.netPension + draw), ending: poolA + poolC,
+        draw, spend, fundedSpend, shortfall, reinvestment, externalTaxDrag, netIncome,
+        grossEquivalent: grossForNet(netIncome), ending: poolA + poolC,
       });
     }
     return rows;
@@ -223,33 +229,37 @@
   }
 
   function renderIncomeChart(ledger) {
+    const operatingRows = ledger.filter((row) => row.age > 60);
     const colors = chartTheme();
     if (charts.income) charts.income.destroy();
     charts.income = new Chart($("incomeChart"), {
       type: "line",
       data: {
-        labels: ledger.map((row) => row.age),
+        labels: operatingRows.map((row) => `${row.age - 1}→${row.age}`),
         datasets: [
-          { label: "Selected spending", data: ledger.map((row) => row.spend), borderColor: colors.amber, backgroundColor: colors.amber, borderWidth: 2.5, pointRadius: 0, tension: .18 },
-          { label: "Net PSS pension", data: ledger.map((row) => row.pension), borderColor: colors.violet, backgroundColor: colors.violet, borderWidth: 3, pointRadius: 0, tension: .12 },
-          { label: "ABP draw", data: ledger.map((row) => row.draw), borderColor: colors.blue, backgroundColor: colors.blue, borderWidth: 2.5, pointRadius: 0, tension: .18 },
-          { label: "Reinvested surplus", data: ledger.map((row) => row.reinvestment), borderColor: colors.green, backgroundColor: colors.green, borderWidth: 2, pointRadius: 0, borderDash: [5, 4], tension: .18 },
+          { label: "Target spending", data: operatingRows.map((row) => row.spend), borderColor: colors.amber, backgroundColor: colors.amber, borderWidth: 2.5, pointRadius: 0, tension: .18 },
+          { label: "Funded spending", data: operatingRows.map((row) => row.fundedSpend), borderColor: colors.green, backgroundColor: colors.green, borderWidth: 2.25, pointRadius: 0, borderDash: [5, 4], tension: .18 },
+          { label: "Net PSS pension", data: operatingRows.map((row) => row.pension), borderColor: colors.violet, backgroundColor: colors.violet, borderWidth: 3, pointRadius: 0, tension: .12 },
+          { label: "ABP draw", data: operatingRows.map((row) => row.draw), borderColor: colors.blue, backgroundColor: colors.blue, borderWidth: 2.5, pointRadius: 0, tension: .18 },
+          { label: "Reinvested surplus", data: operatingRows.map((row) => row.reinvestment), borderColor: colors.green, backgroundColor: colors.green, borderWidth: 2, pointRadius: 0, borderDash: [5, 4], tension: .18 },
         ],
       },
       options: baseChartOptions((event, elements, chart) => {
         const index = chartIndex(chart, event, elements);
-        state.selectedIncomeAge = ledger[index].age;
-        renderSelectedCashflow(ledger[index]);
+        state.selectedIncomeAge = operatingRows[index].age;
+        renderSelectedCashflow(operatingRows[index]);
       }),
     });
   }
 
   function renderSelectedCashflow(row) {
     $("incomeAgeSelect").value = String(row.age);
-    $("selectedAge").textContent = row.age;
+    $("selectedAge").textContent = `${row.age - 1}→${row.age}`;
     $("selectedPension").textContent = money0.format(row.pension);
     $("selectedDraw").textContent = money0.format(row.draw);
     $("selectedSpend").textContent = money0.format(row.spend);
+    $("selectedFundedSpend").textContent = money0.format(row.fundedSpend);
+    $("selectedShortfall").textContent = row.shortfall > 0 ? money0.format(row.shortfall) : "—";
     $("selectedReinvestment").textContent = money0.format(row.reinvestment);
     $("selectedGross").textContent = money0.format(row.grossEquivalent);
   }
@@ -334,10 +344,10 @@
     $("metricCapitalSource").textContent = `[MODELLED] ${money0.format(rail.lumpSum)} PSS lump + ${money0.format(rail.hostplus)} Hostplus`;
     $("metricCapitalLabel").textContent = `Investments at ${state.targetAge}`;
     $("metricCapital").textContent = money0.format(targetRow.ending);
-    $("metricCapitalSub").textContent = `[MODELLED] ${pct(state.realReturn)} real · reconciled annual ledger`;
+    $("metricCapitalSub").textContent = `[MODELLED] ${pct(state.realReturn)} real · reconciled birthday-year planning ledger`;
     $("metricEstateLabel").textContent = `Gross estate at ${state.targetAge}`;
     $("metricEstate").textContent = money0.format(targetRow.ending + state.home);
-    $("metricEstateSub").textContent = `[MODELLED] Includes ${money0.format(state.home)} assumed home`;
+    $("metricEstateSub").textContent = `[MODELLED] Includes ${money0.format(state.home)} assumed home · before costs and residual DBT`;
   }
 
   function renderArchitecture(rail) {
@@ -398,7 +408,7 @@
       ["4 · Age-75 wealth", money0.format(at75.ending), at75.ending >= 1_200_000 ? "Benchmark strong" : at75.ending >= 750_000 ? "Substantial" : "Lifestyle cost", `Investment-only capital; the home and pension replacement value are excluded.`],
       ["5 · Age-85 wealth", money0.format(at85.ending), at85.ending >= 750_000 ? "Substantial" : at85.ending >= 300_000 ? "Moderate" : "Guardrail", `Uses the same constant real spending and return assumptions through age 85.`],
       ["6 · Estate outcome", money0.format(targetEstate), estateMargin >= 500_000 ? "Strong margin" : estateMargin >= 0 ? "Floor retained" : "Below floor", `${estateMargin >= 0 ? money0.format(estateMargin) + " above" : money0.format(Math.abs(estateMargin)) + " below"} the $1.0m property-inclusive floor.`],
-      ["7 · Tax efficiency", money0.format(drag), "Modelled wash", `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; Rail ${rail.key} also uses the master-locked 70.97% separate-interest wash convention. Provider execution remains to be confirmed.`],
+      ["7 · Tax efficiency", money0.format(drag), "Modelled wash", `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; Rail ${rail.key} also uses the master-locked ${pct(rail.washTaxableShare, 2)} separate-interest wash convention. Provider execution remains to be confirmed.`],
       ["8 · Optionality", money0.format(target.ending), target.ending >= 750_000 ? "High liquidity" : target.ending >= 300_000 ? "Meaningful" : "Narrowing", `Liquid investment capital remains separate from the mortgage-free home and lifelong PSS floor.`],
     ];
     $("objectiveGrid").innerHTML = objectives.map(([label, value, verdict, detail]) => `<article class="objective-card"><div><span>${label}</span><em>${verdict}</em></div><strong>${value}</strong><small>${detail}</small></article>`).join("");
@@ -415,23 +425,21 @@
     $("washCyclesOut").textContent = state.washCycles;
     $("washCycles").value = state.washCycles;
     $("washTrack").style.width = `${state.washCycles / 7 * 100}%`;
-    $("washSaved").textContent = money2.format(state.washCycles * PER_WASH_SAVING);
-
-    const taxableStart = rail.poolA * TAXABLE_SHARE;
+    const taxableStart = rail.poolA * rail.washTaxableShare;
     const modelledDbtStart = taxableStart * .17;
-    const taxableRemaining = Math.max(0, taxableStart - state.washCycles * WASH_AMOUNT * TAXABLE_SHARE);
-    const remainingDbt = taxableRemaining * .17;
-    $("washStatus").textContent = `Rail ${rail.key} uses the master-locked separate-interest convention: up to seven $130,000 cycles from age 61, subject to annual eligibility and provider execution confirmation.`;
+    const taxableRemoved = Math.min(taxableStart, state.washCycles * WASH_AMOUNT * rail.washTaxableShare);
+    const remainingDbt = (taxableStart - taxableRemoved) * .17;
+    $("washStatus").textContent = `Rail ${rail.key} uses the master-locked separate-interest convention: up to seven $130,000 cycles from age 61, with six currently required to reach the $10,000 DBT target.`;
     $("washBadge").className = "badge modelled";
     $("washBadge").textContent = `Modelled Rail ${rail.key} convention`;
     $("washSavedLabel").textContent = "Modelled DBT remaining";
     $("washSaved").textContent = money2.format(remainingDbt);
     $("washSavedSub").textContent = `${money2.format(modelledDbtStart - remainingDbt)} modelled reduction after ${state.washCycles} cycle${state.washCycles === 1 ? "" : "s"}`;
     $("taxEvidence").innerHTML = `
-      <div class="evidence-row"><div><b>Master-locked Pool A taxable-share convention</b><span class="badge modelled">MODELLED</span></div><p>${pct(TAXABLE_SHARE, 2)} taxable-taxed, 29.03% tax-free and 0% untaxed for the engine on both rails; ${money0.format(taxableStart)} starting taxable component in this illustration.</p></div>
+      <div class="evidence-row"><div><b>Master-locked Pool A taxable-share convention</b><span class="badge modelled">MODELLED</span></div><p>${pct(rail.washTaxableShare, 2)} taxable-taxed, 29.03% tax-free and 0% untaxed; ${money0.format(taxableStart)} starting taxable component. ${rail.washEvidence}</p></div>
       ${rail.key === "B" ? `<div class="evidence-row"><div><b>July PSS lump components</b><span class="badge exact">EXACT</span></div><p>${money2.format(rail.lumpTaxFree)} tax-free and ${money2.format(rail.lumpTaxableTaxed)} taxable-taxed; taxable-untaxed is $0.</p></div>` : ""}
       <div class="evidence-row"><div><b>Illustrative DBT before washes</b><span class="badge modelled">MODELLED</span></div><p>${money2.format(modelledDbtStart)} at the 17% taxed-element planning rate for adult non-dependants.</p></div>
-      <div class="evidence-row"><div><b>Provider execution check</b><span class="badge speculative">UNKNOWN</span></div><p>Confirm the provider can preserve the re-contributed NCC money as a separate pension interest and refresh account components before acting.</p></div>`;
+      <div class="evidence-row"><div><b>Provider execution check</b><span class="badge speculative">UNKNOWN</span></div><p>Confirm Hostplus can preserve the re-contributed NCC money as a separate pension interest; refresh actual components before every cycle.</p></div>`;
   }
 
   function renderGuardrails(rail, inspectionRow) {
@@ -576,7 +584,7 @@
   })();
   document.documentElement.dataset.theme = initialTheme === "dark" ? "dark" : "light";
   $("themeToggle").textContent = initialTheme === "dark" ? "Light" : "Dark";
-  $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
+  $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Year ${age - 60} · age ${age - 1}→${age}</option>`).join("");
   $("capitalAgeSelect").innerHTML = Array.from({ length: 36 }, (_, index) => 60 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
   state.washCycles = 6;
   renderAll();

@@ -1,6 +1,6 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Baseline: 18 July 2026
+Baseline: 18 July 2026 · reconciled release: 13 August 2026
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -25,7 +25,7 @@ Input                                  Rail A          Rail B
 Gross indexed PSS pension              $78,382.04      $82,550.89 p.a.
 Net PSS pension used by model           $76,041.68      $76,302.72 p.a.
 PSS lump sum                            $574,801.66     $605,373.22
-Hostplus balance                        $317,447.66     $317,447.66
+Hostplus upper planning anchor          $317,447.66     $317,447.66
 Total investment capital                $892,249.32     $922,820.88
 DB special value                        $1,254,112.64   $1,320,814.24
 Pool A retirement pension account       $840,887.36     $774,185.76
@@ -40,30 +40,22 @@ SHARED CONTROLS
 - Retirement scenarios use real dollars and real returns unless explicitly labelled otherwise.
 - Pre-retirement sensitivity figures are separately labelled nominal.
 
-DETERMINISTIC MONTHLY PROJECTION
-Let B be starting capital, r the annual real return, D the annual investment draw, and n = years x 12.
-
-monthlyReturn = (1 + r)^(1/12) - 1
-monthlyDraw = max(0, D) / 12
-growth = (1 + monthlyReturn)^n
-endingBalance = max(0, B x growth - monthlyDraw x ((growth - 1) / monthlyReturn))
-
-If monthlyReturn is zero:
-endingBalance = max(0, B - monthlyDraw x n)
-
-The Command Centre uses D = max(0, annual spending - net PSS pension). The active spending frontier follows the selected spending, real return and target age, and adds the selected home value for a gross-estate view. Fixed 4% and 6.5% paths are retained only as explicitly labelled comparisons.
+RETIREMENT FRONTIER
+The Command Centre derives its frontier by re-running the operational annual planning ledger below for each selected spending, return and target-age combination. It does not use a separate terminal monthly-draw formula. It adds the selected home value only for a clearly labelled gross-estate view. Fixed 4% and 6.5% paths are explicitly labelled comparisons.
 
 OPERATIONAL ANNUAL LEDGER
 mandatoryDraw = openingPoolA x ageBasedMinimumRate
 lifestyleGap = max(0, spending - netPssPension)
 actualDraw = min(openingPoolA, max(mandatoryDraw, lifestyleGap))
-reinvestment = max(0, netPssPension + actualDraw - spending)
+netIncome = netPssPension + actualDraw
+fundedSpend = min(spending, netIncome)
+shortfall = max(0, spending - netIncome)
+reinvestment = max(0, netIncome - spending)
 poolCDrag = openingPoolC x 0.0035
 closingPoolA = max(0, openingPoolA x (1 + realReturn) - actualDraw)
 closingPoolC = max(0, openingPoolC x (1 + realReturn) - poolCDrag + reinvestment)
 
-Age-based minimum-rate assumptions in the integrated ledger:
-under 65 4%; age 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. Reconfirm current law before relying on these assumptions.
+The ledger's birthday-year planning rows apply the rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. This prevents an age threshold being stepped up early. It is not a fund payment instruction: the provider calculates the actual financial-year minimum, including the first-year pro-rating when an ABP commences after 1 July. Pool C is a reserve, not an automatic source of a displayed spending shortfall.
 
 V23 DETERMINISTIC GOVERNOR
 1. Apply the age-based mandatory draw from Pool A.
@@ -78,11 +70,12 @@ Integrated Command Centre:
 - Returns sampled from a normal distribution using the selected real mean and 12% volatility.
 - Sampled annual returns are clamped between -55% and +45%.
 - Each year: capital = max(0, capital x (1 + sampledReturn) - annualDraw).
-- Reports P10, P25, P50, P75 and P90 balance paths.
+- Reports P10, P25, P50, P75 and P90 balance paths plus a model success frequency at the selected floor.
+- This is a simplified stress-test frequency, not a forecast probability. It excludes fees, legislation, statutory payment timing, account routing and personal spending shocks.
 
 V23 stochastic lab:
 - Exposes run count, expected real return, volatility, target age and guardrail levels.
-- Reports estimated probabilities of clearing the selected floor, target and strong-estate levels.
+- Reports sampled success frequencies of clearing the selected floor, target and strong-estate levels; these are not forecast probabilities.
 - Sampling noise remains; at 500 runs V23 notes that results can move by roughly 1-3 percentage points between samples.
 
 Sequence-risk isolation:
@@ -116,13 +109,13 @@ Full-conversion master-document comparison:
 - Kept as an explicit comparison and never silently mixed with proportioning.
 
 Modelled sequence:
-1. Before the relevant 30 June snapshot, confirm TSB, contribution eligibility, cap space and implementation advice.
+1. Before the relevant 30 June snapshot, confirm the actual TSB, current cap, contribution eligibility, legal timing and implementation advice.
 2. Commute the selected amount from Pool A under the chosen component method.
 3. Contribute the eligible NCC amount to Pool B.
 4. Recommence or consolidate according to provider and advice requirements.
 5. Preserve the intended $5,000 planning buffer and apply the surplus-routing governor.
 
-The integrated Command Centre has a simplified 0-7 wash-cycle illustration. V23 contains the method comparison and expanded corrected analysis. Neither is an instruction to transact.
+The integrated Command Centre has a simplified 0-7 wash-cycle illustration. V23 shows a birthday-model planning proxy only; it cannot establish actual prior-30-June TSB eligibility or provider timing. Neither is an instruction to transact.
 
 TAX AND SALARY EQUIVALENCE
 The dashboard calculates resident individual income tax plus a 2% Medicare levy, then uses binary search to find the gross salary that produces a selected net income. The baseline function uses a $18,200 tax-free threshold; bracket points at $45,000, $135,000 and $190,000; rates of 30%, 37% and 45% above those points; and a lower bracket rate of 15% for 2026-27 or 14% for 2027-28.
@@ -131,7 +124,7 @@ The comparator excludes offsets, Medicare levy variations, Medicare levy surchar
 
 SPENDING AND ESTATE
 V23 spending modes:
-1. Age-band spending.
+1. Age-band spending. Each input maps to its own phase, and the V23 display creates a separate sub-phase if its funding routine changes.
 2. A percentage of positive investment earnings. A negative return produces no earnings-based spending gap; strong earnings can require an extra Pool A draw.
 3. A percentage of the mandatory draw. This cannot exceed the mandatory draw; surplus is routed by the governor.
 
@@ -144,6 +137,9 @@ GOVERNANCE CONTROLS
 - Keep gross pension, net pension, net spending and gross salary equivalence distinct.
 - Keep real retirement projections and nominal pre-age-60 sensitivities distinct.
 - Keep corrected proportioning, workbook reconciliation and full-conversion wash methods separately labelled.
+- Keep a spending target separate from funded spending. Do not silently draw Pool C to remove a funding shortfall.
+- Treat the $317,447.66 Hostplus amount as an upper planning anchor. The governed Hostplus workbook reconciles to $289,620.63 at 8.0% nominal with $24,522 opening balance, $650/pf salary sacrifice and $1,200/pf Phase 3 total; use an updated statement before changing the anchor.
+- The 2026 PSS statement is pending payroll/CSC correction and reissue. It is evidence to monitor, not authority to replace the locked iEstimator inputs.
 - Review PSS estimates, balances, tax rates, Medicare, draw rates, contribution caps, TBC/TSB rules and provider processes annually.
 
 MACHINE-ANALYSIS CONTRACT
@@ -161,6 +157,7 @@ Personal source PDFs and workbooks are not republished. Governed source roles:
 - PSS_iEstimator_60-40_2026-07-02.pdf: 60/40 PSS option and component input.
 - PSS_iEstimator_100_2026-07-02.pdf: 100% pension comparison.
 - PSS_Annual_Statement_2025_2025-12-20.pdf: annual PSS statement reference.
+- Statement 2026.pdf: current PSS statement, pending payroll/CSC correction and reissue; do not use for revised retirement inputs yet.
 - Robinson_Retirement_Master_2026-07-18.md: master narrative and operating assumptions.
 - Robinson_Retirement_Spending_Estate_Frontier_Analysis_2026-07-18.md: Rail B spending and estate frontier.
 - Robinson_PSSDB_VR_Deep_Research_2026-07-18.md: PSS/VR research and valuation context.

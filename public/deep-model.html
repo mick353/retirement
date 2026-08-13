@@ -865,8 +865,8 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23 · corrected DBT engine</span></h1>
-      <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · TSB-saturated · Dynamic target age</div>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23 · reconciled 13 Aug 2026</span></h1>
+      <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
   <div class="controls">
@@ -918,7 +918,7 @@ main{min-width:0;}
     <a data-page="sensitivity">Sensitivity scenarios</a>
     <a data-page="breakeven">Breakeven returns</a>
     <a data-page="stress">Stress test</a>
-    <a data-page="probability">Probability of success</a>
+    <a data-page="probability">Simulation results</a>
     <a data-page="tornado">Tornado sensitivity</a>
 
     <div class="group">Scenarios</div>
@@ -1197,7 +1197,7 @@ main{min-width:0;}
       </div>
       <div class="panel">
         <h2>Lifestyle phases &amp; ramped-draw strategy</h2>
-        <div class="muted smaller">Each row is an automatic cashflow sub-phase inside one age-band input. A band splits whenever its funding routine changes, so an extra Pool A draw and surplus to Pool C never appear in the same row. Age 60 is the opening balance snapshot, then annual cashflow begins.</div>
+        <div class="muted smaller">Each row is an automatic cashflow sub-phase inside one age-band input. A band splits whenever its funding routine changes, so an extra Pool A draw, mandatory surplus to Pool C, exact coverage and an unfunded target never appear in the same row. Age 60 is the opening-balance snapshot; later rows are annual planning periods. Your fund calculates the legal ABP minimum by financial year, including the first-year pro-rating.</div>
         <table id="in_tbl"></table>
       </div>
     </section>
@@ -1229,7 +1229,7 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-wash">
-      <div class="note good"><b>The wash in one line.</b> Each year you commute a sum out of Pool A, then put the same sum straight back in as a <b>non-concessional (after-tax) contribution</b>. Money contributed after tax arrives as <b>100% tax-free component</b>, so the round trip converts taxable money into tax-free money and permanently shrinks the death-benefits-tax bill. Your TSB is held at ~$2,095,000, which puts you in the <b>$130,000 1-year NCC band — bring-forward is NOT available to you</b> (that needs a TSB under $1.97M).</div>
+      <div class="note good"><b>The wash in one line.</b> Each eligible year, commute from the original pension interest and recontribute the same amount as an after-tax NCC into a <b>separate</b> interest. The $130,000 annual cap is tested against the prior 30 June TSB. Confirm the actual component split and Hostplus implementation before every cycle.</div>
       <div class="panel">
         <h2>Wash controls</h2>
         <div class="grid-2">
@@ -1241,27 +1241,26 @@ main{min-width:0;}
             <div class="slider-block"><div class="lab"><span>Annual wash amount</span><span class="val" id="lbl-washamt"></span></div>
               <input type="range" id="sl_washamt" min="0" max="200000" step="5000" value="130000"></div>
             <div class="slider-block"><div class="lab"><span>Maximum washes</span><span class="val" id="lbl-washmax"></span></div>
-              <input type="range" id="sl_washmax" min="0" max="15" step="1" value="14"></div>
+              <input type="range" id="sl_washmax" min="0" max="7" step="1" value="7"></div>
           </div>
           <div>
             <div class="slider-block"><div class="lab"><span>Stop when remaining DBT ≤</span><span class="val" id="lbl-washtgt"></span></div>
               <input type="range" id="sl_washtgt" min="0" max="50000" step="1000" value="10000"></div>
-            <div class="slider-block"><div class="lab"><span>NCC cutoff age (law: 75)</span><span class="val" id="lbl-washcut"></span></div>
+            <div class="slider-block"><div class="lab"><span>Planning cutoff age (recheck legal timing)</span><span class="val" id="lbl-washcut"></span></div>
               <input type="range" id="sl_washcut" min="65" max="80" step="1" value="75"></div>
             <div class="slider-block"><div class="lab"><span>Component method</span><span class="val" id="lbl-washmethod"></span></div>
               <select id="sel_washmethod">
-                <option value="prop">ATO proportioning rule (correct)</option>
-                <option value="flat">Workbook V5.0 (proportioning, frozen share)</option>
-                <option value="full">Full conversion (master doc 7.4 prose)</option>
+                <option value="separate">Separate interests (strategy)</option>
+                <option value="merged">Merged interest (inefficient comparator)</option>
               </select></div>
-            <div class="note warn" style="margin-top:10px"><b>Your two source documents disagree — and both differ from the ATO rule.</b><br>• <b>Master doc §7.4 prose:</b> “~$22,100 saved per wash” = $130,000 × 17%. Assumes the <i>whole</i> $130k converts. Clears in ~5 washes.<br>• <b>Workbook V5.0 Engine:</b> credits <b>$15,683.86</b> every wash (= $130,000 × 70.97% × 17%). That is the <i>correct</i> proportioning formula, but it <b>freezes the taxable share at 70.97%</b> and never re-computes it. Gives “Wash Count @75 = 6”.<br>• <b>ATO proportioning (s307-125, default here):</b> a commutation is paid from each component <i>in proportion</i>, so as the taxable share falls each wash converts <i>less</i>: $15,684 → $13,259 → $11,209 → … <b>You need 14 washes (ages 61–74) to reach the $10k target</b>, which exactly consumes your runway to the age-75 NCC cutoff.<br>Switch methods above to reproduce each document.</div>
+            <div class="note warn" style="margin-top:10px"><b>Execution matters.</b><br>• <b>Separate interests:</b> each commutation comes from the original interest, so its opening component proportion applies. The model reaches the $10,000 DBT target in about six cycles on either rail.<br>• <b>Merged interest:</b> the clean NCC money is blended back into the same interest, weakening later cycles. This is retained only as a warning comparator.<br>• The former “full conversion” method was rejected because it treated the entire commutation as taxable and overstated the saving.</div>
           </div>
         </div>
       </div>
       <div class="cards" id="wash_cards"></div>
       <div class="panel">
         <h2>Taxable component &amp; death-benefits tax by age</h2>
-        <div class="muted smaller">The wash drives the taxable share down. Where the DBT line reaches your target, washing stops automatically.</div>
+        <div class="muted smaller">This wash-only schedule tracks residual taxable dollars in the original interest. Actual earnings, withdrawals and components must be refreshed annually.</div>
         <div class="chart-wrap"><canvas id="wash_chart"></canvas></div>
       </div>
       <div class="panel">
@@ -1272,8 +1271,8 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-estate">
-      <div class="note good"><b>The NCC wash IS modelled here.</b> The taxable share of super starts at <b>70.97%</b> and <b>decays every year the wash runs</b>, so the mid-case death-benefits-tax figures fall over time exactly as your strategy intends. Change the schedule, amount or method on the <b>NCC wash &amp; DBT</b> page and every number here moves with it. The <i>worst-case</i> cards still assume 100% taxable and no wash — they are a deliberate stress ceiling, not a forecast.</div>
-      <div class="note good"><b>How to read this page.</b> The chart shows a <b>range</b>, not a forecast: the green line is a realistic mid-case after-tax estate, the dashed amber line is the worst-case ceiling (maximum possible tax). Your actual after-tax estate almost certainly sits inside this band, closer to the green line. The single-number cards labelled "(max tax)" are deliberate worst-case figures for stress-testing — not predictions. See the caveats below the chart for the four factors that move the real number.</div>
+      <div class="note good"><b>The NCC wash is modelled here.</b> The active engine uses the master-locked 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed convention on both rails. The worst-case cards still assume 100% taxable and no wash as a deliberate stress ceiling.</div>
+      <div class="note good"><b>How to read this page.</b> The green line is the active wash-only model; the dashed amber line is a deliberately severe tax ceiling. This is a scenario band, not a probability interval or forecast. The single-number cards marked “max tax” are stress tests.</div>
       <div class="cards" id="estate_cards"></div>
       <div class="grid-2">
         <div class="panel">
@@ -1290,18 +1289,19 @@ main{min-width:0;}
       <div class="panel"><h2>Estate analysis at key ages</h2><table id="estate_tbl"></table></div>
       <div class="panel">
         <h2>Why the real number is higher than the worst-case lines</h2>
-        <div class="muted smaller" style="margin-bottom:10px">Four structural factors mean actual death tax is materially lower than the ceiling shown. Each pushes the true after-tax estate toward (or above) the green mid-case line.</div>
+        <div class="muted smaller" style="margin-bottom:10px">Four structural factors can move actual tax materially away from the severe ceiling. The green line remains modelled and depends on annual component refreshes.</div>
         <div class="decision-grid">
           <div class="decision-card"><div class="k">1 · Spouse / dependant exemption</div><div class="v">DBT can be $0</div><div class="s">Super paid to a spouse or other tax dependant attracts <b>no</b> death benefits tax at all, regardless of the taxable component. The 17% only applies to adult non-dependants (e.g. independent children).</div></div>
-          <div class="decision-card"><div class="k">2 · Tax-free super component</div><div class="v">Only part is taxed</div><div class="s">The PSS lump sum and Hostplus carry a tax-free component that passes to anyone untaxed. The worst-case cards assume 100% taxable; the mid-case assumes ~71%. Real DBT applies only to the taxable slice.</div></div>
+          <div class="decision-card"><div class="k">2 · Tax-free super component</div><div class="v">Only part is taxed</div><div class="s">The PSS lump sum and Hostplus carry tax-free components. The worst-case cards assume 100% taxable; the wash model uses the master-locked 70.97% taxable-taxed convention on both rails.</div></div>
           <div class="decision-card"><div class="k">3 · CGT is on the gain, not the balance</div><div class="v">Far less than 23.5%</div><div class="s">Pool C CGT applies only to <i>unrealised gains</i>, not the whole balance. On death, assets transfer at your cost base — no CGT event is triggered then; beneficiaries inherit the cost base and pay only when they sell, at their own rate and discount.</div></div>
           <div class="decision-card"><div class="k">4 · Late-life restructuring</div><div class="v">Withdraw tax-free</div><div class="s">Over 60 you can withdraw from super tax-free while alive, converting it to personal cash that escapes DBT entirely. A re-contribution or simple drawdown strategy in late life can sharply reduce the super DBT exposure shown here.</div></div>
         </div>
       </div>
-      <div class="note"><b>Model parameters.</b> Worst-case (ceiling): DBT 17% on 100% of super; Pool C CGT 23.5% (47% marginal × 50% discount) on the full balance. Realistic mid-case: DBT 17% on ~71% taxable super; Pool C CGT 15% (30% marginal × 50% discount) on ~50% of the balance assumed to be gain. These are planning illustrations, not tax advice — your actual position depends on your taxable/tax-free split, who inherits, and any restructuring. Pool C distribution-tax drag is already reflected in the balance trajectory. Confirm specifics with a licensed adviser.</div>
+      <div class="note"><b>Model parameters.</b> Severe ceiling: DBT 17% on 100% of super and Pool C CGT 23.5% on the full balance. Modelled case: DBT 17% on residual wash-schedule taxable dollars, plus 15% on an assumed 50% unrealised gain in Pool C. Death itself is not necessarily a Pool C disposal; later beneficiary tax depends on cost base and disposal. Confirm specifics with a licensed adviser.</div>
     </section>
 
     <section class="page" id="page-montecarlo">
+      <div class="note warn"><b>Simulation boundary:</b> these sampled paths are a planning stress test, not a forecast probability. They hold a simplified return distribution and do not model fees, legislation, provider payment timing, account routing or personal spending shocks.</div>
       <div class="cards" id="mc_cards"></div>
       <div class="panel">
         <h2>Monte Carlo capital fan (P10 / P25 / P50 / P75 / P90)</h2>
@@ -1321,13 +1321,13 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-longevity">
-      <div class="note"><b>Longevity risk:</b> Capital survival probability curve. Shows the probability that capital remains above the floor at each age from retirement to 100, using Monte Carlo returns. The steeper the fall, the higher the longevity risk concentration.</div>
+      <div class="note"><b>Longevity risk:</b> Capital survival frequency from a simplified Monte Carlo model. It shows the share of sampled paths above the floor at each age—not a personal forecast or advice.</div>
       <div class="cards" id="lon_cards"></div>
       <div class="panel">
-        <h2>Capital survival probability — floor breach risk by age</h2>
+        <h2>Capital survival frequency — floor-breach sensitivity by age</h2>
         <div class="chart-wrap tall"><canvas id="lon_chart"></canvas></div>
       </div>
-      <div class="panel"><h2>Survival probability at key ages</h2><table id="lon_tbl"></table></div>
+      <div class="panel"><h2>Survival frequency at key ages</h2><table id="lon_tbl"></table></div>
     </section>
 
     <section class="page" id="page-sequence">
@@ -1370,15 +1370,15 @@ main{min-width:0;}
     <section class="page" id="page-probability">
       <div class="grid-2">
         <div class="panel">
-          <h2>P(target hit) by real return</h2>
+          <h2>Target-hit frequency by real return</h2>
           <div class="chart-wrap"><canvas id="pr_byreturn"></canvas></div>
         </div>
         <div class="panel">
-          <h2>P(target hit) by age (likely return)</h2>
+          <h2>Target-hit frequency by age (likely return)</h2>
           <div class="chart-wrap"><canvas id="pr_byage"></canvas></div>
         </div>
       </div>
-      <div class="panel"><h2>Probability summary</h2><table id="pr_tbl"></table></div>
+      <div class="panel"><h2>Simulation summary</h2><table id="pr_tbl"></table></div>
     </section>
 
     <section class="page" id="page-tornado">
@@ -1622,6 +1622,8 @@ const PROFILES = {
     defaultGap:24000,
     defaultGapBands:[{age:60, amount:24000, unit:"dollar"}],
     poolA_day1:840887, poolB_day1:0, poolC_day1:51362, tsbBuffer:5000,
+    dbSpecialValue:1254112.64, washTaxableShare:0.709677,
+    washEvidence:"Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
     washAge:61, washCapThrough:74,
     locked:true
   },
@@ -1634,6 +1636,8 @@ const PROFILES = {
     defaultGap:24000,
     defaultGapBands:[{age:60, amount:24000, unit:"dollar"}],
     poolA_day1:840887, poolB_day1:0, poolC_day1:51362, tsbBuffer:5000,
+    dbSpecialValue:1254112.64, washTaxableShare:0.709677,
+    washEvidence:"Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
     washAge:61, washCapThrough:74,
     locked:false
   }
@@ -1785,12 +1789,13 @@ function lifestylePhaseDefinitions(sim,p){
   }).filter(phase=>phase.end>=phase.start);
 }
 function cashflowRoutine(row){
+  if((row.spendingShortfall||0)>0.005)return"shortfall";
   if((row.extraDraw||0)>0.005)return"extra";
   if((row.surplus||0)>0.005)return"surplus";
   return"matched";
 }
 function cashflowRoutineLabel(routine){
-  return routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
+  return routine==="shortfall"?"Target gap not fully funded":routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
 }
 function splitPhaseByCashflow(phase,sim){
   const sourceRows=sim.rows.filter(row=>!row.launchSnapshot&&row.age>=phase.start&&row.age<=phase.end);
@@ -1876,8 +1881,12 @@ const fmtInputPctClean=(n,d=1)=>Number(n.toFixed(d)).toString()+"%";
 const moneyTick=v=>"$"+(Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":(v/1e3).toFixed(0)+"k");
 
 function mandRate(age){
-  if(age<65)return 0.04;if(age<75)return 0.05;if(age<80)return 0.06;
-  if(age<85)return 0.07;if(age<90)return 0.09;if(age<95)return 0.11;return 0.14;
+  // Rows are birthday-to-birthday planning periods. Apply the rate using age
+  // at the preceding 1 July so a threshold is not stepped up early. Actual
+  // providers calculate legal financial-year minima, including first-year pro-rating.
+  const ageAt1July=Math.max(0,age-1);
+  if(ageAt1July<65)return 0.04;if(ageAt1July<75)return 0.05;if(ageAt1July<80)return 0.06;
+  if(ageAt1July<85)return 0.07;if(ageAt1July<90)return 0.09;if(ageAt1July<95)return 0.11;return 0.14;
 }
 function getProfile(){return PROFILES[STATE.profile];}
 function isRailBProfile(p=getProfile()){return String(p?.name||"").startsWith("Rail B");}
@@ -1949,7 +1958,7 @@ function runModel(opts){
     const w=withdrawFromPools(oneOff/oneOffSpread,abp,acc);abp=w.abp;acc=w.acc;launchOneOff=w.drawn;
   }
   rows.push({
-    age:startAge,gap:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,
+    age:startAge,gap:0,fundedGap:0,spendingShortfall:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,
     extraDraw:0,oneOffDrawn:launchOneOff,abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,
     pension:0,headroom,rA:0,rB:0,rC:0,launchSnapshot:true
   });
@@ -1968,6 +1977,8 @@ function runModel(opts){
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;toABP=r.toABP;toPoolC=r.toPoolC;}
     let extraDraw=0;
     if(gap>mandDraw){const w=withdrawFromPools(gap-mandDraw,abp,acc);abp=w.abp;acc=w.acc;extraDraw=w.drawn;}
+    const fundedGap=realExit+extraDraw;
+    const spendingShortfall=Math.max(0,gap-fundedGap);
     let oneOffDrawn=0;
     if(oneOff>0){const ageEnd=oneOffAge+oneOffSpread-1;if(age>=oneOffAge&&age<=ageEnd){const slice=oneOff/oneOffSpread;const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;oneOffDrawn=w.drawn;}}
     // NCC wash (V5.0 Integrated Optimiser): Pool A commutes $130k out → BANK (creates room).
@@ -1979,7 +1990,7 @@ function runModel(opts){
       if(abp>aCap){poolC+=abp-aCap;abp=aCap;}
     }
     rows.push({
-      age,gap,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,extraDraw,oneOffDrawn,
+      age,gap,fundedGap,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,extraDraw,oneOffDrawn,
       abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,pension:p.netPension,headroom,rA,rB,rC
     });
   }
@@ -2603,7 +2614,7 @@ function renderIncome(){
     <div class="card accent"><div class="label">Avg total usable income</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
     <div class="card"><div class="label">PSS net pension (CPI-flat)</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight</div></div>
     <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS ${fmt$(cumP)} + Pool A ${fmt$(cumD)}${cumX>0?` + Pool A extra ${fmt$(cumX)}`:``}</div></div>
-    <div class="card"><div class="label">Year 1 income (age ${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">${fmtPF(firstYearIncome/26)}/fortnight</div></div>
+    <div class="card"><div class="label">Year 1 income (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">Includes PSSDB pension and investment draw · ${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
   makeChart("in_chart",{type:"bar",data:{labels:operatingAges,datasets:[
     {label:"PSS net pension",data:operatingRows.map(r=>r.pension),backgroundColor:tc.pension,stack:"s"},
@@ -2618,8 +2629,8 @@ function renderIncome(){
   const cashflowPhases=cashflowSubPhases(phases,sim);
   let cumSpend=0;
   const sgn=v=>v<0?`<span style="color:var(--bad,#ff6b6b)">−${fmtFull(Math.abs(v))}</span>`:fmtFull(v);
-  const T={earn:0,mand:0,drawn:0,extra:0,surp:0,ret:0,spend:0,inc:0};
-  sim.rows.forEach(r=>{const sp=r.realExit+r.extraDraw;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.spend+=sp;T.ret+=(r.investmentReturn-sp);T.inc+=(r.pension+sp);});
+  const T={earn:0,mand:0,drawn:0,extra:0,surp:0,ret:0,targetGap:0,spend:0,shortfall:0,inc:0};
+  sim.rows.forEach(r=>{const sp=r.fundedGap??(r.realExit+r.extraDraw);T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.targetGap+=r.gap;T.spend+=sp;T.shortfall+=r.spendingShortfall||0;T.ret+=(r.investmentReturn-sp);T.inc+=(r.pension+sp);});
   const rows=cashflowPhases.map(phase=>{
     const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=phase.start&&r.age<=phase.end);
     const n=segs.length||1;
@@ -2628,33 +2639,36 @@ function renderIncome(){
     const avgMand=segs.reduce((s,r)=>s+r.mandDraw,0)/n;
     const avgSurplus=segs.reduce((s,r)=>s+r.surplus,0)/n;
     const avgEarn=segs.reduce((s,r)=>s+r.investmentReturn,0)/n;
+    const avgTargetGap=segs.reduce((s,r)=>s+r.gap,0)/n;
     const avgSpend=avgDrawn+avgExtra;
+    const avgShortfall=segs.reduce((s,r)=>s+(r.spendingShortfall||0),0)/n;
     const avgRetained=avgEarn-avgSpend;
-    const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.realExit+r.extraDraw)),0);
+    const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))),0);
     const spendVsMand=avgMand>0?(avgSpend/avgMand*100):0;
     const spendVsEarn=avgEarn>0?(avgSpend/avgEarn*100):0;
     const totalAnnual=p.netPension+avgSpend;
     const grossEquivalent=grossSalaryEquivalent(totalAnnual);
     cumSpend+=totalAnnual*segs.length;
     const mandCell=spendVsMand>100.5?`<span style="color:var(--warn,#ffb454)">${spendVsMand.toFixed(1)}%</span>`:`${spendVsMand.toFixed(1)}%`;
-    return[phase.label,phase.input,fmtFull(avgSpend),mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
+    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
   });
   const lifetimeAnnualIncome=T.inc/Math.max(1,operatingRows.length);
-  rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${(T.mand>0?T.spend/T.mand*100:0).toFixed(1)}%</b>`,`<b>${(T.earn>0?T.spend/T.earn*100:0).toFixed(1)}%</b>`,
+  rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.targetGap/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,T.shortfall>0?`<b>${fmtFull(T.shortfall)}</b>`:"—",`<b>${(T.mand>0?T.spend/T.mand*100:0).toFixed(1)}%</b>`,`<b>${(T.earn>0?T.spend/T.earn*100:0).toFixed(1)}%</b>`,
     `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.surp)}</b>`,
     `<b>${sgn(T.ret)}</b>`,`<b>${sgn(T.ret)}</b>`,`<b>${fmtFull(T.inc)}</b>`,`<b>${fmtFull(grossSalaryEquivalent(lifetimeAnnualIncome))}/yr avg</b>`,"—",`<b>${fmtFull(T.inc)}</b>`]);
   makeChart("in_chart2",{type:"line",data:{labels:operatingAges,datasets:[
     {label:"Investment earnings (Pool A + Pool C)",data:operatingRows.map(r=>r.investmentReturn),borderColor:tc.good,backgroundColor:(tc.good||"#2fd492")+"22",fill:"origin",tension:.2,borderWidth:2},
-    {label:"Lifestyle spending (gap)",data:operatingRows.map(r=>r.realExit+r.extraDraw),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
-    {label:"Retained earnings (compounds)",data:operatingRows.map(r=>r.investmentReturn-(r.realExit+r.extraDraw)),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
+    {label:"Funded lifestyle gap",data:operatingRows.map(r=>r.fundedGap??(r.realExit+r.extraDraw)),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
+    {label:"Target lifestyle gap",data:operatingRows.map(r=>r.gap),borderColor:tc.acc3,borderDash:[4,4],fill:false,tension:.2,borderWidth:2},
+    {label:"Retained earnings (compounds)",data:operatingRows.map(r=>r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
     {label:"Zero line",data:operatingAges.map(()=>0),borderColor:tc.soft,borderDash:[2,3],pointRadius:0,fill:false,borderWidth:1,order:99}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg lifestyle gap","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
+  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg target gap","Avg funded gap","Avg shortfall","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
   const inTblNote=document.getElementById("in_tbl");
   if(inTblNote&&!document.getElementById("in_tbl_note")){const nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";
-    nz.innerHTML=`Exact dollars (no $k rounding). Each row stays within one active age-band input, then automatically splits whenever the funding routine changes: extra Pool A draw, mandatory surplus to Pool C, or exact coverage. “Avg lifestyle gap” = spending from the mandatory draw + any voluntary Pool A draw. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual operating periods.`;
+    nz.innerHTML=`Exact dollars (no $k rounding). Each row stays within one active age-band input, then automatically splits whenever the funding routine changes: extra Pool A draw, mandatory surplus to Pool C, exact coverage, or a funding shortfall. “Target gap” is what the age band asks for; “funded gap” is what Pool A actually supplied. Pool C is never automatically drawn. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Statutory ABP payments are calculated by the provider by financial year, including the first-year pro-rating.`;
     inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
 }
 
@@ -2734,31 +2748,12 @@ function renderBequest(){
 
 
 /* ========== NCC WASH ENGINE ==========
-   Master doc 7.3/7.4. Each cycle: commute W from the ORIGINAL super interest -> bank ->
-   recontribute W as a non-concessional contribution (100% tax-free) -> recommence.
-
-   THE EXECUTION DETAIL THAT DECIDES EVERYTHING:
-   The proportioning rule (ITAA 1997 s307-125) applies WITHIN a superannuation interest.
-
-   "separate" (DEFAULT, and what the plan actually does)
-        The clean NCC money is held as a SEPARATE interest. You only ever commute from the
-        ORIGINAL ("dirty") interest, whose share therefore stays 70.97% forever - it just
-        gets smaller. Every wash removes the SAME amt x 70.97% of taxable component.
-        Reproduces workbook V5.0 exactly: $15,683.86 saved per wash, cleared in 6-7 washes.
-
-   "merged"
-        If instead you blend the clean money back into the same interest each year, the pool
-        re-blends, the share falls, and each later commutation pulls out less taxable.
-        Same money, worse outcome - roughly double the number of washes. Shown as a warning
-        about HOW the strategy is executed, not as a rival theory.
-
-   "full"
-        Master doc 7.4 PROSE ("DBT saving ~$22,100 per wash" = 130,000 x 17%). Assumes the
-        whole amount is taxable. Overstates the saving; the workbook does not do this.       */
-const TAXABLE_SHARE_0=0.709677;   // i-Estimator 60/40: 70.97% taxed / 29.03% tax-free / 0% untaxed
+   Wash-only planning schedule. Separate interests preserve the original interest's component
+   proportion; the merged method is retained only as an inefficient warning comparator. */
 const DBT_RATE=0.17;              // 15% + 2% Medicare on the taxed element to an adult non-dependant
 function nccCapForTSB(tsb){
-  // master doc 4.6 (cap $130k/yr from 1 Jul 2026; eligibility on prior 30 June TSB)
+  // Current-law planning caps only. Before an actual contribution, obtain the
+  // verified prior-30-June TSB and provider/ATO eligibility confirmation.
   if(tsb>=2100000)return 0;
   if(tsb>=1970000)return 130000;      // 1-yr cap  <-- the Optimiser holds TSB at ~$2,095,000: this is the live band
   if(tsb>=1840000)return 260000;      // 2-yr bring-forward
@@ -2766,47 +2761,51 @@ function nccCapForTSB(tsb){
 }
 function computeWashPath(p,rows){
   const W=STATE.wash||{};
-  const sv=(p.pension||0)*16;
+  const sv=Number(p.dbSpecialValue??(p.grossPension||0)*16);
   const base=Math.max(0,(rows[0]?.abp||0)+(rows[0]?.acc||0));
-  let taxable=TAXABLE_SHARE_0*base;   // dollars of TAXABLE component
+  const taxableShare=Math.max(0,Math.min(1,Number(p.washTaxableShare??0.709677)));
+  let taxable=taxableShare*base;
   let dirty=base;                     // balance of the ORIGINAL ("dirty") interest
   let washes=0;
   const out=[];
-  for(const r of rows){
+  for(let rowIndex=0;rowIndex<rows.length;rowIndex++){
+    const r=rows[rowIndex];
     const superBal=Math.max(0,(r.abp||0)+(r.acc||0));
     const tsb=sv+superBal;
+    const priorRow=rows[Math.max(0,rowIndex-1)];
+    // This engine has birthday snapshots, not actual 30 June balances.
+    const priorPlanningTsb=sv+Math.max(0,(priorRow?.abp||0)+(priorRow?.acc||0));
     const dbtBefore=taxable*DBT_RATE;
     let amt=0, blocked="";
-    const capacity=Math.min(nccCapForTSB(tsb), Math.max(0,2100000-tsb-(W.tsbBuffer??5000)));
+    const capacity=nccCapForTSB(priorPlanningTsb);
     if(!W.enabled) blocked="wash off";
     else if(r.age<W.startAge) blocked="before start age";
-    else if(r.age>=W.cutoffAge) blocked="NCC blocked from 75";
+    else if(r.age>=W.cutoffAge) blocked="planning cutoff reached — verify legal timing";
     else if(washes>=W.maxWashes) blocked="max washes reached";
     else if(dbtBefore<=W.targetDBT) blocked="DBT target met";
     else if(W.method==="separate" && dirty<=0) blocked="taxable component exhausted";
     else {
       const sched=(W.schedule||{})[r.age];
       amt=(sched!==undefined&&sched!==null)?Number(sched):Number(W.annual||0);
-      amt=Math.min(amt, superBal);
+      amt=Math.min(amt,capacity,superBal);
       if(amt<=0){blocked="amount 0";}
       else{
         let removed=0;
-        if(W.method==="full"){
-          removed=amt;
-        }else if(W.method==="merged"){
+        if(W.method==="merged"){
           const share=superBal>0?taxable/superBal:0;
           removed=amt*share;
         }else{
           const take=Math.min(amt, dirty);
-          removed=take*TAXABLE_SHARE_0;
+          removed=take*taxableShare;
           dirty=Math.max(0, dirty-take);
+          amt=take;
         }
         taxable=Math.max(0, taxable-removed);
         washes++;
       }
     }
     const share=superBal>0?Math.min(1,taxable/superBal):0;
-    out.push({age:r.age,superBal,tsb,share,taxable,dbt:taxable*DBT_RATE,wash:amt,washes,blocked,capacity,dirty});
+    out.push({age:r.age,superBal,tsb,priorPlanningTsb,share,taxable,dbt:taxable*DBT_RATE,wash:amt,washes,blocked,capacity,dirty});
   }
   return out;
 }
@@ -2821,17 +2820,17 @@ function renderWash(){
   const last=path[path.length-1];
   const washYears=path.filter(r=>r.wash>0);
   const totalWashed=washYears.reduce((s,r)=>s+r.wash,0);
-  const dbt0=path[0].superBal*TAXABLE_SHARE_0*DBT_RATE;
+  const dbt0=path[0].taxable*DBT_RATE;
   const idx=tIdx();
   const atTarget=path[idx]||last;
   const saved=dbt0-atTarget.dbt;
   const cleared=path.find(r=>r.dbt<=W.targetDBT);
   document.getElementById("wash_cards").innerHTML=`
     <div class="card"><div class="label">Washes run</div><div class="value">${washYears.length}</div><div class="sub">${washYears.length?`ages ${washYears[0].age}\u2013${washYears[washYears.length-1].age}`:"none"} \u00b7 ${fmtFull(totalWashed)} recycled</div></div>
-    <div class="card good"><div class="label">Taxable share @${STATE.targetAge}</div><div class="value">${(atTarget.share*100).toFixed(1)}%</div><div class="sub">from 70.97% at Day 1</div></div>
+    <div class="card good"><div class="label">Residual taxable share @${STATE.targetAge}</div><div class="value">${(atTarget.share*100).toFixed(1)}%</div><div class="sub">opening assumption ${(Number(p.washTaxableShare??0.709677)*100).toFixed(2)}% · wash-only schedule</div></div>
     <div class="card ${atTarget.dbt<=W.targetDBT?"good":"warn"}"><div class="label">DBT remaining @${STATE.targetAge}</div><div class="value">${fmtFull(atTarget.dbt)}</div><div class="sub">was ${fmtFull(dbt0)} unwashed \u2014 saved ${fmtFull(saved)}</div></div>
-    <div class="card"><div class="label">DBT target reached</div><div class="value">${cleared?("age "+cleared.age):"not reached"}</div><div class="sub">target \u2264 ${fmtFull(W.targetDBT)} \u00b7 method: ${W.method==="separate"?"separate interests":(W.method==="merged"?"merged interest":"full conversion")}</div></div>
-    <div class="card"><div class="label">NCC capacity now</div><div class="value">${fmtFull(path[0].capacity)}</div><div class="sub">TSB ${fmtFull(path[0].tsb)} \u2014 ${path[0].tsb>=1970000?"1-yr cap, no bring-forward":"bring-forward available"}</div></div>`;
+    <div class="card"><div class="label">DBT target reached</div><div class="value">${cleared?("age "+cleared.age):"not reached"}</div><div class="sub">target \u2264 ${fmtFull(W.targetDBT)} \u00b7 method: ${W.method==="merged"?"merged warning comparator":"separate interests"}</div></div>
+    <div class="card"><div class="label">Annual NCC capacity (planning)</div><div class="value">${fmtFull(path[0].capacity)}</div><div class="sub">birthday-model proxy only — verify actual prior-30-June TSB and provider eligibility before every contribution</div></div>`;
   makeChart("wash_chart",{type:"line",data:{labels:ages,datasets:[
     {label:"Taxable component ($)",data:path.map(r=>r.taxable),borderColor:tc.warn,backgroundColor:(tc.warn||"#ffb454")+"22",fill:"origin",tension:.2,borderWidth:2,yAxisID:"y"},
     {label:"Death-benefits tax ($)",data:path.map(r=>r.dbt),borderColor:tc.bad,tension:.2,borderWidth:3,yAxisID:"y"},
@@ -2868,21 +2867,22 @@ function renderEstate(){
   const DBT=0.17;                 // 15% + 2% Medicare on taxable super component to a non-dependant
   const CGT_DISC=0.235;           // 47% top marginal x 50% CGT discount = 23.5% effective, applied to FULL balance (worst case)
   // REALISTIC MID CASE: a portion of super is tax-free; only the GAIN in Pool C is taxed, at a more typical marginal rate.
-  const TAXABLE_SHARE=0.709677;   // Hostplus lump-sum split: 70.97% taxed, 29.03% tax-free, 0% untaxed (i-Estimator 60/40, 2/7/2026)
+  const TAXABLE_SHARE=Number(p.washTaxableShare??0.709677);
   const POOLC_GAIN_SHARE=0.50;    // assume ~half of Pool C balance is unrealised gain (rest is cost base, untaxed)
   const CGT_MID=0.30*0.50;        // ~30% marginal x 50% discount = 15% effective on the gain only
   const ages=likely.rows.map(r=>r.age);
   const washPath=computeWashPath(p,likely.rows);
   const aftertax=likely.rows.map((r,wi)=>{
     const superGross=r.abp+r.acc, poolCGross=r.poolC;
-    const shareNow=washPath[wi]?washPath[wi].share:TAXABLE_SHARE;   // LIVE: falls as the wash runs
+    const taxableNow=Math.min(superGross,washPath[wi]?washPath[wi].taxable:superGross*TAXABLE_SHARE);
+    const shareNow=superGross>0?taxableNow/superGross:0;
     // worst case
     const superNet=superGross*(1-DBT);
     const poolCNet=poolCGross*(1-CGT_DISC);
     // realistic mid case — taxable share is now the wash-adjusted share at THIS age
-    const superNetMid=superGross*(1-DBT*shareNow);
+    const superNetMid=superGross-taxableNow*DBT;
     const poolCNetMid=poolCGross-(poolCGross*POOLC_GAIN_SHARE*CGT_MID);
-    return{age:r.age,superGross,poolCGross,shareNow,dbtNow:superGross*shareNow*DBT,
+    return{age:r.age,superGross,poolCGross,shareNow,dbtNow:taxableNow*DBT,
       superNet,poolCNet,totalNet:superNet+poolCNet,
       superNetMid,poolCNetMid,totalNetMid:superNetMid+poolCNetMid,
       totalGross:r.total};
@@ -2891,7 +2891,7 @@ function renderEstate(){
   const poolCDelta=atTarget.poolCGross*DBT-atTarget.poolCGross*CGT_DISC;
   document.getElementById("estate_cards").innerHTML=`
     <div class="card"><div class="label">Gross estate @${ta}</div><div class="value">${fmt$(atTarget.totalGross)}</div><div class="sub">Before any death tax — actual capital</div></div>
-    <div class="card accent"><div class="label">Realistic after-tax @${ta}</div><div class="value">${fmt$(atTarget.totalNetMid)}</div><div class="sub">Mid-case: ${Math.round(TAXABLE_SHARE*100)}% super taxable, CGT on gain only</div></div>
+    <div class="card accent"><div class="label">Modelled after-tax @${ta}</div><div class="value">${fmt$(atTarget.totalNetMid)}</div><div class="sub">Residual wash-only taxable dollars; CGT on assumed gain only</div></div>
     <div class="card warn"><div class="label">Worst-case after-tax @${ta}</div><div class="value">${fmt$(atTarget.totalNet)}</div><div class="sub">Ceiling: 100% taxable, full Pool C taxed — floor on estate value</div></div>
     <div class="card"><div class="label">Super after DBT @${ta} (max tax)</div><div class="value">${fmt$(atTarget.superNet)}</div><div class="sub">17% on 100% of super — $0 if spouse/dependant inherits</div></div>
     <div class="card"><div class="label">Pool C after CGT @${ta} (max tax)</div><div class="value">${fmt$(atTarget.poolCNet)}</div><div class="sub">23.5% on full balance — real CGT is on the gain only</div></div>
@@ -2899,12 +2899,12 @@ function renderEstate(){
   `;
   makeChart("estate_chart",{type:"line",data:{labels:ages,datasets:[
     {label:"Gross estate (no tax)",data:aftertax.map(r=>r.totalGross),borderColor:tc.muted,borderDash:[3,3],tension:.2,pointRadius:0},
-    {label:"Realistic after-tax (mid case)",data:aftertax.map(r=>r.totalNetMid),borderColor:tc.good,borderWidth:3,tension:.2,pointRadius:0,fill:"+1",backgroundColor:tc.good+"18"},
+    {label:"Modelled after-tax (wash schedule)",data:aftertax.map(r=>r.totalNetMid),borderColor:tc.good,borderWidth:3,tension:.2,pointRadius:0,fill:"+1",backgroundColor:tc.good+"18"},
     {label:"Worst-case after-tax (ceiling)",data:aftertax.map(r=>r.totalNet),borderColor:tc.warn,borderDash:[5,4],tension:.2,pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  // The shaded band between the worst-case line and the realistic line is the range of likely after-tax estate outcomes.
+  // The shaded band contrasts the modelled wash schedule with the deliberately severe ceiling case.
   // Estate donut at target age (worst case composition)
   if(STATE.charts["estate_donut"])STATE.charts["estate_donut"].destroy();
   STATE.charts["estate_donut"]=new Chart(document.getElementById("estate_donut"),{type:"doughnut",data:{
@@ -2915,7 +2915,7 @@ function renderEstate(){
   renderTable("estate_tbl",[75,80,85,90,95].filter(a=>a<=95).map(age=>{
     const r=aftertax[age-p.retireAge];
     return[age,fmt$(r.totalGross),fmt$(r.totalNetMid),fmt$(r.totalNet),fmt$(r.totalGross-r.totalNetMid),fmt$(r.totalGross-r.totalNet)];
-  }),["Age","Gross estate","Realistic after-tax","Worst-case after-tax","Realistic tax","Max tax (ceiling)"]);
+  }),["Age","Gross estate","Modelled after-tax","Worst-case after-tax","Modelled tax","Max tax (ceiling)"]);
 }
 
 /* ========== MONTE CARLO ========== */
@@ -3126,20 +3126,20 @@ function renderProbability(){
     };
   });
   makeChart("pr_byreturn",{type:"line",data:{labels:returnRates.map(r=>(r*100).toFixed(0)+"%"),datasets:[
-    {label:"P(>= floor)",data:byReturn.map(r=>r.floor),borderColor:tc.good,tension:.2,pointRadius:3},
-    {label:"P(>= target)",data:byReturn.map(r=>r.target),borderColor:tc.acc3,tension:.2,pointRadius:3},
-    {label:"P(>= strong)",data:byReturn.map(r=>r.strong),borderColor:tc.acc2,tension:.2,pointRadius:3}
+    {label:"Sample ≥ floor",data:byReturn.map(r=>r.floor),borderColor:tc.good,tension:.2,pointRadius:3},
+    {label:"Sample ≥ target",data:byReturn.map(r=>r.target),borderColor:tc.acc3,tension:.2,pointRadius:3},
+    {label:"Sample ≥ strong",data:byReturn.map(r=>r.strong),borderColor:tc.acc2,tension:.2,pointRadius:3}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+Math.round(c.parsed.y)+"%"}}},
     scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}},x:{title:{display:true,text:"Mean real return assumption"}}}}});
   const ages=Array.from({length:mc.years},(_,i)=>mc.startAge+i);
   const probByAge=threshold=>mc.samples.map(arr=>Array.from(arr).filter(v=>threshold===0?v>0:v>=threshold).length/arr.length*100);
   makeChart("pr_byage",{type:"line",data:{labels:ages,datasets:[
-    {label:"P(capital > 0)",data:probByAge(0),borderColor:tc.acc,tension:.2,pointRadius:0},
-    {label:"P(>= floor)",data:probByAge(p.floor*1000),borderColor:tc.good,tension:.2,pointRadius:0},
-    {label:"P(>= target)",data:probByAge(p.target*1000),borderColor:tc.acc3,tension:.2,pointRadius:0}
+    {label:"Sample capital > 0",data:probByAge(0),borderColor:tc.acc,tension:.2,pointRadius:0},
+    {label:"Sample ≥ floor",data:probByAge(p.floor*1000),borderColor:tc.good,tension:.2,pointRadius:0},
+    {label:"Sample ≥ target",data:probByAge(p.target*1000),borderColor:tc.acc3,tension:.2,pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.parsed.y.toFixed(1)+"%"}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}}});
-  renderTable("pr_tbl",labels.map((l,i)=>[l,pcts[i]+"%",`${STATE.runs} MC runs`,ta]),["Outcome","Probability","Sample","Age"]);
+  renderTable("pr_tbl",labels.map((l,i)=>[l,pcts[i]+"%",`${STATE.runs} MC runs`,ta]),["Outcome","Sample frequency","Sample","Age"]);
 }
 
 /* ========== TORNADO ========== */
@@ -3371,8 +3371,8 @@ function renderAudit(){
   ];
   renderTable("audit_tbl",rows,["Parameter","Value","Notes"]);
   renderTable("audit_source_tbl",[
-    ["Robinson_Retirement_ModelV5.0_2026-06-17.xlsx","Live workbook","V5.0 Integrated Optimiser — NCC wash from age 61, corrected Day 1 balances, Pool C drag 0.35%, 4 charts"],
-    ["robinson_retirement_v20.html","Current dashboard","v20: V5.0 alignment — Day 1 balances, Pool C drag 0.35%, wash strategy display, localStorage v20 keys"],
+    ["Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx","Canonical Rail A workbook","V5.0 Integrated Optimiser — NCC wash from age 61, Day 1 balances and Pool C drag 0.35%"],
+    ["Robinson_Retirement_Dashboard_V23_2026-07-18.html","Integrated source dashboard","V23 source integrated here with dual-rail navigation and corrected wash controls"],
     ["robinson_retirement_v19.html","Version history only","v19 is no longer present in the root folder; v20 carries forward the QA pass, chart-focus wiring/legibility, save-slot spending-rule fix, reduced-motion/accessibility polish"],
     ["robinson_retirement_v18C-fixed1.html","Prior (superseded)","Estate page rebuild: realistic vs worst-case after-tax band, ceiling-labelled cards, visible four-factor caveats block"],
     ["March 26 i-Estimator 60-40.pdf","PSS source","Locked pension/lump-sum source"],
@@ -3437,7 +3437,7 @@ function renderChecklist(){
     {id:"cl9",cat:"Tax",text:"Submit tax return or confirm lodgement date"},
     {id:"cl10",cat:"Planning",text:"Update gap bands to reflect actual lifestyle spending"},
     {id:"cl11",cat:"Planning",text:"Review and confirm target age assumption"},
-    {id:"cl12",cat:"Planning",text:"Run Monte Carlo — assess probability of success"},
+    {id:"cl12",cat:"Planning",text:"Run Monte Carlo — inspect simplified success frequencies"},
     {id:"cl13",cat:"Planning",text:"Review estate/bequest assumptions with lawyer/adviser"},
     {id:"cl14",cat:"Planning",text:"Check health insurance premiums and adequacy"},
     {id:"cl15",cat:"Planning",text:"Review beneficiary nominations (super and non-super)"},
@@ -3888,7 +3888,7 @@ function updateLabels(){
   set("lbl-washmax",String(_W.maxWashes));
   set("lbl-washtgt",fmtFull(_W.targetDBT));
   set("lbl-washcut","Age "+_W.cutoffAge);
-  set("lbl-washmethod",_W.method==="separate"?"Separate interests":(_W.method==="merged"?"Merged (inefficient)":"Full conversion"));
+  set("lbl-washmethod",_W.method==="merged"?"Merged (inefficient)":"Separate interests");
   const _wo=document.getElementById("sel_washon"); if(_wo)_wo.value=_W.enabled?"1":"0";
   const _wm=document.getElementById("sel_washmethod"); if(_wm)_wm.value=_W.method;
   const _ws=document.getElementById("sl_washstart"); if(_ws)_ws.value=_W.startAge;
@@ -4244,7 +4244,7 @@ const GUIDE = {
 executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target age tested against the floor, target and strong bands, with traffic-light badges and the wash-strategy status line.",h:["Start every session here.","Badges recompute live as you move any assumption slider.","Green = clears the band on the likely path; amber = clears only in stronger cases; red = breach."],f:[
 ["Floor / Target / Strong badges","Capital at the target age tested against the three bands set in the profile. Floor = must never breach; Target = acceptable outcome; Strong = aspirational."],
 ["Floor margin / Target margin","Dollar gap between projected capital at target age and that band. Negative = breach."],
-["Wash strategy line","Status of the NCC wash: 'NCC possible' means TSB is below the cap and a wash cycle can run; 'NCC blocked / TSB above TBC' means no non-concessional headroom this year."],
+["Wash strategy line","A planning status only: the engine uses a birthday-model proxy. A real wash requires the verified prior-30-June TSB, current cap, legal timing and provider/ATO eligibility confirmation."],
 ["TBC planning anchor","The $2.1M transfer balance cap used for Day-1 allocation (real dollars)."],
 ["Pool A / B / C start","Day-1 opening balances after the cap-kiss allocation."],
 ["Average usable income","PSS net pension plus the consumed part of Pool A draws, averaged over the likely path to 95. Surplus that is recycled to Pool C is excluded — it is savings, not spending."],
@@ -4253,7 +4253,7 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Active capital @target / reference range","The active card follows the selected likely-return control. The separate 4–5% range is a labelled comparison reference."],
 ["Day 1 values note","Confirms that opening balances follow the active profile: the governed Rail A V5.0 baseline or the newer July Rail B shared scenario."],
 ["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
-["NCC blocked","Flags whether non-concessional contributions are unavailable because total super balance sits at or above the cap — the constraint that governs wash-loop timing."]]},
+["NCC blocked","A planning warning only. It cannot determine real non-concessional contribution eligibility because the model does not hold the actual prior-30-June TSB or provider timing evidence."]]},
 decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting evidence cards — built to be printed and filed with the annual review.",h:["Use Print → Brief pack for a filing copy.","Each evidence card cites the page that proves it — follow them for depth.","If the recommendation ever changes between reviews, log why in the Decision log."],f:[
 ["Recommendation","The single action verdict under current assumptions (typically: maintain strategy, spend to plan)."],
 ["Evidence cards","Each card is one claim (floor safety, sequence immunity, DBT elimination, bequest range) with the number that supports it."],
@@ -4271,7 +4271,7 @@ overview:{t:"Overview",w:"The locked Day-1 architecture: TBC allocation with the
 ["Hostplus → Pool A","Hostplus fills the remaining headroom to the cap (less the $5k buffer)."],
 ["Hostplus → Pool B","Any overflow above the cap parks in accumulation (15% earnings tax) and is withdrawn to Pool C on Day 1."],
 ["Day-1 headroom remaining","Should read ≈ $5,000 — the deliberate buffer below the cap."],
-["Mandatory draw schedule","Statutory ABP minimum percentages by age band applied to Pool A. These draws are tax-free and are income available, not income that must be spent."]]},
+["Mandatory draw schedule","Current ABP minimum percentage bands used for planning. The provider calculates the legal financial-year payment, including a pro-rated first year; these rows show available income, not spending that must occur."]]},
 pre60:{t:"Pre-60 tracker",w:"Contribution phases from now to December 2033 and the projected Hostplus balance at 60, with a recalibration panel for live balances.",h:["Enter your actual Hostplus balance at each statement and hit Recalculate to re-anchor the projection.","Phase timing follows the master plan; the phase cards show what changes and when."],f:[
 ["Projected Hostplus @60","Current trajectory outcome under the return assumption — feeds the Overview combined-capital figure."],
 ["Phase 1 (to Jul 2026)","Liquidity phase: growth only, no new contributions while the cash/debt runway completes."],
@@ -4301,7 +4301,7 @@ income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor p
 ["Spend % of mand. draw","Total lifestyle spending (drawn + any voluntary extra) as a share of the compulsory ABP minimum. In '% of mandatory drawdown' mode this column reads back your slider exactly. It turns amber ABOVE 100% — that means you are withdrawing more than the law requires and eating capital early. It can never exceed 100% in the new drawdown mode."],
 ["Spend % of earnings","The SAME spending measured against the other denominator: that year's investment earnings. Both columns sit side by side so the two rules are directly comparable — e.g. at Day-1 values, 50% of earnings = 86% of the mandatory draw."],
 ["Avg earnings","Average annual investment return generated by Pool A + Pool C in that phase (before anything is spent). This is the pot the '% of earnings' rule divides."],
-["Avg mandatory","Average statutory minimum ABP draw for the phase — rises with the age-banded rates (4%→14%)."],
+["Avg mandatory","Average planning draw based on current ABP rate bands (4%→14%). The provider determines the legal financial-year minimum, including first-year pro-rating."],
 ["Band input","The exact age-band setting that created this lifestyle phase. Editing or adding a 'From age' band creates one matching row; it is never averaged into a preset calendar bucket."],
 ["Avg lifestyle gap","The average annual amount actually spent above the PSS pension in that one band: amount spent from the mandatory draw plus any voluntary Pool A draw."],
 ["Avg spent from mandatory","The portion of the lifestyle gap funded from the compulsory ABP minimum draw."],
@@ -4349,31 +4349,31 @@ bequest:{t:"Bequest projection",w:"Estate value passing to your beneficiary by a
 ["Series: Conservative/Base/Likely — Total","Total-capital bequest paths per return scenario."],
 ["Likely — Pool A / B / C (Ext)","The likely path decomposed by pool, showing which vehicle the estate actually sits in at each age of death — this drives the DBT exposure on the Estate page."],
 ["Base — Total","The base-return (5%) bequest path, shown against Conservative and Likely so you can see how much of the estate is return-dependent."]]},
-wash:{t:"NCC wash & DBT",w:"Where the death-benefits-tax liability is actually killed. Everything on this page feeds the Estate page's mid-case tax figures.",h:[
+wash:{t:"NCC wash & DBT",w:"Wash-only planning schedule for the residual taxable dollars in the original interest. Everything on this page feeds the Estate page's modelled tax figures.",h:[
 "Set the amount, the years and the method — every other page updates with it.",
 "The 'Status' column tells you exactly why a year did or did not wash.",
-"Compare the two component methods. They disagree by ~$31k of tax."],
+"Compare separate and merged interests to see why provider implementation matters."],
 f:[
 ["The wash, in plain English","Each year you commute a sum out of Pool A and immediately put the same sum back as a non-concessional (after-tax) contribution. After-tax money arrives as 100% TAX-FREE component. So the round trip swaps taxable money for tax-free money. Your balance is unchanged; your death-tax bill shrinks."],
 ["Why bring-forward is NOT available to you","NCC capacity depends on your total super balance at the prior 30 June. The Optimiser deliberately holds your TSB at ~$2,095,000 (the $5,000 buffer under the $2.1M cap). That sits in the $1.97M–$2.10M band = $130,000, one-year cap. Bring-forward ($260k / $390k) needs a TSB below $1.97M, which you never have. That is exactly why the master doc sets the wash at $130,000/yr."],
-["Component method — the disagreement that matters","<b>ATO proportioning rule (default, correct):</b> ITAA 1997 s307-125 requires a commutation to be paid from each component IN PROPORTION. Commuting $130,000 from a pension that is 70.97% taxable removes only $92,258 of taxable money — not $130,000. Each wash multiplies the taxable share by (1 − amount ÷ balance).<br><b>Full conversion:</b> the master doc §7.4 assumption ('DBT saving ~$22,100 per wash' = $130,000 × 17%), i.e. the whole $130k converts. This clears DBT in 5 washes.<br>The gap is real: under proportioning, the doc's 7-wash cap leaves <b>$31,467</b> of DBT on the table. To reach the $10k target you need <b>14 washes, ages 61–74</b> — which exactly consumes the runway to the age-75 NCC cutoff."],
+["Component method — the execution control","<b>Separate interests:</b> the clean NCC amount is kept apart, so each commutation from the original interest uses that interest's opening component proportion. This is the strategy model.<br><b>Merged interest:</b> clean money is blended into the same interest and later washes become less effective. This is a warning comparator only. Confirm Hostplus supports the required structure before acting."],
 ["Annual wash amount","Default $130,000 = the 1-year NCC cap from 1 July 2026, which is also your maximum given the TSB band."],
-["Start age / Maximum washes / NCC cutoff","Master doc §7.3 defaults: start 61, cutoff 75 (NCCs are blocked from 75 by law). Max washes now defaults to 14, not the doc's 7 — because 7 does not clear the liability under the proportioning rule."],
+["Start age / Maximum washes / planning cutoff","Defaults: start 61, maximum 7, planning cutoff 75. The model normally reaches the $10,000 target after six cycles. Recheck the precise legal timing and eligibility before each contribution."],
 ["Stop when remaining DBT ≤","The auto-stop. Washing halts once the projected liability falls to this figure ($10,000 in the master doc), so you never wash pointlessly."],
 ["Year-by-year schedule (editable)","Type an amount into any year to override the annual default; leave blank to use the default; type 0 to skip that year. This is your hand-built schedule — useful if cash flow is lumpy or you want to pause in a weak market. 'Clear all overrides' resets to the flat annual amount."],
-["Status column","Why a year washed or did not: before start age, max washes reached, DBT target met, or NCC blocked from 75."],
-["NCC capacity","The lesser of the standard allowance for your TSB band and the distance to the $2.1M cap (minus the $5,000 buffer). If this reads $0 you cannot contribute that year."],
-["Taxable share (%) — right axis","The whole point of the page. Starts at 70.97% and decays with every wash. The Estate page's mid-case DBT is this share × super × 17%, at each age."]]},
-estate:{t:"Estate & DBT analysis",w:"Death-benefits-tax exposure on super paid to a non-dependant: worst case (100% taxable) versus the corrected realistic case (70.97% taxable × 17%), and Pool C CGT on gains only.",h:["This build uses the corrected lump-sum split — 70.97% taxed / 29.03% tax-free / 0% untaxed (i-Estimator 2/7/2026).","The NCC wash from 61 progressively converts taxable to tax-free, so even the realistic line is conservative from the mid-60s."],f:[
+["Status column","Why a planning year washed or did not: before start age, max washes reached, DBT target met, or the planning cutoff. Verify real eligibility before any contribution."],
+["NCC capacity","The annual cap determined from the prior 30 June TSB. The simulator caps the attempted wash to that amount. A withdraw-and-recontribute cycle does not consume extra distance to the transfer balance cap."],
+["Residual taxable share (%) — right axis","Residual modelled taxable dollars divided by the live super balance. It is a wash-only planning indicator, not a provider statement of the account's current component proportion."]]},
+estate:{t:"Estate & DBT analysis",w:"Death-benefits-tax exposure on super paid to a non-dependant: a deliberately severe ceiling versus the active rail's wash-only taxable-dollar schedule, plus illustrative Pool C CGT.",h:["The active engine uses the master-locked 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed convention on both rails.","Refresh actual components annually; estate-at-death and later beneficiary disposals are distinct tax events."],f:[
 ["Before any death tax","Gross capital — the ceiling on the estate."],
 ["Worst-case line","Floor on estate value: assumes 100% of super taxable at 17% and full Pool C balance taxed at 23.5% CGT. Deliberately pessimistic."],
-["Realistic mid-case","DBT 17% on ~71% taxable share; Pool C CGT 15% effective on ~50% of balance assumed to be unrealised gain."],
+["Modelled wash case","DBT at 17% on residual taxable dollars from the active wash schedule; Pool C CGT remains an illustrative 15% effective rate on an assumed 50% unrealised gain."],
 ["Tax dependant note","Super paid to a spouse or other tax dependant attracts zero DBT — the whole analysis only matters for adult-child beneficiaries."],
 ["Estate composition donut","Split of the target-age estate across pools and tax treatments."],
 ["Gross estate (no tax)","Total capital at death with zero tax applied — the ceiling, useful only as a reference against the two taxed lines."],
 ["Pool C after CGT @ (max tax)","Worst-case external estate: the FULL Pool C balance treated as a realised gain at the top marginal rate with the 50% discount (23.5% effective). The mid case taxes only the assumed ~50% unrealised gain at ~15% effective."],
-["The NCC wash IS modelled here","The taxable share now starts at 70.97% and decays every year the wash runs, so the mid-case DBT figures fall exactly as your strategy intends. Drive it from the NCC wash & DBT page — amount, years, schedule and method all flow through to this page. The WORST-case cards still assume 100% taxable and no wash: that is a deliberate stress ceiling, not a forecast."],
-["Realistic after-tax @target","Mid-case: DBT 17% on 70.97% of super + CGT ~15% on an assumed 50% unrealised gain in Pool C. Still a no-wash figure."]]},
+["The NCC wash is modelled here","Residual taxable dollars flow from the NCC wash page into this page. The worst-case cards still assume 100% taxable and no wash as a deliberate stress ceiling."],
+["Modelled after-tax @target","Active wash schedule plus the stated Pool C gain assumption. It is decision support, not a tax return or provider component statement."]]},
 montecarlo:{t:"Monte Carlo fan",w:"Percentile fan across randomised return paths at the volatility you set — the honest uncertainty picture around the single-line projections.",h:["Increase MC runs for smoother bands (slower on phones).","Focus on P10: even the bad-luck decile should clear the floor."],f:[
 ["P10 (downside)","10% of simulated paths end below this line — the pessimistic-but-plausible outcome."],
 ["P25 / P50 / P75","Lower quartile, median (central path), upper quartile."],
@@ -4417,14 +4417,14 @@ stress:{t:"Stress test",w:"Deterministic crash scenarios — a defined drawdown 
 ["Stress sensitivity table","Capital at key ages under each stress variant, with floor margin."],
 ["Base case vs Adverse sequence","The two chart series: your likely path versus the same assumptions with the crash sequence injected."],
 ["Stress table columns","Capital at key ages for each variant, with the floor margin at each point — trough margin is the number that matters."]]},
-probability:{t:"Probability of success",w:"Success probabilities from the Monte Carlo engine, sliced two ways: by return assumption and by age.",h:["'Success' = ending above the selected band — check both floor and target definitions.","The by-return chart shows how much the conclusion depends on the return you assume."],f:[
-["P(target hit) by real return","Success probability as the return assumption varies."],
-["P(target hit) by age","Probability of being above the band at each age on the way through."],
-["Probability summary","Headline floor/target probabilities under current settings."],
-["P(>= strong)","Probability of clearing the aspirational band at the target age — the stretch-goal odds."],
-["P(capital > 0)","Non-depletion probability; effectively the ruin test for the capital stack (the pension itself cannot deplete)."],
-["Re-render jitter","Probabilities re-sample each render: ±1–3 pts wobble at 500 runs is noise. Only persistent shifts beyond that band are signal."],
-["P(>= floor) / P(>= target) / P(>= strong)","Monte Carlo probabilities of clearing each of the three capital bands at the target age. All three re-sample on every render — see Glossary: Sampling noise."]]},
+probability:{t:"Simulation results",w:"Simplified Monte Carlo success frequencies, sliced by return assumption and age. They are diagnostic samples, not personal forecast probabilities.",h:["'Success' = sampled capital ending above the selected band — check both floor and target definitions.","The by-return chart shows how much the result depends on the return you assume."],f:[
+["Target-hit frequency by real return","Share of simplified sampled paths above target as the return assumption varies."],
+["Target-hit frequency by age","Share of sampled paths above the band at each age on the way through."],
+["Simulation summary","Headline floor/target success frequencies under current settings."],
+["P(>= strong)","Share of sampled paths clearing the aspirational band at the target age — a stress indicator, not odds."],
+["P(capital > 0)","Sampled non-depletion frequency for the capital stack; the pension itself cannot deplete."],
+["Re-render jitter","Results re-sample each render: ±1–3 pts wobble at 500 runs is sampling noise. Only persistent shifts beyond that band are signal."],
+["P(>= floor) / P(>= target) / P(>= strong)","Monte Carlo sample frequencies of clearing each capital band at the target age. They omit fees, legislation, payment timing, account routing and personal spending shocks."]]},
 tornado:{t:"Tornado sensitivity",w:"Ranked bars: how much each single assumption moves capital at the target age when flexed through its plausible range.",h:["Spend review energy where the bars are long; ignore short bars.","Return and gap dominate in this structure; drag and one-offs are second-order."],f:[
 ["Driver bars","Each bar = one assumption flexed low→high, all else held; length = dollar impact."],
 ["Tornado detail table","The exact low/high values used and resulting capital range per driver."],
@@ -4496,7 +4496,7 @@ triggers:{t:"Action triggers",w:"Pre-agreed thresholds that convert drift into a
 audit:{t:"Assumption audit",w:"Every live assumption with its source, default and current value — the integrity page.",h:["After any settings import or major change, verify this page reads sensibly before trusting outputs.","Source register maps each figure to its canonical document."],f:[
 ["Assumption register","Name, current value, default, and source for every model input."],
 ["Source file register","The canonical documents (iEstimator, master brief, statements) each figure traces to."],
-["DBT parameters","Death-benefits tax 17%; taxable share of the lump sum 70.97% (tax-free 29.03%, untaxed 0%), per the i-Estimator 60/40 split."],
+["DBT parameters","Death-benefits tax 17%; master-locked opening taxable assumption is 70.97% for both rails."],
 ["Parameter / Value / Notes","Every live assumption in one table, read straight from the current sliders — the page to screenshot before making changes so you can prove what the run assumed."],
 ["Pool A / B / C (Day 1)","The active profile opening. Rail A and shared Rail B remain distinct and must not reuse one another’s Pool A or Pool C values."],
 ["Pool C tax drag","Displayed to 2 decimals. Your canonical AMIT drag is 0.35%/yr — earlier builds rounded the display to 0.4% and, worse, wrote 0.4% back into the model if you touched the slider. Fixed."],
@@ -4551,10 +4551,10 @@ const GLOSSARY = [
 ["TBC — Transfer Balance Cap","Lifetime cap ($2.1M) on capital moved into 0%-tax retirement phase. The DB pension consumes special value; Pool A takes the rest."],
 ["Special value (SV)","Gross DB pension × 16 — the TBC amount the pension consumes at commencement. Fixed forever, never re-indexed."],
 ["TSB — Total Super Balance","All super interests measured each 30 June. Governs NCC eligibility — the wash commutation must land before the snapshot."],
-["ABP minimum draw","Statutory minimum annual withdrawal from Pool A (age-banded %, rising with age). Tax-free; surplus recycles to Pool C."],
-["DBT — Death benefits tax","17% (incl. levies) on the taxable component of super paid to a non-dependant. This engine uses the corrected 70.97% taxable share."],
+["ABP minimum draw","Current annual ABP rate band used for planning. The provider calculates the legal financial-year minimum, including any first-year pro-rating; unspent withdrawals can route to Pool C."],
+["DBT — Death benefits tax","17% (including Medicare levy) on the taxable-taxed component of super paid to a non-dependant. The engine uses the active rail's modelled opening component share."],
 ["NCC wash","Withdraw from Pool A tax-free, re-contribute as a non-concessional contribution: converts taxable component to tax-free, eliminating DBT over ~6–7 cycles from 61."],
-["Taxable / tax-free components","Super's internal tax split. Corrected lump-sum split: 70.97% taxed / 29.03% tax-free / 0% untaxed (i-Estimator 2/7/2026)."],
+["Taxable / tax-free components","Super's internal tax split. The public engine holds the master-locked 70.97% taxable-taxed / 29.03% tax-free planning convention for both rails; confirm account components and provider execution before acting."],
 ["Sequence risk","Same average return, bad years first — the classic retiree hazard. Contained here because the residual draw is ~2.7%."],
 ["P10 … P90","Monte Carlo percentiles: P10 = 10% of paths end lower (downside decile); P50 = median; P90 = upside decile."],
 ["Guardrails","Pre-agreed spend adjustments triggered by portfolio zone — decided in calm, executed mechanically."],
@@ -4658,7 +4658,7 @@ function renderGuide(tab){
     b.innerHTML=`<p>${g.w}</p><ul>${g.h.map(x=>`<li>${x}</li>`).join("")}</ul>
       ${g.f&&g.f.length?`<p class="v23-kicker" style="margin-top:16px">Fields on this page</p>${dl(g.f)}`:""}
       <p class="v23-kicker" style="margin-top:16px">Engine provenance</p>
-      <p>Corrected DBT engine: taxable share <b>70.97%</b> · DBT rate <b>17%</b> (lump-sum split per i-Estimator 2/7/2026). All figures <b>real (today's dollars)</b>. Pool C is deposit-only.</p>`;
+      <p>DBT engine: active-rail opening taxable assumption · DBT rate <b>17%</b> · separate-interest wash-only schedule. All figures are <b>real (today's dollars)</b>. Confirm provider execution and refresh actual components annually.</p>`;
   }else if(tab==="controls"){
     h.textContent="Global controls (left panel)";
     b.innerHTML=`<p>These settings drive every page. The ledger strip under the header mirrors the live values; tap a chip to jump to its control.</p>${dl(CONTROLS)}`;
@@ -4935,7 +4935,10 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
         lumpSum:605373.22,hostplus:317447.66,tbc:2100000,
         floor:500,target:1000,strong:1500,defaultGap:Math.max(0,shared.spend-netPension),
         defaultGapBands:[{age:60,amount:Math.max(0,shared.spend-netPension),unit:"dollar"}],
-        poolA_day1:774185.76,poolB_day1:0,poolC_day1:148635.12,tsbBuffer:5000,washAge:null,washCapThrough:null,locked:false
+        poolA_day1:774185.76,poolB_day1:0,poolC_day1:148635.12,tsbBuffer:5000,
+        dbSpecialValue:1320814.24,washTaxableShare:0.709677,
+        washEvidence:"Master-locked 60/40 engine convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. The July PSS lump agrees; confirm provider execution and account components before acting.",
+        washAge:61,washCapThrough:74,locked:false
       });
       STATE.profile="custom";
       STATE.wash.enabled=true;
