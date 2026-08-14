@@ -1,6 +1,6 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Baseline: 18 July 2026 · reconciled release: 13 August 2026
+Baseline: 18 July 2026 · integrated release: 14 August 2026
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -37,7 +37,7 @@ SHARED CONTROLS
 - Planning buffer below the cap: $5,000; illustrative TSB target about $2.095m.
 - Home baseline: $500,000, adjustable.
 - Pool C drag: 0.35% real per year.
-- Retirement scenarios use real dollars and real returns unless explicitly labelled otherwise.
+- Retirement scenarios use real dollars and real returns unless explicitly labelled otherwise. Select a rate net of product fees; Pool C also applies a separate 0.35% annual modelled distribution drag.
 - Pre-retirement sensitivity figures are separately labelled nominal.
 
 RETIREMENT FRONTIER
@@ -55,7 +55,7 @@ poolCDrag = openingPoolC x 0.0035
 closingPoolA = max(0, openingPoolA x (1 + realReturn) - actualDraw)
 closingPoolC = max(0, openingPoolC x (1 + realReturn) - poolCDrag + reinvestment)
 
-The ledger's birthday-year planning rows apply the rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. This prevents an age threshold being stepped up early. It is not a fund payment instruction: the provider calculates the actual financial-year minimum, including the first-year pro-rating when an ABP commences after 1 July. Pool C is a reserve, not an automatic source of a displayed spending shortfall.
+The ledger's birthday-year planning rows apply the rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. This prevents an age threshold being stepped up early. It is not a fund payment instruction: the provider calculates the actual financial-year minimum, including the first-year pro-rating when an ABP commences after 1 July. Pool C is an invested ETF reserve, not cash and not an automatic source of a displayed spending shortfall.
 
 V23 DETERMINISTIC GOVERNOR
 1. Apply the age-based mandatory draw from Pool A.
@@ -68,10 +68,10 @@ MONTE CARLO AND RISK
 Integrated Command Centre:
 - 600 reproducible seeded paths from age 60 through age 95.
 - Returns sampled from a normal distribution using the selected real mean and 12% volatility.
-- Sampled annual returns are clamped between -55% and +45%.
+- Sampled annual returns are drawn from a capped normal distribution and clamped between -55% and +45%.
 - Each year: capital = max(0, capital x (1 + sampledReturn) - annualDraw).
 - Reports P10, P25, P50, P75 and P90 balance paths plus a model success frequency at the selected floor.
-- This is a simplified stress-test frequency, not a forecast probability. It excludes fees, legislation, statutory payment timing, account routing and personal spending shocks.
+- This is a simplified stress-test frequency, not a forecast probability. Samples use fixed seeds for reproducibility and exclude fees, legislation, statutory payment timing, market regimes, account routing and personal spending shocks.
 
 V23 stochastic lab:
 - Exposes run count, expected real return, volatility, target age and guardrail levels.

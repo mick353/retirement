@@ -43,7 +43,7 @@
       <div class="hero-copy">
         <div class="eyebrow"><span class="status-dot"></span>Integrated decision map · baseline 18 July 2026</div>
         <h1>The pension secures the floor.<br><span>The capital preserves choice.</span></h1>
-        <p class="lede">The core question is not whether retirement works. It is how much active-retirement spending to exchange for later investment capital, estate value and flexibility—without weakening the indexed PSS foundation.</p>
+        <p class="lede">This is the explanation layer for a flat annual-spending comparison. The core question is how much active-retirement spending to exchange for later investment capital, estate value and flexibility—without weakening the indexed PSS foundation. Set changing age bands in V23.</p>
         <div class="hero-actions">
           <a class="primary" href="#frontier">Test the spending frontier</a>
           <a class="secondary scenario-link" data-target="v23" href="./deep-model.html">Open this scenario in V23</a>
@@ -89,6 +89,11 @@
           <button class="text-button" id="resetScenario" type="button">Reset Rail B baseline</button>
           <span>All results in 2026 purchasing-power dollars</span>
         </div>
+        <div class="scenario-basis" aria-label="Active assumption basis">
+          <div><span>Return used</span><b id="basisReturn">5.0% real p.a.</b><small>After inflation; choose it net of product fees.</small></div>
+          <div><span>Reserve policy</span><b id="basisReserve">12 months of gap</b><small id="basisReserveDetail">Pool C is invested, not cash.</small></div>
+          <div><span>Next step</span><b>Age bands in V23</b><small>Atlas keeps one flat-spend lens so trade-offs remain comparable.</small></div>
+        </div>
       </aside>
     </section>
 
@@ -103,7 +108,7 @@
       <div class="section-heading">
         <div class="eyebrow">01 · Structural architecture</div>
         <h2>Income security and capital are separate engines.</h2>
-        <p>The indexed PSS pension funds the permanent income floor. The three-pool structure places only the transfer-balance headroom into pension phase and holds the remainder outside super for liquidity, growth and estate flexibility.</p>
+        <p>The indexed PSS pension funds the permanent income floor. The three-pool structure places only the transfer-balance headroom into pension phase and holds the remainder in an invested Pool C for growth, estate and planned-reserve flexibility; it is not a cash account.</p>
       </div>
 
       <div class="two-column architecture-grid">
@@ -206,7 +211,7 @@
           <div class="delta-box">
             <span>$10,000 less spending preserves</span>
             <b id="spendDelta">$210,761 more investments at age 75</b>
-            <small id="spendDeltaDetail">Benefit: higher estate and liquidity. Cost: $150,000 less real consumption from ages 61–75.</small>
+            <small id="spendDeltaDetail">Benefit: higher estate and investment capital. Cost: $150,000 less real consumption from ages 61–75.</small>
           </div>
         </article>
       </div>
@@ -219,7 +224,7 @@
         <p>No single terminal balance is allowed to stand in for income, spending, tax, estate and flexibility.</p>
       </div>
       <div class="objective-grid" id="objectiveGrid"></div>
-      <div class="priority-callout"><span>Current strategic reading</span><b id="priorityReading">Rail B at $110,000 is lifestyle-forward while retaining strong estate capacity.</b><small id="priorityTradeoff">It preserves the indexed PSS floor and liquidity, but sacrifices age-75 capital relative to $100,000 spending.</small></div>
+      <div class="priority-callout"><span>Current strategic reading</span><b id="priorityReading">Rail B at $110,000 is lifestyle-forward while retaining strong estate capacity.</b><small id="priorityTradeoff">It preserves the indexed PSS floor and investment capital, but sacrifices age-75 capital relative to $100,000 spending.</small></div>
     </section>
 
     <section class="section" id="tax">
@@ -289,12 +294,14 @@
           <div><b>Default rail</b><span>Rail B · July spending-frontier source</span></div>
           <div><b>Age timing</b><span>Age 60 = opening position; age 61 = end of the age 60→61 first retirement year</span></div>
           <div><b>Return basis</b><span>Real return only inside retirement scenarios</span></div>
-          <div><b>Pool C</b><span>0.35% annual modelled distribution drag</span></div>
+          <div><b>Return application</b><span>Pool A uses the stated real rate; Pool C has a 0.35% annual modelled distribution drag; choose a rate net of fees</span></div>
+          <div><b>Pool C</b><span>Invested ETF reserve, not cash; a separate reserve policy is carried from the Command Centre</span></div>
           <div><b>Estate definition</b><span>Investment capital + separately stated home value</span></div>
           <div><b>Hostplus at 60</b><span>$289,620.63 workbook-reconciled 8.0% central case; $317,447.66 is an upper planning anchor</span></div>
           <div><b>Rail separation</b><span>No silent mixing; tax evidence changes with rail</span></div>
-          <div><b>Scenario handoff</b><span>Exact rail, spending, return, target age, home and salary-equivalent tax year preserved across Command Centre, Atlas and V23</span></div>
+          <div><b>Scenario handoff</b><span>Exact rail, spending, return, target age, home, reserve policy and salary-equivalent tax year preserved across Command Centre, Atlas and V23</span></div>
         </div>
+        <div class="control-note"><b>Independent spending calibration · ASFA March quarter 2026</b><span>Comfortable homeowner budget: $55,923 p.a. for a single and $78,566 p.a. for a couple aged 65–84. Context only—not a target or a substitute for your own spending plan.</span></div>
       </div>
     </section>
 
@@ -312,7 +319,7 @@
   </main>
 
   <footer>
-    <span>Robinson Retirement Atlas · reconciled release 2026-08-13</span>
+    <span>Robinson Retirement Atlas · integrated release 2026-08-14</span>
     <span>Decision-support model only · current law assumed · verify before implementation</span>
   </footer>
 

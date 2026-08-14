@@ -69,6 +69,8 @@
     targetAge: clamp(Number(params.get("age")) || 75, 70, 95),
     home: clamp(Number(params.get("home")) || HOME_FLOOR, 300_000, 1_000_000),
     taxYear: params.get("taxYear") === "2027-28" ? "2027-28" : "2026-27",
+    liquidityMonths: clamp(Number(params.get("reserveMonths")) || 12, 0, 24),
+    simulationSeed: clamp(Number(params.get("seed")) || 20260814, 1, 2_147_483_647),
     selectedIncomeAge: 61,
     selectedCapitalAge: clamp(Number(params.get("age")) || 75, 60, 95),
     inspectionAge: clamp(Number(params.get("age")) || 75, 60, 95),
@@ -166,12 +168,14 @@
       age: String(state.targetAge),
       home: String(Math.round(state.home)),
       taxYear: state.taxYear,
+      reserveMonths: String(state.liquidityMonths),
+      seed: String(state.simulationSeed),
     });
     return query.toString();
   }
 
   function persistScenario() {
-    const payload = { version: 3, updatedAt: new Date().toISOString(), rail: state.rail, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear };
+    const payload = { version: 4, updatedAt: new Date().toISOString(), rail: state.rail, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
     const v23 = `./deep-model.html?${scenarioQuery()}`;
@@ -388,7 +392,7 @@
     const yearText = years === 1 ? "1 full retirement year" : `${years} full retirement years`;
     $("spendDeltaDetail").textContent = years === 0
       ? "Launch snapshot only: no full retirement-year spending has occurred."
-      : `Benefit: higher estate and liquidity. Cost: ${money0.format((state.spend - lowerSpend) * years)} less real consumption across ${yearText}.`;
+      : `Benefit: higher estate and investment capital. Cost: ${money0.format((state.spend - lowerSpend) * years)} less real consumption across ${yearText}.`;
   }
 
   function renderObjectives(rail, ledger) {
@@ -409,14 +413,14 @@
       ["5 · Age-85 wealth", money0.format(at85.ending), at85.ending >= 750_000 ? "Substantial" : at85.ending >= 300_000 ? "Moderate" : "Guardrail", `Uses the same constant real spending and return assumptions through age 85.`],
       ["6 · Estate outcome", money0.format(targetEstate), estateMargin >= 500_000 ? "Strong margin" : estateMargin >= 0 ? "Floor retained" : "Below floor", `${estateMargin >= 0 ? money0.format(estateMargin) + " above" : money0.format(Math.abs(estateMargin)) + " below"} the $1.0m property-inclusive floor.`],
       ["7 · Tax efficiency", money0.format(drag), "Modelled wash", `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; Rail ${rail.key} also uses the master-locked ${pct(rail.washTaxableShare, 2)} separate-interest wash convention. Provider execution remains to be confirmed.`],
-      ["8 · Optionality", money0.format(target.ending), target.ending >= 750_000 ? "High liquidity" : target.ending >= 300_000 ? "Meaningful" : "Narrowing", `Liquid investment capital remains separate from the mortgage-free home and lifelong PSS floor.`],
+      ["8 · Optionality", money0.format(target.ending), target.ending >= 750_000 ? "Flexible capital" : target.ending >= 300_000 ? "Meaningful" : "Narrowing", `Investment capital remains separate from the mortgage-free home and lifelong PSS floor. Pool C is invested, not cash; the active reserve target is ${state.liquidityMonths} months of the starting gap.`],
     ];
     $("objectiveGrid").innerHTML = objectives.map(([label, value, verdict, detail]) => `<article class="objective-card"><div><span>${label}</span><em>${verdict}</em></div><strong>${value}</strong><small>${detail}</small></article>`).join("");
 
     const orientation = state.spend <= 95_000 ? "estate-first" : state.spend <= 110_000 ? "balanced lifestyle and estate" : state.spend <= 125_000 ? "lifestyle-led" : "high-spending optionality";
     const lower = endingAt(rail, Math.max(80_000, state.spend - 10_000), state.realReturn, state.targetAge);
     $("priorityReading").textContent = `Rail ${state.rail} at ${money0.format(state.spend)} is ${orientation}.`;
-    $("priorityTradeoff").textContent = `It preserves the indexed PSS floor and ${money0.format(target.ending)} of modelled liquidity, while costing ${money0.format(Math.max(0, lower - target.ending))} at age ${state.targetAge} versus spending $10,000 less.`;
+    $("priorityTradeoff").textContent = `It preserves the indexed PSS floor and ${money0.format(target.ending)} of modelled investment capital, while costing ${money0.format(Math.max(0, lower - target.ending))} at age ${state.targetAge} versus spending $10,000 less.`;
   }
 
   function renderTax(rail, ledger) {
@@ -485,6 +489,12 @@
     $("ageOut").textContent = state.targetAge;
     $("homeOut").textContent = money0.format(state.home);
     $("cashflowContext").textContent = `Rail ${state.rail} · ${money0.format(state.spend)} spending · ${pct(state.realReturn)} real · ${state.taxYear} salary equivalent`;
+    const startingGap = Math.max(0, state.spend - rail.netPension);
+    const reserveTarget = startingGap * state.liquidityMonths / 12;
+    const reserveGap = Math.max(0, reserveTarget - rail.poolC);
+    $("basisReturn").textContent = `${pct(state.realReturn)} real p.a.`;
+    $("basisReserve").textContent = `${state.liquidityMonths} months = ${money0.format(reserveTarget)}`;
+    $("basisReserveDetail").textContent = `Pool C currently ${money0.format(rail.poolC)} and is invested, not cash.${reserveGap > 0 ? ` Policy gap ${money0.format(reserveGap)}.` : ""}`;
   }
 
   function renderAll() {
@@ -541,7 +551,7 @@
   });
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
-    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6 });
+    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6 });
     renderAll();
     showToast("Rail B central baseline restored.");
   });

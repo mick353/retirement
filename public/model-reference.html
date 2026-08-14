@@ -58,7 +58,7 @@
   <body>
     <header>
       <div class="wrap">
-        <p class="eyebrow">Static model documentation · 18 July 2026 baseline · reconciled release 13 August 2026</p>
+        <p class="eyebrow">Static model documentation · 18 July 2026 baseline · integrated release 14 August 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the data rails, formulas, scenario engines, governance controls and source lineage used by the interactive Command Centre and the linked V23 deep model.</p>
         <div class="actions">
@@ -117,7 +117,7 @@
           <li>Target buffer below the cap: <strong>$5,000</strong>, giving an illustrative TSB target near $2.095 million.</li>
           <li>Home baseline: <strong>$500,000</strong>, adjustable in the Command Centre.</li>
           <li>Pool C external investment drag: <strong>0.35% real per year</strong>.</li>
-          <li>Retirement scenarios are expressed in real dollars and use real returns unless explicitly labelled otherwise. Pre-retirement sensitivities are separately labelled nominal.</li>
+          <li>Retirement scenarios are expressed in real dollars and use real returns unless explicitly labelled otherwise. The selected rate should be net of product fees; Pool C also applies a separate 0.35% annual modelled distribution drag. Pre-retirement sensitivities are separately labelled nominal.</li>
         </ul>
       </section>
 
@@ -137,7 +137,7 @@ reinvestment  = max(0, netIncome - spending)
 poolCDrag     = openingPoolC × 0.0035
 closingPoolA  = max(0, openingPoolA × (1 + realReturn) - actualDraw)
 closingPoolC  = max(0, openingPoolC × (1 + realReturn) - poolCDrag + reinvestment)</pre>
-        <p>Birthday-year planning rows apply the rate for age at the preceding 1 July: under 65, 4%; 65–74, 5%; 75–79, 6%; 80–84, 7%; 85–89, 9%; 90–94, 11%; 95+, 14%. This prevents an age threshold being stepped up early. The provider calculates the actual financial-year minimum, including first-year pro-rating; Pool C is a reserve, not an automatic source of a displayed shortfall.</p>
+        <p>Birthday-year planning rows apply the rate for age at the preceding 1 July: under 65, 4%; 65–74, 5%; 75–79, 6%; 80–84, 7%; 85–89, 9%; 90–94, 11%; 95+, 14%. This prevents an age threshold being stepped up early. The provider calculates the actual financial-year minimum, including first-year pro-rating; Pool C is an invested ETF reserve, not cash and not an automatic source of a displayed shortfall.</p>
 
         <h3>V23 deterministic governor</h3>
         <ol>
@@ -156,12 +156,12 @@ closingPoolC  = max(0, openingPoolC × (1 + realReturn) - poolCDrag + reinvestme
         <h3>Integrated Command Centre fan</h3>
         <ul>
           <li>600 reproducible seeded paths from age 60 through age 95.</li>
-          <li>Annual returns are sampled from a normal distribution with the selected real mean and 12% volatility, clamped between −55% and +45%.</li>
+          <li>Annual returns are sampled from a capped normal distribution with the selected real mean and volatility, clamped between −55% and +45%.</li>
           <li>Each year: <code>capital = max(0, capital × (1 + sampledReturn) - annualDraw)</code>.</li>
           <li>The chart reports P10, P25, P50, P75 and P90 balance paths plus a model success frequency. These are simplified stress-test outputs, not forecast probabilities or guarantees.</li>
         </ul>
         <h3>V23 stochastic lab</h3>
-        <p>V23 exposes run count, expected real return, volatility, target age and guardrail thresholds. It reports sampled success frequencies of clearing the selected floor, target and strong-estate levels—not forecast probabilities. Sampling noise remains; a 500-run result may vary by roughly one to three percentage points between samples. These simulations do not model fees, legislation, statutory payment timing, account routing or personal spending shocks.</p>
+        <p>The Command Centre and V23 run seeded samples, so unchanged inputs reproduce the same output. V23 exposes run count, expected real return, volatility, target age and guardrail thresholds; deliberately choose a new seed to inspect a different sample. They report sampled frequencies of clearing the selected floor, target and strong-estate levels—not forecast probabilities. These simulations do not model fees, legislation, statutory payment timing, market regimes, account routing or personal spending shocks.</p>
         <h3>Sequence-risk isolation</h3>
         <p>The sequence test reorders the same set of annual returns into worst-first, smooth and best-first paths. Because the arithmetic average is held constant, the resulting balance spread isolates the effect of return order while withdrawals occur.</p>
         <h3>Stress controls</h3>

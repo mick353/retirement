@@ -865,7 +865,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23 · reconciled 13 Aug 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.1 · integrated 14 Aug 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1301,11 +1301,10 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-montecarlo">
-      <div class="note warn"><b>Simulation boundary:</b> these sampled paths are a planning stress test, not a forecast probability. They hold a simplified return distribution and do not model fees, legislation, provider payment timing, account routing or personal spending shocks.</div>
+      <div class="note warn"><b>Simulation boundary:</b> these sampled paths are a planning stress test, not a forecast probability. Each path runs the same three-pool cashflow and draw-routing engine as V23. They use a capped normal return distribution and do not model fees, legislation, provider financial-year payment timing, market regimes or personal spending shocks. Treat the selected return as net of fees.</div>
       <div class="cards" id="mc_cards"></div>
       <div class="panel">
-        <h2>Monte Carlo capital fan (P10 / P25 / P50 / P75 / P90)</h2>
-        <div class="muted smaller">Box-Muller normal returns each year. Pool A grows tax-free, Pool B at (return − 15% earnings tax). Milestone markers at ages 65, 75, 80.</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><h2>Monte Carlo capital fan (P10 / P25 / P50 / P75 / P90)</h2><div class="muted smaller">Seeded, capped Box-Muller returns each year. Pool A grows tax-free, Pool B at (return − 15% earnings tax), and Pool C after its stated drag. Milestone markers at ages 65, 75, 80.</div></div><button class="btn" id="btn-mc-new-seed" type="button">New repeatable sample</button></div>
         <div class="chart-wrap tall"><canvas id="mc_chart"></canvas></div>
       </div>
     </section>
@@ -1321,7 +1320,7 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-longevity">
-      <div class="note"><b>Longevity risk:</b> Capital survival frequency from a simplified Monte Carlo model. It shows the share of sampled paths above the floor at each age—not a personal forecast or advice.</div>
+      <div class="note"><b>Longevity risk:</b> Capital survival frequency from the same seeded three-pool Monte Carlo engine, extended to age 105. It shows the share of sampled paths above the floor at each age—not a personal forecast or advice.</div>
       <div class="cards" id="lon_cards"></div>
       <div class="panel">
         <h2>Capital survival frequency — floor-breach sensitivity by age</h2>
@@ -1394,6 +1393,7 @@ main{min-width:0;}
     <section class="page" id="page-health">
       <div class="panel">
         <h2>Health-event scenarios</h2>
+        <div class="note" style="margin:0 0 12px"><b>Long-tail check:</b> these scenarios now run through age 105. Ongoing-care and long-term-care costs continue to that age; this is a stress test, not a forecast of care needs or costs.</div>
         <div class="health-row" id="health_row"></div>
         <div class="spacer"></div>
         <div id="health_summary"></div>
@@ -1609,7 +1609,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23";
+const APP_VERSION = "v23.1";
 const TBC_AT_RETIREMENT = 2_100_000;
 
 const PROFILES = {
@@ -1660,6 +1660,8 @@ const STATE = {
   spendReturnPct:0.50,
   likely:0.065,
   vol:0.12,
+  simulationSeed:20260814,
+  liquidityMonths:12,
   oneOff:0,
   runs:500,
   cpi:6, cpiDur:3, cpiAge:63, cpiDrag:2,
@@ -1998,7 +2000,8 @@ function runModel(opts){
 }
 
 /* ========== MONTE CARLO ========== */
-function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function seededRandom(seed){let state=seed>>>0;return()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return(state>>>0)/4294967296;};}
+function gauss(random=Math.random){let u=0,v=0;while(!u)u=random();while(!v)v=random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 
 function runMC(opts){
   const p=opts.profile||getProfile();
@@ -2013,7 +2016,8 @@ function runMC(opts){
   const oneOff=opts.oneOff??STATE.oneOff;
   const samples=[];for(let y=0;y<years;y++)samples.push(new Float64Array(N));
   for(let r=0;r<N;r++){
-    const seq=[];for(let y=0;y<years;y++){const z=gauss();const ret=mean+sd*z;seq.push({A:ret,B:ret*0.85});}
+    const random=seededRandom(STATE.simulationSeed+r*7919+Math.round(p.lumpSum||0));
+    const seq=[];for(let y=0;y<years;y++){const z=gauss(random);const ret=Math.max(-.55,Math.min(.45,mean+sd*z));seq.push({A:ret,B:ret*0.85});}
     const sim=runModel({profile:p,annualReturns:seq,gapBands,gapGrowth,spendMode,spendReturnPct,oneOff});
     for(let y=0;y<years;y++)samples[y][r]=sim.rows[y].total;
   }
@@ -2073,15 +2077,15 @@ const HEALTH_SCENARIOS={
   minor:{label:"Minor surgery / dental ($25k @63)",bumps:[{age:63,amount:25000}]},
   moderate:{label:"Moderate event ($75k @67)",bumps:[{age:67,amount:75000}]},
   major:{label:"Major surgery + recovery ($150k @70)",bumps:[{age:70,amount:150000}]},
-  ongoing:{label:"Ongoing care ($30k pa from 75)",bumps:Array.from({length:21},(_,i)=>({age:75+i,amount:30000}))},
+  ongoing:{label:"Ongoing care ($30k pa from 75)",bumps:Array.from({length:31},(_,i)=>({age:75+i,amount:30000}))},
   combo1:{label:"Two moderate events (60k @65, 90k @72)",bumps:[{age:65,amount:60000},{age:72,amount:90000}]},
   catastrophic:{label:"Catastrophic ($300k @72)",bumps:[{age:72,amount:300000}]},
-  longTerm:{label:"Long-term ($50k pa from 80)",bumps:Array.from({length:16},(_,i)=>({age:80+i,amount:50000}))}
+  longTerm:{label:"Long-term ($50k pa from 80)",bumps:Array.from({length:26},(_,i)=>({age:80+i,amount:50000}))}
 };
 
 function runHealth(scenarioKey,opts={}){
   const p=opts.profile||getProfile();const sc=HEALTH_SCENARIOS[scenarioKey]||HEALTH_SCENARIOS.none;
-  const startAge=p.retireAge,endAge=95;
+  const startAge=p.retireAge,endAge=opts.endAge??95;
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=initialHeadroom(p,tbcAlloc);
   const abpR=opts.abpReturn??STATE.likely;const accR=abpR*0.85;const poolCR=Math.max(-1,abpR-STATE.poolCDrag);
@@ -2929,6 +2933,7 @@ function renderMC(){
     <div class="card good"><div class="label">Median @${ta}</div><div class="value">${fmt$(mc.percentiles[2][idx])}</div><div class="sub">central path</div></div>
     <div class="card"><div class="label">P75 @${ta}</div><div class="value">${fmt$(mc.percentiles[3][idx])}</div><div class="sub">upper quartile</div></div>
     <div class="card accent"><div class="label">P90 @${ta}</div><div class="value">${fmt$(mc.percentiles[4][idx])}</div><div class="sub">upside</div></div>
+    <div class="card"><div class="label">Repeatable sample</div><div class="value" style="font-size:15px">Seed ${STATE.simulationSeed}</div><div class="sub">Change it only to inspect a different sample</div></div>
   `;
   makeChart("mc_chart",{type:"line",data:{labels:ages,datasets:[
     {label:"P90",data:mc.percentiles[4],borderColor:tc.acc2,backgroundColor:tc.acc2+"33",fill:"+1",pointRadius:0,tension:.2},
@@ -2988,12 +2993,13 @@ function renderHistogram(){
 /* ========== LONGEVITY ========== */
 function renderLongevity(){
   const p=getProfile();const tc=getThemeColors();
-  const N=Math.min(STATE.runs,500);const endAge=100;
+  const N=Math.min(STATE.runs,500);const endAge=105;
   const startAge=p.retireAge;const years=endAge-startAge+1;
-  // Run MC to age 100
+  // Run longevity paths through the selected age-105 tail horizon.
   const samplesAll=[];for(let y=0;y<years;y++)samplesAll.push([]);
   for(let r=0;r<N;r++){
-    const seq=[];for(let y=0;y<years;y++){const z=gauss();const ret=STATE.likely+STATE.vol*z;seq.push({A:ret,B:ret*0.85});}
+    const random=seededRandom(STATE.simulationSeed+500000+r*7919+Math.round(p.lumpSum||0));
+    const seq=[];for(let y=0;y<years;y++){const z=gauss(random);const ret=Math.max(-.55,Math.min(.45,STATE.likely+STATE.vol*z));seq.push({A:ret,B:ret*0.85});}
     const sim=runModel({profile:p,annualReturns:seq,endAge});
     for(let y=0;y<years;y++)samplesAll[y].push(sim.rows[y]?.total??0);
   }
@@ -3006,6 +3012,7 @@ function renderLongevity(){
     <div class="card good"><div class="label">Survival (≥floor) @${ta}</div><div class="value">${survFloor[idx].toFixed(1)}%</div></div>
     <div class="card"><div class="label">Survival (≥floor) @85</div><div class="value">${survFloor[Math.min(85-startAge,years-1)].toFixed(1)}%</div></div>
     <div class="card warn"><div class="label">Survival (≥floor) @95</div><div class="value">${survFloor[Math.min(95-startAge,years-1)].toFixed(1)}%</div></div>
+    <div class="card warn"><div class="label">Survival (≥floor) @105</div><div class="value">${survFloor[Math.min(105-startAge,years-1)].toFixed(1)}%</div></div>
     <div class="card"><div class="label">Survival (≥target) @${ta}</div><div class="value">${survTarget[idx].toFixed(1)}%</div></div>
   `;
   makeChart("lon_chart",{type:"line",data:{labels:ages,datasets:[
@@ -3014,8 +3021,8 @@ function renderLongevity(){
     {label:"P(≥ target "+fmt$(p.target*1000)+")",data:survTarget,borderColor:tc.acc3,tension:.2,pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.parsed.y.toFixed(1)+"%"}}},
-    scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}},_milestones:[{age:75,label:"75"},{age:85,label:"85"},{age:95,label:"95"}]});
-  renderTable("lon_tbl",[75,80,85,90,95,100].map(age=>{
+    scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}},_milestones:[{age:75,label:"75"},{age:85,label:"85"},{age:95,label:"95"},{age:105,label:"105"}]});
+  renderTable("lon_tbl",[75,80,85,90,95,100,105].map(age=>{
     const i=Math.min(age-startAge,years-1);
     return[age,survPositive[i].toFixed(1)+"%",survFloor[i].toFixed(1)+"%",survTarget[i].toFixed(1)+"%"];
   }),["Age","P(capital > 0)","P(≥ floor)","P(≥ target)"]);
@@ -3171,9 +3178,10 @@ function renderTornado(){
 /* ========== HEALTH ========== */
 function renderHealth(){
   const p=getProfile();const tc=getThemeColors();
-  const base=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
+  const tailAge=105;
+  const base=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,endAge:tailAge});
   const scenarioKeys=["minor","moderate","major","ongoing","combo1","catastrophic","longTerm"];
-  const health=scenarioKeys.map(k=>({key:k,name:HEALTH_SCENARIOS[k].label,rows:runHealth(k,{profile:p,abpReturn:STATE.likely})}));
+  const health=scenarioKeys.map(k=>({key:k,name:HEALTH_SCENARIOS[k].label,rows:runHealth(k,{profile:p,abpReturn:STATE.likely,endAge:tailAge})}));
   const ages=base.rows.map(r=>r.age);
   const ta=STATE.targetAge;const idx=tIdx();
   // Scenario highlight pills (uses STATE.health; "none" = show all equally)
@@ -3189,11 +3197,12 @@ function renderHealth(){
     if(sel){
       const selAt=sel.rows[idx]?.total??0;const baseAt=base.rows[idx].total;
       const totalCost=HEALTH_SCENARIOS[sel.key].bumps.reduce((s,b)=>s+b.amount,0);
-      const floorOK=selAt>=p.floor*1000;
+      const floorOK=selAt>=p.floor*1000;const tailAt=sel.rows[tailAge-p.retireAge]?.total??0;
       hs.innerHTML=`<div class="cards" style="margin-bottom:10px">
         <div class="card"><div class="label">Scenario</div><div class="value" style="font-size:15px">${sel.name}</div><div class="sub">Total event cost ${fmt$(totalCost)}</div></div>
         <div class="card"><div class="label">Capital @${ta}</div><div class="value">${fmt$(selAt)}</div><div class="sub">vs base ${fmt$(baseAt)} (${pctDiff(baseAt,selAt)})</div></div>
         <div class="card ${floorOK?"good":"warn"}"><div class="label">Floor status @${ta}</div><div class="value">${floorOK?"Above floor":"BELOW FLOOR"}</div><div class="sub">${fmtFull(selAt-p.floor*1000)} margin</div></div>
+        <div class="card warn"><div class="label">Capital @${tailAge}</div><div class="value">${fmt$(tailAt)}</div><div class="sub">Long-tail health stress</div></div>
       </div>`;
     } else hs.innerHTML=`<div class="note" style="margin-bottom:10px">Select a scenario pill to see its summary and highlight it on the chart. All event costs are drawn Pool-B-first, then Pool A, in the event year(s).</div>`;
   }
@@ -4166,7 +4175,7 @@ const LS_FALLBACK_KEY="v21c1_state";
 function saveState(){
   try{localStorage.setItem(LS_KEY,JSON.stringify({
     profile:STATE.profile,targetAge:STATE.targetAge,
-    likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,
+    likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,simulationSeed:STATE.simulationSeed,liquidityMonths:STATE.liquidityMonths,
     gapBands:STATE.gapBands,gapGrowth:STATE.gapGrowth,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
@@ -4182,7 +4191,7 @@ function loadState(){
     if(typeof s.poolCDrag==="number"&&s.poolCDrag>0.05)s.poolCDrag=s.poolCDrag/100;
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
     ap("profile",s.profile);ap("targetAge",s.targetAge);
-    ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);
+    ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);ap("simulationSeed",s.simulationSeed);ap("liquidityMonths",s.liquidityMonths);
     if(Array.isArray(s.gapBands)&&s.gapBands.length){
       const clean=normaliseGapBands(s.gapBands);
       s.gapBands=clean.bands;
@@ -4203,6 +4212,8 @@ function init(){
   applyChartTheme();
   wireNav();
   wireSliders();
+  const mcSeed=document.getElementById("btn-mc-new-seed");
+  if(mcSeed)mcSeed.addEventListener("click",()=>{STATE.simulationSeed=STATE.simulationSeed>=2147000000?20260814:STATE.simulationSeed+1;rerenderAll();saveState();});
   wireProfile();
   wireTheme();
   wireBandEditor();
@@ -4381,14 +4392,14 @@ montecarlo:{t:"Monte Carlo fan",w:"Percentile fan across randomised return paths
 ["Fan width","Wider = more outcome uncertainty; driven directly by the volatility slider."],
 ["Floor reference line","The dashed line on the fan is the floor band — read P10 against it, not against zero."],
 ["P10/P25/Median/P75/P90 @target cards","The percentile capital values at the target age, matching the fan lines at that vertical slice."],
-["Re-render jitter","Each render re-samples fresh random paths — percentile lines shift slightly on every input change, even inert ones. See Glossary: Sampling noise."],
+["Re-render stability","The fixed simulation seed keeps unchanged inputs identical across re-renders. Use New repeatable sample only when you deliberately want to inspect a different set of paths."],
 ["Median @target","The P50 path value at the target age — half the simulated outcomes land above it, half below."]]},
 histogram:{t:"Outcome histogram",w:"Full distribution of capital at the target age across all simulated paths.",h:["A long right tail with no mass below the floor is the desired shape.","Compare the median to the deterministic base case — big gaps mean volatility drag is material."],f:[
 ["P10 / P25 / Median / P75 / P90","Percentile capital values at target age."],
 ["Mean","Average across paths — sits above the median because return distributions are right-skewed."],
 ["Bars below floor","The visual floor-breach probability; should be zero or negligible."],
 ["Floor breach (< floor) %","The stat-table row giving the exact share of simulated paths ending below the floor — the single number summarising downside risk."],
-["Re-render jitter","The histogram re-samples on every render. Small shape/P-value changes when you move an unrelated (or inactive) slider are sampling noise, not model response. The Spend-% slider only has real effect in Override mode."],
+["Re-render stability","The histogram is fixed for unchanged inputs and seed. The Spend-% slider has a real effect only in Override mode; use New repeatable sample when you deliberately want a different path set."],
 ["Target","The target-band reference marker on the distribution — read the mass of outcomes to the right of it."]]},
 longevity:{t:"Longevity risk",w:"Capital survival to advanced ages: probability of remaining above the floor at each age out to 95+.",h:["The pension never depletes — this page is about the capital stack around it.","Read the @85 and @95 cards as 'chance the estate cushion is still intact'."],f:[
 ["Survival (≥floor) @85","Share of simulated paths still above the floor band at 85."],
@@ -4423,7 +4434,7 @@ probability:{t:"Simulation results",w:"Simplified Monte Carlo success frequencie
 ["Simulation summary","Headline floor/target success frequencies under current settings."],
 ["P(>= strong)","Share of sampled paths clearing the aspirational band at the target age — a stress indicator, not odds."],
 ["P(capital > 0)","Sampled non-depletion frequency for the capital stack; the pension itself cannot deplete."],
-["Re-render jitter","Results re-sample each render: ±1–3 pts wobble at 500 runs is sampling noise. Only persistent shifts beyond that band are signal."],
+["Re-render stability","Results reproduce for unchanged inputs and seed. A changed seed is a deliberately different sample, not a model-input result; compare inputs using the same seed."],
 ["P(>= floor) / P(>= target) / P(>= strong)","Monte Carlo sample frequencies of clearing each capital band at the target age. They omit fees, legislation, payment timing, account routing and personal spending shocks."]]},
 tornado:{t:"Tornado sensitivity",w:"Ranked bars: how much each single assumption moves capital at the target age when flexed through its plausible range.",h:["Spend review energy where the bars are long; ignore short bars.","Return and gap dominate in this structure; drag and one-offs are second-order."],f:[
 ["Driver bars","Each bar = one assumption flexed low→high, all else held; length = dollar impact."],
@@ -4458,7 +4469,7 @@ scencomp:{t:"Scenario comparison",w:"Two full assumption sets side-by-side: Scen
 ["vol N% (card sub-line)","Which volatility fed that card's Monte Carlo: A shows the sidebar setting, B shows its own slider. If the two vols differ, the probabilities are not like-for-like on risk."],
 ["'pts' (delta units)","Probability deltas are in percentage points (e.g. 92% → 85% = −7 pts), not relative percent."],
 ["Scenario B gap shape","B applies its gap as a single flat band from retirement — it ignores your age-band schedule. Comparing banded A against flat B at the same average spend is still meaningful, but timing effects belong to A only."],
-["Re-render jitter","Both MC cards re-sample on every render — expect ±1–3 pts of wobble at 500 runs independent of any input."],
+["Re-render stability","Both MC cards use the same fixed seed so like-for-like input changes are visible. Choose a new sample only when you want to inspect sampling variation."],
 ["Scenario A vs B spend rules","A uses your LIVE rule (age bands or whichever override is active). B always applies its own flat dollar gap from the Right: Annual gap slider — it is pinned to fixed-dollar so that slider always works. When an override is active the B title says so explicitly. This means B is a fixed-dollar comparator, not a copy of your rule."]]},
 saveslots:{t:"Scenario save slots",w:"Save and reload named assumption sets in this browser, with notes.",h:["Slots persist in this browser only — Export settings gives a portable JSON backup.","Keep one slot as the untouched annual baseline."],f:[
 ["Save current","Writes the entire live assumption set to the slot."],
@@ -4564,7 +4575,7 @@ const GLOSSARY = [
 ["Mandatory drawdown (ABP minimum)","The share of the 1-July Pool A balance the law forces the ABP to pay out each year: 4% at 60-64, 5% at 65-74, 6% at 75-79, 7% at 80-84, 9% at 85-89, 11% at 90-94, 14% at 95+. It is paid regardless of whether you spend it — the unspent portion leaves the 0%-tax ABP and routes to Pool C."],
 ["Earnings vs mandatory draw (the two denominators)","Routinely confused, and the source of most surprise in this tool. Year 1 at Day-1 values and 6.5%: investment earnings (Pool A + Pool C) = $57,816; mandatory draw (4% of Pool A) = $33,635 — earnings are 1.72x the draw. So spending 100% of EARNINGS requires withdrawing $24,181 MORE than the ABP minimum; spending 100% of the DRAW touches nothing beyond what must come out anyway."],
 ["Extra draw (voluntary)","Any withdrawal above the compulsory ABP minimum, funded from Pool A. It is the only mechanism in the model that shrinks super capital faster than the statutory schedule requires. Always $0 in '% of mandatory drawdown' mode."],
-["Sampling noise (MC jitter)","Every re-render draws a fresh set of random Monte Carlo paths (unseeded). At 500 runs, probabilities near 90% wobble ±1–3 pts and the histogram reshapes slightly even when NO input changed. Signal = a shift that persists and exceeds that band; raise Runs to tighten it."],
+["Sampling noise (MC jitter)","The Monte Carlo pages use a fixed seed, so the same inputs reproduce the same sample. Use New repeatable sample only when you deliberately want to inspect a different sample; raise Runs to smooth sample noise."],
 ["Percentage points (pts)","The unit for probability deltas: 90% − 85% = 5 pts. Never read as relative percent."]];
 
 const $=s=>document.querySelector(s);
@@ -4839,7 +4850,7 @@ function syncSpendControls(){
     ? `<b>Override — % of EARNINGS.</b> Gap = ${pct} of each year's positive investment earnings. Earnings run above the mandatory draw at typical returns, so a high % <b>can</b> exceed the ABP minimum and trigger a voluntary extra Pool A draw.`
     : mode==="drawPct"
     ? `<b>Override — % of MANDATORY DRAWDOWN.</b> Gap = ${pct} of the compulsory ABP minimum. <b>Never exceeds it</b> — no extra Pool A draw at any setting; the unspent remainder routes to Pool C.`
-    : `<b>Slider inactive</b> — age-band mode. Moving it changes nothing (MC figures still re-sample: that wobble is noise). Switch the mode above to activate it.`;
+    : `<b>Slider inactive</b> — age-band mode. Moving it changes nothing. The fixed simulation seed keeps the risk outputs stable; switch the mode above to activate this slider.`;
 }
 try{
   syncSpendControls();
@@ -4889,7 +4900,9 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       realReturn:Number(params.get("return"))||.05,
       targetAge:Number(params.get("age"))||75,
       homeValue:Number(params.get("home"))||500000,
-      taxYear:params.get("taxYear")==="2027-28"?"2027-28":"2026-27"
+      taxYear:params.get("taxYear")==="2027-28"?"2027-28":"2026-27",
+      liquidityMonths:Number(params.get("reserveMonths"))||12,
+      simulationSeed:Number(params.get("seed"))||20260814
     };
   }
 
@@ -4897,7 +4910,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     let saved=null;
     try{saved=JSON.parse(localStorage.getItem("robinson-retirement-shared-scenario")||"null");}catch(e){}
     const query=sharedFromQuery();
-    const base=query||saved||{rail:"A",spend:90000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27"};
+    const base=query||saved||{rail:"A",spend:90000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27",liquidityMonths:12,simulationSeed:20260814};
     const profile=getProfile();
     const rail=isRailBProfile(profile)?"B":"A";
     const fixedGap=STATE.spendMode==="fixed"&&Array.isArray(STATE.gapBands)?gapAtAge(60,STATE.gapBands):null;
@@ -4907,13 +4920,15 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       realReturn:Number(STATE.likely||base.realReturn||.05),
       targetAge:Number(STATE.targetAge||base.targetAge||75),
       homeValue:Number(base.homeValue||500000),
-      taxYear:base.taxYear==="2027-28"?"2027-28":"2026-27"
+      taxYear:base.taxYear==="2027-28"?"2027-28":"2026-27",
+      liquidityMonths:Number(base.liquidityMonths)||STATE.liquidityMonths||12,
+      simulationSeed:Number(base.simulationSeed)||STATE.simulationSeed||20260814
     };
   }
 
   function navigationUrl(path){
     const scenario=navigationScenario();
-    const params=new URLSearchParams({shared:"1",rail:scenario.rail,spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear});
+    const params=new URLSearchParams({shared:"1",rail:scenario.rail,spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear,reserveMonths:String(scenario.liquidityMonths),seed:String(scenario.simulationSeed)});
     return `${path}?${params.toString()}`;
   }
   window.v23NavigationUrl=navigationUrl;
@@ -4948,6 +4963,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     }
     STATE.likely=Math.min(.075,Math.max(.02,shared.realReturn));
     STATE.targetAge=Math.min(95,Math.max(70,Math.round(shared.targetAge)));
+    STATE.liquidityMonths=Math.min(24,Math.max(0,Math.round(shared.liquidityMonths||12)));
+    STATE.simulationSeed=Math.min(2147483647,Math.max(1,Math.round(shared.simulationSeed||20260814)));
     STATE.spendMode="fixed";
     STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-netPension)),unit:"dollar"}];
     try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:2,updatedAt:new Date().toISOString(),...shared}));}catch(e){}
@@ -4956,7 +4973,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     const main=document.querySelector("main");
     if(main&&!document.getElementById("v23-shared-banner")){
       const banner=document.createElement("div");banner.id="v23-shared-banner";
-      banner.innerHTML=`<span><b>Shared retirement scenario loaded</b><br>Rail ${shared.rail} · ${money(shared.spend)} spending · ${percent(shared.realReturn)} real return · target age ${shared.targetAge}</span><a id="v23-shared-command-link" href="./">Back to Command Centre</a>`;
+      banner.innerHTML=`<span><b>Shared retirement scenario loaded</b><br>Rail ${shared.rail} · ${money(shared.spend)} spending · ${percent(shared.realReturn)} real return · target age ${shared.targetAge} · ${STATE.liquidityMonths}-month reserve policy</span><a id="v23-shared-command-link" href="./">Back to Command Centre</a>`;
       main.insertBefore(banner,main.firstChild);
     }
     updateNavigation();

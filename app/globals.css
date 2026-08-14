@@ -143,6 +143,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .panel { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); padding: 21px; box-shadow: 0 15px 45px rgba(0,0,0,.12); }
 .panel.compact { padding: 12px; }
 .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 15px; }
+.panel-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .panel h3, .panel-head h3 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
 .panel p, .panel-head p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
 .decision-banner { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(170px, .7fr)); align-items: center; gap: 20px; background: linear-gradient(110deg, rgba(71,214,160,.08), var(--panel) 40%); }
@@ -190,6 +191,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .scenario-layout { display: grid; grid-template-columns: 292px minmax(0, 1fr); gap: 16px; align-items: start; }
 .control-panel { padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); display: flex; flex-direction: column; gap: 17px; position: sticky; top: 86px; }
 .control-panel.inline { position: static; background: var(--panel-2); }
+.assumption-brief { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+.assumption-brief article { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: linear-gradient(145deg, color-mix(in srgb, var(--panel-2) 92%, var(--blue) 8%), var(--panel)); }
+.assumption-brief span, .assumption-brief b, .assumption-brief p { display: block; }
+.assumption-brief span { color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .075em; text-transform: uppercase; }
+.assumption-brief b { margin: 6px 0 4px; font-size: 15px; letter-spacing: -.02em; }
+.assumption-brief p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .control-hint { padding: 11px; border: 1px solid rgba(111,140,255,.24); border-radius: 11px; background: rgba(111,140,255,.06); }
 .control-hint .badge { margin-bottom: 7px; }
 .control-hint p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
@@ -448,6 +455,13 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .risk-grid article { padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
 .risk-grid article > div { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .risk-grid article p { margin-bottom: 0; color: var(--muted); font-size: 11px; }
+.calibration-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.calibration-grid article { padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.calibration-grid span, .calibration-grid b, .calibration-grid small { display: block; }
+.calibration-grid span { color: var(--muted); font-size: 10px; }
+.calibration-grid b { margin: 5px 0; font-size: 20px; letter-spacing: -.035em; }
+.calibration-grid small, .calibration-footnote { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.calibration-footnote { margin-bottom: 0; }
 .cashflow-bars { display: grid; gap: 10px; }
 .cashflow-bars div { grid-template-columns: 190px minmax(0, 1fr) 100px; }
 .cashflow-bars i { background: linear-gradient(90deg, var(--blue), var(--green)); }
@@ -535,6 +549,7 @@ dd { margin: 2px 0 0; font-weight: 800; }
 
 @media (max-width: 1180px) {
   .metrics.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .assumption-brief, .calibration-grid { grid-template-columns: 1fr; }
   .decision-banner { grid-template-columns: repeat(3, 1fr); }
   .decision-banner > div:first-child { grid-column: 1 / -1; }
   .objective-grid, .classification-grid { grid-template-columns: repeat(2, 1fr); }
@@ -584,6 +599,7 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .timeline article > strong { grid-column: 2; }
   .panel { padding: 15px; }
   .panel-head { flex-direction: column; }
+  .panel-actions { justify-content: flex-start; }
   .waterfall { flex-direction: column; }
   .wf { flex: 0 0 auto !important; min-height: 78px; }
   .segmented { width: 100%; overflow-x: auto; }
