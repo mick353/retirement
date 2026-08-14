@@ -273,6 +273,18 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .fan-median { fill: none; stroke: var(--green); stroke-width: 4; vector-effect: non-scaling-stroke; }
 .fan-target { stroke: var(--amber); stroke-width: 2; stroke-dasharray: 7 6; vector-effect: non-scaling-stroke; }
 .fan-target-dot { fill: var(--amber); stroke: var(--panel); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.fan-inspector-line { stroke: var(--blue); stroke-width: 2; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.fan-inspector-dot { fill: var(--blue); stroke: var(--panel); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.fan-hit-area { fill: transparent; cursor: crosshair; }
+.fan-hit-area:focus { stroke: var(--blue); stroke-width: 2; vector-effect: non-scaling-stroke; outline: none; }
+.fan-inspector { display: grid; grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)); gap: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+.fan-inspector > div { min-width: 0; padding: 10px 9px; border-left: 1px solid var(--line); }
+.fan-inspector > div:first-child { border-left: 0; }
+.fan-inspector span, .fan-inspector small { display: block; color: var(--muted); font-size: 10px; line-height: 1.25; }
+.fan-inspector b { display: block; margin-top: 3px; color: var(--text); font-size: 13px; white-space: nowrap; }
+.fan-inspector-heading { background: color-mix(in srgb, var(--blue) 10%, var(--panel-2)); }
+.fan-inspector-heading small { margin-top: 3px; }
+.fan-inspector-hint { margin: 8px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .chart-legend .legend-outer { height: 8px; background: rgba(111,140,255,.25); }
 .chart-legend .legend-inner { height: 8px; background: rgba(111,140,255,.55); }
 .chart-legend .legend-median { background: var(--green); }
@@ -631,6 +643,9 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .matrix-row:first-of-type { border-top: 0; }
   .fan-chart, .frontier-curve .chart-shell { overflow-x: auto; }
   .fan-chart svg, .frontier-curve svg { min-width: 690px; }
+  .fan-inspector { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fan-inspector-heading { grid-column: span 3; border-bottom: 1px solid var(--line); }
+  .fan-inspector > div:nth-child(4) { border-left: 0; }
   .frontier-readout { align-items: flex-start; flex-direction: column; gap: 5px; }
   .heatmap { grid-template-columns: 70px repeat(5, 118px); }
   .cashflow-map { grid-template-columns: 1fr; }

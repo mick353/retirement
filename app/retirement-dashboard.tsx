@@ -400,8 +400,24 @@ function FanChart({ fan, targetAge }: { fan: ReturnType<typeof monteCarloFan>; t
   ].join(" ");
   const median = fan.p50.map((value, index) => `${x(index)},${y(value)}`).join(" ");
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
+  const [selectedIndex, setSelectedIndex] = useState(targetIndex);
+  useEffect(() => setSelectedIndex(targetIndex), [targetIndex]);
+  const selected = {
+    age: fan.ages[selectedIndex],
+    p10: fan.p10[selectedIndex],
+    p25: fan.p25[selectedIndex],
+    p50: fan.p50[selectedIndex],
+    p75: fan.p75[selectedIndex],
+    p90: fan.p90[selectedIndex],
+  };
+  const selectIndex = (index: number) => setSelectedIndex(clamp(index, 0, fan.ages.length - 1));
+  const selectFromChartPosition = (clientX: number, element: SVGRectElement) => {
+    const rect = element.getBoundingClientRect();
+    const viewX = (clientX - rect.left) / Math.max(1, rect.width) * width;
+    selectIndex(Math.round((viewX - pad.l) / Math.max(1, width - pad.l - pad.r) * (fan.ages.length - 1)));
+  };
   return (
-    <div className="chart-shell fan-chart" role="img" aria-label="Monte Carlo capital fan chart with 10th to 90th percentile bands">
+    <div className="chart-shell fan-chart">
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         {[0, .25, .5, .75, 1].map((tick) => {
           const yy = pad.t + tick * (height - pad.t - pad.b);
@@ -412,9 +428,21 @@ function FanChart({ fan, targetAge }: { fan: ReturnType<typeof monteCarloFan>; t
         <polyline points={median} className="fan-median" />
         <line x1={x(targetIndex)} y1={pad.t} x2={x(targetIndex)} y2={height - pad.b} className="fan-target" />
         <circle cx={x(targetIndex)} cy={y(fan.p50[targetIndex])} r="6" className="fan-target-dot"><title>{`Median at age ${targetAge}: ${money(fan.p50[targetIndex])}`}</title></circle>
+        <line x1={x(selectedIndex)} y1={pad.t} x2={x(selectedIndex)} y2={height - pad.b} className="fan-inspector-line" />
+        <circle cx={x(selectedIndex)} cy={y(selected.p50)} r="5" className="fan-inspector-dot" />
         {fan.ages.map((age, index) => age % 5 === 0 || age === 95 ? <text key={age} x={x(index)} y={height - 14} textAnchor="middle" className="chart-label">{age}</text> : null)}
+        <rect x={pad.l} y={pad.t} width={width - pad.l - pad.r} height={height - pad.t - pad.b} className="fan-hit-area" role="slider" tabIndex={0} aria-label="Capital simulation year inspector" aria-valuemin={fan.ages[0]} aria-valuemax={fan.ages[fan.ages.length - 1]} aria-valuenow={selected.age} aria-valuetext={`Age ${selected.age}: median ${money(selected.p50)}, 10th to 90th percentile ${money(selected.p10)} to ${money(selected.p90)}`} onClick={(event) => selectFromChartPosition(event.clientX, event.currentTarget)} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); selectIndex(selectedIndex - 1); } if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); selectIndex(selectedIndex + 1); } if (event.key === "Home") { event.preventDefault(); selectIndex(0); } if (event.key === "End") { event.preventDefault(); selectIndex(fan.ages.length - 1); } }}><title>Click or tap a year for exact percentile figures. With keyboard focus, use the arrow keys.</title></rect>
       </svg>
       <div className="chart-legend"><span><i className="legend-outer" />P10–P90</span><span><i className="legend-inner" />P25–P75</span><span><i className="legend-median" />Median</span><span><i className="legend-target" />Age {targetAge}</span></div>
+      <div className="fan-inspector" aria-live="polite">
+        <div className="fan-inspector-heading"><span>Selected year</span><b>Age {selected.age}</b><small>{selectedIndex === targetIndex ? "Selected target age" : `Year ${selectedIndex} of retirement`}</small></div>
+        <div><span>P10</span><b>{money(selected.p10)}</b></div>
+        <div><span>P25</span><b>{money(selected.p25)}</b></div>
+        <div><span>Median</span><b>{money(selected.p50)}</b></div>
+        <div><span>P75</span><b>{money(selected.p75)}</b></div>
+        <div><span>P90</span><b>{money(selected.p90)}</b></div>
+      </div>
+      <p className="fan-inspector-hint">Click or tap the chart to inspect a year. Keyboard: focus the chart, then use the arrow keys.</p>
     </div>
   );
 }
