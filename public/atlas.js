@@ -75,9 +75,11 @@
     selectedCapitalAge: clamp(Number(params.get("age")) || 75, 60, 95),
     inspectionAge: clamp(Number(params.get("age")) || 75, 60, 95),
     washCycles: 6,
+    timeMachine: false,
   };
 
   let charts = { income: null, capital: null, landscape: null, frontier: null };
+  let activeLandscapeLedger = [];
   let toastTimer;
 
   function drawRate(age) {
@@ -273,14 +275,137 @@
     return color;
   }
 
+  function renderTimeMachineCanvas(ledger) {
+    const canvas = $("timeMachineCanvas");
+    if (!canvas || !state.timeMachine || !ledger || !ledger.length) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(320, Math.round(rect.width));
+    const height = Math.max(260, Math.round(rect.height));
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    const context = canvas.getContext("2d");
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+
+    const colors = chartTheme();
+    const style = getComputedStyle(document.documentElement);
+    const panel = style.getPropertyValue("--panel").trim();
+    const pad = { l: 58, r: 40, t: 38, b: 48 };
+    const depth = { x: Math.min(26, width * .035), y: -Math.min(18, height * .05) };
+    const maximum = Math.max(...ledger.map((row) => row.ending), 1) * 1.08;
+    const plotWidth = width - pad.l - pad.r;
+    const plotHeight = height - pad.t - pad.b;
+    const x = (index) => pad.l + index / Math.max(1, ledger.length - 1) * plotWidth;
+    const y = (value) => pad.t + (1 - value / maximum) * plotHeight;
+    const selectedIndex = clamp(state.selectedCapitalAge - 60, 0, ledger.length - 1);
+    const selected = ledger[selectedIndex];
+
+    context.fillStyle = panel;
+    context.fillRect(0, 0, width, height);
+    context.strokeStyle = withAlpha(colors.line, .72);
+    context.lineWidth = 1;
+    for (let gridTick = 0; gridTick <= 4; gridTick += 1) {
+      const yy = pad.t + gridTick / 4 * plotHeight;
+      context.beginPath();
+      context.moveTo(pad.l, yy);
+      context.lineTo(width - pad.r, yy);
+      context.stroke();
+      context.fillStyle = colors.text;
+      context.font = "700 10px system-ui, sans-serif";
+      context.textAlign = "right";
+      context.fillText(compact(maximum * (1 - gridTick / 4)), pad.l - 8, yy + 3);
+    }
+
+    context.fillStyle = withAlpha(colors.blue, .055);
+    context.beginPath();
+    context.moveTo(pad.l, height - pad.b);
+    context.lineTo(width - pad.r, height - pad.b);
+    context.lineTo(width - pad.r + depth.x, height - pad.b + depth.y);
+    context.lineTo(pad.l + depth.x, height - pad.b + depth.y);
+    context.closePath();
+    context.fill();
+
+    const drawLayer = (lower, upper, fill, stroke) => {
+      context.beginPath();
+      upper.forEach((value, index) => index ? context.lineTo(x(index), y(value)) : context.moveTo(x(index), y(value)));
+      for (let index = lower.length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(lower[index]));
+      context.closePath();
+      context.fillStyle = fill;
+      context.fill();
+      context.strokeStyle = stroke;
+      context.lineWidth = 2.4;
+      context.stroke();
+
+      context.beginPath();
+      upper.forEach((value, index) => index ? context.lineTo(x(index) + depth.x, y(value) + depth.y) : context.moveTo(x(index) + depth.x, y(value) + depth.y));
+      context.strokeStyle = withAlpha(stroke, .62);
+      context.lineWidth = 1.5;
+      context.stroke();
+      [[0], [upper.length - 1]].forEach(([index]) => {
+        context.beginPath();
+        context.moveTo(x(index), y(upper[index]));
+        context.lineTo(x(index) + depth.x, y(upper[index]) + depth.y);
+        context.stroke();
+      });
+    };
+
+    const zeroes = ledger.map(() => 0);
+    const poolC = ledger.map((row) => row.poolC);
+    const ending = ledger.map((row) => row.ending);
+    drawLayer(zeroes, poolC, withAlpha(colors.violet, .38), colors.violet);
+    drawLayer(poolC, ending, withAlpha(colors.blue, .40), colors.blue);
+
+    const planeX = x(selectedIndex);
+    context.fillStyle = withAlpha(colors.green, .14);
+    context.fillRect(planeX - 2, pad.t, 4, plotHeight);
+    context.setLineDash([5, 5]);
+    context.strokeStyle = colors.green;
+    context.lineWidth = 1.5;
+    context.beginPath();
+    context.moveTo(planeX, pad.t);
+    context.lineTo(planeX, height - pad.b);
+    context.stroke();
+    context.setLineDash([]);
+    ledger.forEach((row, index) => {
+      if (row.age % 5 !== 0 && index !== selectedIndex && row.age !== 95) return;
+      context.beginPath();
+      context.arc(x(index), y(row.ending), index === selectedIndex ? 6 : 3.5, 0, Math.PI * 2);
+      context.fillStyle = index === selectedIndex ? colors.green : colors.blue;
+      context.fill();
+      context.strokeStyle = panel;
+      context.lineWidth = 2;
+      context.stroke();
+      context.fillStyle = colors.text;
+      context.font = "700 10px system-ui, sans-serif";
+      context.textAlign = "center";
+      context.fillText(String(row.age), x(index), height - 18);
+    });
+
+    context.fillStyle = colors.green;
+    context.font = "900 10px system-ui, sans-serif";
+    context.textAlign = selectedIndex > ledger.length - 7 ? "right" : "left";
+    context.fillText(`AGE ${selected.age}`, selectedIndex > ledger.length - 7 ? planeX - 9 : planeX + 9, pad.t + 13);
+    context.fillStyle = style.getPropertyValue("--text").trim();
+    context.font = "800 15px system-ui, sans-serif";
+    context.fillText(`${money0.format(selected.ending)} investments`, selectedIndex > ledger.length - 7 ? planeX - 9 : planeX + 9, pad.t + 33);
+    context.fillStyle = colors.text;
+    context.font = "700 10px system-ui, sans-serif";
+    context.fillText(`Pool A ${money0.format(selected.poolA)} · Pool C ${money0.format(selected.poolC)}`, selectedIndex > ledger.length - 7 ? planeX - 9 : planeX + 9, pad.t + 49);
+    canvas.dataset.plotLeft = String(pad.l);
+    canvas.dataset.plotWidth = String(plotWidth);
+  }
+
   function renderLandscapeMode() {
     const active = Boolean(state.timeMachine);
     $("capitalLandscape").classList.toggle("time-machine", active);
     $("timeMachineToggle").setAttribute("aria-pressed", String(active));
     $("timeMachineToggle").textContent = active ? "Exit Time Machine" : "Enter Time Machine";
     $("timeMachineNote").textContent = active
-      ? "Time Machine is active: the selected age is brought forward for a closer reading. The data and assumptions are unchanged."
-      : "Landscape mode shows the full path. Time Machine brings the selected age forward while retaining the same ledger and scenario.";
+      ? `Time Machine is active: click a capital point to bring that year forward in depth. It uses the same active ${pct(state.realReturn)} real-return ledger.`
+      : `Landscape mode shows the full path using the active ${pct(state.realReturn)} real-return ledger. Activate Time Machine for a depth view with a selected-age plane and clickable points.`;
+    renderTimeMachineCanvas(activeLandscapeLedger);
   }
 
   function renderCapitalLandscapeReadout(row) {
@@ -292,6 +417,7 @@
     $("landscapeMoment").textContent = isOpening ? "Retirement-day opening" : `Age ${row.age - 1}→${row.age}`;
     $("landscapeStageValue").textContent = money0.format(row.ending);
     $("landscapeStageCopy").textContent = isOpening ? "Opening investment capital" : "Total investment capital at year end";
+    $("landscapeSummary").textContent = `Pool A and Pool C are layered from the active annual ledger at ${pct(state.realReturn)} real return p.a. after inflation. Income stays out of this capital-composition scale.`;
     $("landscapeTitle").textContent = isOpening ? "Age 60 · opening position" : `Age ${row.age} · end of planning year ${row.age - 60}`;
     $("landscapeNarrative").textContent = isOpening
       ? "Capital is measured on retirement day before annual pension, spending or drawdown is applied."
@@ -302,6 +428,8 @@
     $("landscapePoolCShare").textContent = `${pct(row.poolC / total)} of investments · invested reserve`;
     $("landscapeDraw").textContent = isOpening ? money0.format(Math.max(0, state.spend - rail.netPension)) : money0.format(row.draw);
     $("landscapeDrawDetail").textContent = isOpening ? "Starting annual portfolio gap" : row.reinvestment > 0 ? `${money0.format(row.reinvestment)} mandatory-draw surplus reinvested` : "Planning portfolio draw in this year";
+    $("landscapeReturn").textContent = `${pct(state.realReturn)} real p.a.`;
+    $("landscapeReturnDetail").textContent = "After inflation · live scenario";
     document.querySelectorAll("#landscapeMilestones button").forEach((button) => {
       const active = Number(button.dataset.landscapeAge) === row.age;
       button.classList.toggle("active", active);
@@ -314,9 +442,11 @@
     const row = rowAt(ledger, state.selectedCapitalAge);
     renderCapitalReadout(row);
     renderCapitalLandscapeReadout(row);
+    renderTimeMachineCanvas(ledger);
   }
 
   function renderCapitalLandscape(ledger) {
+    activeLandscapeLedger = ledger;
     const colors = chartTheme();
     if (charts.landscape) charts.landscape.destroy();
     const options = baseChartOptions((event, elements, chart) => {
@@ -337,6 +467,7 @@
       options,
     });
     renderLandscapeMode();
+    renderTimeMachineCanvas(ledger);
   }
 
   function renderCapitalChart(rail, activeLedger) {
@@ -629,9 +760,20 @@
     state.timeMachine = !state.timeMachine;
     renderLandscapeMode();
   });
+  $("timeMachineCanvas").addEventListener("click", (event) => {
+    if (!activeLandscapeLedger.length) return;
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const chartX = (event.clientX - rect.left) / Math.max(1, rect.width) * canvas.width / Math.min(window.devicePixelRatio || 1, 2);
+    const index = clamp(Math.round((chartX - Number(canvas.dataset.plotLeft || 0)) / Math.max(1, Number(canvas.dataset.plotWidth || 1)) * (activeLandscapeLedger.length - 1)), 0, activeLandscapeLedger.length - 1);
+    selectCapitalAge(activeLandscapeLedger, activeLandscapeLedger[index].age);
+  });
+  window.addEventListener("resize", () => {
+    if (activeLandscapeLedger.length && state.timeMachine) renderTimeMachineCanvas(activeLandscapeLedger);
+  });
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
-    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6 });
+    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, timeMachine: false });
     renderAll();
     showToast("Rail B central baseline restored.");
   });

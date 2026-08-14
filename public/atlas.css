@@ -211,14 +211,17 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; heigh
 .time-machine-toggle { flex: 0 0 auto; min-height: 39px; cursor: pointer; font-size: 10px; font-weight: 850; }
 .capital-landscape { transition: .25s ease; }
 .landscape-stage { position: relative; padding: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel-2) 76%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent); }
-.landscape-chart { height: 380px; transform-origin: center bottom; transition: transform .32s ease, filter .32s ease; }
-.capital-landscape.time-machine .landscape-chart { transform: perspective(1150px) rotateX(4deg) translateY(-3px); filter: saturate(1.13) contrast(1.03); }
+.landscape-chart { height: 380px; }
+.time-machine-canvas { display: none; width: 100%; height: 380px; cursor: crosshair; touch-action: manipulation; }
+.capital-landscape.time-machine .landscape-stage { border-color: color-mix(in srgb, var(--green) 36%, var(--line)); background: radial-gradient(circle at 80% 12%, color-mix(in srgb, var(--green) 14%, transparent), transparent 33%), var(--panel-2); }
+.capital-landscape.time-machine .landscape-chart { display: none; }
+.capital-landscape.time-machine .time-machine-canvas { display: block; }
 .landscape-stage-label { position: absolute; right: 25px; top: 24px; min-width: 150px; padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--blue) 32%, var(--line)); border-radius: 11px; background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: var(--shadow); backdrop-filter: blur(12px); }
 .landscape-stage-label span, .landscape-stage-label b, .landscape-stage-label small { display: block; }
 .landscape-stage-label span { color: var(--green); font-size: 8px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 .landscape-stage-label b { margin: 3px 0; font-size: 18px; letter-spacing: -.035em; }
 .landscape-stage-label small { color: var(--muted); font-size: 8px; line-height: 1.3; }
-.landscape-inspector { display: grid; grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr)); gap: 1px; margin-top: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--line); }
+.landscape-inspector { display: grid; grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--line); }
 .landscape-inspector > div { min-width: 0; padding: 12px; background: var(--panel-2); }
 .landscape-inspector span, .landscape-inspector b, .landscape-inspector small { display: block; }
 .landscape-inspector span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
@@ -349,7 +352,7 @@ footer { min-height: 70px; padding: 18px clamp(16px, 3.2vw, 44px); display: flex
   .landscape-panel { padding: 16px; }
   .landscape-head { flex-direction: column; }
   .time-machine-toggle { width: 100%; }
-  .landscape-chart { height: 320px; }
+  .landscape-chart, .time-machine-canvas { height: 320px; }
   .landscape-stage-label { top: 22px; right: 22px; }
   .landscape-age-control { grid-template-columns: 1fr max-content; margin-inline: 0; }
   .landscape-age-control input { grid-column: 1 / -1; grid-row: 2; }
@@ -372,7 +375,7 @@ footer { min-height: 70px; padding: 18px clamp(16px, 3.2vw, 44px); display: flex
   .metric strong { font-size: 25px; }
   .timeline { grid-template-columns: 1fr; }
   .chart-wrap, .chart-wrap.large { height: 300px; }
-  .landscape-chart { height: 290px; }
+  .landscape-chart, .time-machine-canvas { height: 290px; }
   .landscape-stage-label { position: static; min-width: 0; margin: 6px 6px 2px; }
   .landscape-inspector { grid-template-columns: 1fr; }
   .panel-head { flex-direction: column; }

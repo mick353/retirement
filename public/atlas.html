@@ -7,7 +7,7 @@
   <meta name="description" content="Interactive Robinson Retirement strategy atlas: income floor, capital trajectory, spending-estate frontier, tax controls and governed scenario handoff.">
   <title>Retirement Atlas — Robinson Retirement</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./atlas.css?v=7">
+  <link rel="stylesheet" href="./atlas.css?v=8">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to analysis</a>
@@ -174,10 +174,11 @@
         <p>Start with the capital landscape to move through the active plan year by year. The return-comparison lines then hold spending constant and change only the real return.</p>
       </div>
       <div class="panel landscape-panel" aria-labelledby="landscape-title">
-        <div class="panel-head landscape-head"><div><span class="eyebrow">Capital landscape</span><h3 id="landscape-title">Bring each retirement year into focus.</h3><p>Pool A and Pool C are layered from the active annual ledger. This is a capital-composition view, so income stays out of the vertical scale.</p></div><button type="button" class="secondary time-machine-toggle" id="timeMachineToggle" aria-pressed="false">Enter Time Machine</button></div>
+        <div class="panel-head landscape-head"><div><span class="eyebrow">Capital landscape</span><h3 id="landscape-title">Bring each retirement year into focus.</h3><p id="landscapeSummary">Pool A and Pool C are layered from the active annual ledger. This is a capital-composition view, so income stays out of the vertical scale.</p></div><button type="button" class="secondary time-machine-toggle" id="timeMachineToggle" aria-pressed="false">Enter Time Machine</button></div>
         <div class="capital-landscape" id="capitalLandscape">
           <div class="landscape-stage">
             <div class="chart-wrap landscape-chart"><canvas id="capitalLandscapeChart" aria-label="Interactive Pool A and Pool C capital landscape" role="img"></canvas></div>
+            <canvas id="timeMachineCanvas" class="time-machine-canvas" aria-label="Interactive three-dimensional capital Time Machine view" role="img"></canvas>
             <div class="landscape-stage-label" aria-live="polite"><span id="landscapeMoment">Age 75</span><b id="landscapeStageValue">$0</b><small id="landscapeStageCopy">Total investment capital</small></div>
           </div>
           <div class="landscape-inspector" aria-live="polite">
@@ -185,6 +186,7 @@
             <div><span>Pool A</span><b id="landscapePoolA">$0</b><small id="landscapePoolAShare">0% of investments</small></div>
             <div><span>Pool C reserve</span><b id="landscapePoolC">$0</b><small id="landscapePoolCShare">0% of investments</small></div>
             <div><span>Planning draw</span><b id="landscapeDraw">$0</b><small id="landscapeDrawDetail">Annual portfolio draw</small></div>
+            <div><span>Active real return</span><b id="landscapeReturn">5.0%</b><small id="landscapeReturnDetail">After inflation · live scenario</small></div>
           </div>
           <label class="landscape-age-control" for="landscapeAgeRange"><span>Travel by age</span><input id="landscapeAgeRange" type="range" min="60" max="95" step="1" value="75" aria-label="Select capital landscape age"><output id="landscapeAgeOut">75</output></label>
           <div class="landscape-milestones" id="landscapeMilestones" role="group" aria-label="Capital landscape milestones">
@@ -194,7 +196,7 @@
             <button type="button" data-landscape-age="85">Age 85<span>Long-range estate</span></button>
             <button type="button" data-landscape-age="95">Age 95<span>Longevity guardrail</span></button>
           </div>
-          <p class="landscape-note" id="timeMachineNote">Landscape mode shows the full path. Time Machine brings the selected age forward while retaining the same ledger and scenario.</p>
+          <p class="landscape-note" id="timeMachineNote">Landscape mode shows the full path. Activate Time Machine for a depth view with a selected-age plane and clickable points.</p>
         </div>
       </div>
       <div class="panel chart-panel">
@@ -349,6 +351,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./vendor/chart.umd.js"></script>
-  <script src="./atlas.js?v=10"></script>
+  <script src="./atlas.js?v=11"></script>
 </body>
 </html>

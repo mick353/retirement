@@ -185,18 +185,50 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .horizon-header h3 { margin: 9px 0 4px; font-size: 23px; letter-spacing: -.035em; }
 .horizon-header p { max-width: 680px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .horizon-header a { flex: 0 0 auto; text-decoration: none; font-size: 11px; }
-.horizon-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--line); }
-.horizon-stat-grid > div { min-width: 0; padding: 13px; background: var(--panel-2); }
-.horizon-stat-grid span, .horizon-stat-grid b, .horizon-stat-grid small { display: block; }
-.horizon-stat-grid span { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
-.horizon-stat-grid b { margin: 5px 0 3px; font-size: clamp(16px, 1.75vw, 24px); line-height: 1.05; letter-spacing: -.035em; white-space: nowrap; }
-.horizon-stat-grid small { color: var(--muted); font-size: 9px; line-height: 1.35; }
-.horizon-chart { min-width: 0; margin-top: 17px; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
-.horizon-chart svg { width: 100%; min-height: 286px; display: block; }
-.horizon-area { fill: rgba(71,214,160,.11); }
-.horizon-line { fill: none; stroke: var(--green); stroke-width: 4; vector-effect: non-scaling-stroke; }
+.horizon-command-bar { display: grid; grid-template-columns: minmax(220px, .9fr) minmax(255px, 1fr) minmax(220px, .9fr); gap: 1px; margin-top: 17px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--line); }
+.horizon-command-bar > div { min-width: 0; padding: 13px 14px; background: color-mix(in srgb, var(--panel-2) 92%, transparent); }
+.horizon-command-bar span, .horizon-command-bar b, .horizon-command-bar small { display: block; }
+.horizon-command-bar > div > span { margin-bottom: 7px; color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.horizon-command-bar small { margin-top: 5px; color: var(--muted); font-size: 9px; line-height: 1.38; }
+.horizon-rail-control > div, .horizon-return-control > div { display: flex; gap: 5px; align-items: center; }
+.horizon-rail-control button, .horizon-return-control button { min-height: 32px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted); cursor: pointer; font-size: 10px; font-weight: 850; }
+.horizon-rail-control button:hover, .horizon-return-control button:hover { border-color: var(--blue); color: var(--text); }
+.horizon-rail-control button.active { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 17%, var(--panel)); color: var(--text); box-shadow: inset 0 2px 0 var(--blue); }
+.horizon-return-control b { min-width: 112px; color: var(--green); font-size: 16px; letter-spacing: -.035em; white-space: nowrap; text-align: center; }
+.horizon-return-control button { width: 33px; padding: 0; font-size: 18px; line-height: 1; }
+.horizon-method { background: linear-gradient(115deg, color-mix(in srgb, var(--green) 10%, var(--panel-2)), var(--panel-2)) !important; }
+.horizon-method b { font-size: 12px; letter-spacing: -.015em; }
+.horizon-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 280px); gap: 14px; margin-top: 14px; align-items: stretch; }
+.horizon-chart { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: radial-gradient(circle at 76% 18%, rgba(71,214,160,.12), transparent 28%), color-mix(in srgb, var(--panel-2) 86%, transparent); }
+.horizon-chart svg { width: 100%; min-height: 324px; display: block; }
+.horizon-area { fill: rgba(71,214,160,.14); }
+.horizon-line { fill: none; stroke: var(--green); stroke-width: 4; vector-effect: non-scaling-stroke; filter: drop-shadow(0 3px 5px rgba(71,214,160,.16)); }
+.horizon-pss-line { fill: none; stroke: var(--violet); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.horizon-draw-line { fill: none; stroke: var(--amber); stroke-width: 3; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; }
 .horizon-inspector-line { stroke: var(--blue); stroke-width: 2; stroke-dasharray: 4 5; vector-effect: non-scaling-stroke; }
 .horizon-inspector-dot { fill: var(--blue); stroke: var(--panel); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.horizon-pss-dot { fill: var(--violet); stroke: var(--panel); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.horizon-draw-dot { fill: var(--amber); stroke: var(--panel); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.horizon-axis-title { fill: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
+.horizon-legend { display: flex; flex-wrap: wrap; gap: 9px 15px; margin: 9px 4px 0; color: var(--muted); font-size: 9px; }
+.horizon-legend span { display: flex; align-items: center; gap: 6px; }
+.horizon-legend i { width: 17px; height: 3px; border-radius: 4px; background: var(--green); }
+.horizon-legend i.draw { background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 10px); }
+.horizon-legend i.floor { background: var(--violet); }
+.horizon-whatif { display: flex; flex-direction: column; padding: 16px; border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line)); border-radius: 15px; background: linear-gradient(155deg, color-mix(in srgb, var(--blue) 11%, var(--panel)), var(--panel-2)); }
+.horizon-whatif > span { color: var(--blue); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.horizon-whatif h4 { margin: 7px 0 14px; font-size: 16px; letter-spacing: -.03em; line-height: 1.16; }
+.horizon-whatif > div { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.horizon-whatif i { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 7px; font-style: normal; font-weight: 900; }
+.horizon-whatif i.up { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.horizon-whatif i.down { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.horizon-whatif p { min-width: 0; margin: 0; }
+.horizon-whatif p b, .horizon-whatif p small { display: block; }
+.horizon-whatif p b { font-size: 10px; }
+.horizon-whatif p small, .horizon-whatif-note { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.horizon-whatif strong { color: var(--green); font-size: 12px; white-space: nowrap; }
+.horizon-whatif > div:first-of-type strong { color: var(--amber); }
+.horizon-whatif-note { margin-top: auto; padding-top: 11px; }
 .horizon-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: end; margin: 12px 4% 0; }
 .horizon-controls label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .horizon-controls input { margin: 3px 0 0; }
@@ -204,11 +236,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .horizon-milestones button { min-height: 33px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); color: var(--muted); cursor: pointer; font-size: 10px; font-weight: 800; }
 .horizon-milestones button:hover { border-color: var(--blue); color: var(--text); }
 .horizon-milestones button.active { border-color: var(--blue); background: var(--blue-strong); color: #fff; }
-.horizon-insight { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .65fr); gap: 18px; align-items: center; margin-top: 15px; padding: 13px 14px; border-left: 3px solid var(--green); border-radius: 10px; background: color-mix(in srgb, var(--green) 7%, var(--panel)); }
+.horizon-bottom-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(330px, 1fr); gap: 12px; margin-top: 15px; }
+.horizon-insight { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: center; margin: 0; padding: 13px 14px; border-left: 3px solid var(--green); border-radius: 10px; background: color-mix(in srgb, var(--green) 7%, var(--panel)); }
 .horizon-insight span, .horizon-insight b { display: block; }
 .horizon-insight span { color: var(--green); font-size: 9px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 .horizon-insight b { margin-top: 4px; font-size: 12px; }
 .horizon-insight small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.horizon-outcomes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: var(--line); }
+.horizon-outcomes > div { min-width: 0; padding: 12px; background: var(--panel-2); }
+.horizon-outcomes span, .horizon-outcomes b { display: block; }
+.horizon-outcomes span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .055em; line-height: 1.25; text-transform: uppercase; }
+.horizon-outcomes b { margin-top: 6px; font-size: clamp(14px, 1.5vw, 19px); letter-spacing: -.035em; white-space: nowrap; }
 
 .objective-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .objective { padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
@@ -614,7 +652,9 @@ dd { margin: 2px 0 0; font-weight: 800; }
 
 @media (max-width: 1180px) {
   .metrics.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .horizon-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .horizon-command-bar { grid-template-columns: 1fr 1fr; }
+  .horizon-method { grid-column: 1 / -1; }
+  .horizon-main { grid-template-columns: 1fr; }
   .assumption-brief, .calibration-grid { grid-template-columns: 1fr; }
   .decision-banner { grid-template-columns: repeat(3, 1fr); }
   .decision-banner > div:first-child { grid-column: 1 / -1; }
@@ -661,13 +701,13 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .horizon-explorer { padding: 16px; }
   .horizon-header { flex-direction: column; }
   .horizon-header a { width: 100%; }
-  .horizon-stat-grid { grid-template-columns: 1fr 1fr; }
-  .horizon-stat-grid b { font-size: 18px; }
+  .horizon-command-bar { grid-template-columns: 1fr; }
+  .horizon-method { grid-column: auto; }
   .horizon-chart { overflow-x: auto; }
-  .horizon-chart svg { min-width: 620px; }
+  .horizon-chart svg { min-width: 720px; }
   .horizon-controls { grid-template-columns: 1fr; margin-inline: 0; }
   .horizon-milestones { justify-content: flex-start; }
-  .horizon-insight { grid-template-columns: 1fr; gap: 8px; }
+  .horizon-bottom-grid, .horizon-outcomes { grid-template-columns: 1fr; }
   .metrics.four, .metrics.three, .objective-grid, .classification-grid, .rail-compare, .benchmark-hero, .source-list, .control-register, .official-links, .split-grid, .wash-result, .sensitivity-layout { grid-template-columns: 1fr; }
   .decision-banner { grid-template-columns: 1fr; }
   .comparison-stat { border-left: 0; border-top: 1px solid var(--line); padding: 12px 0 0; }
