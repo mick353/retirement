@@ -536,7 +536,7 @@ hr.sep{border:0;border-top:1px solid var(--border);margin:14px 0}
 }
 @media(max-width:520px){
   header{overflow:hidden;padding:12px}
-  .controls{max-width:calc(100vw - 70px)}
+  .controls{max-width:100%}
   .btn{white-space:nowrap}
   .profile-bar,.control-bar,.panel,.card{padding:12px}
   table{display:block;max-width:100%;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
@@ -825,9 +825,18 @@ main{min-width:0;}
   .brand h1{font-size:14px;line-height:1.3}
   .brand h1 .smaller{display:block;font-size:10px;margin-top:1px}
   .brand .sub{display:none}
-  .controls{margin:0;width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;overflow:visible;padding:0}
-  .controls>*{display:none!important}
-  .controls #btn-menu,.controls #v23-btn-guide,.controls #btn-theme,.controls #btn-export-settings{display:flex!important;align-items:center;justify-content:center;min-width:0;padding:7px 5px;font-size:10px;overflow:hidden;text-overflow:ellipsis}
+  /* Keep every dashboard action available on a phone. The earlier four-slot
+     grid hid the other controls in portrait; this single-row strip scrolls by
+     touch instead. Every action remains reachable by keyboard focus too. */
+  .controls{margin:0;width:100%;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;
+    overflow-x:auto;overflow-y:hidden;padding:0 1px 7px;max-width:100%;
+    -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity;scrollbar-width:thin}
+  .controls>:not(#inp-import-settings){display:inline-flex!important;align-items:center;justify-content:center;
+    flex:0 0 auto;min-width:max-content;min-height:34px;padding:7px 10px;font-size:11px;
+    scroll-snap-align:start}
+  .controls>select{display:block!important;max-width:160px}
+  .controls>a.btn{text-decoration:none}
   #v23-ledger{display:flex;padding:7px 10px;scroll-snap-type:x proximity}
   #v23-ledger .v23-chip{scroll-snap-align:start;font-size:10px;padding:4px 9px}
   .layout{padding:9px 9px 16px;gap:10px}
@@ -869,7 +878,7 @@ main{min-width:0;}
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
-  <div class="controls">
+  <div class="controls" role="toolbar" aria-label="Dashboard actions. On a phone, swipe this row to reveal all actions.">
     <button class="btn menu-toggle" id="btn-menu" aria-expanded="false">☰ Menu</button>
     <button class="btn" id="btn-csv" title="Export simulation data as CSV">⬇ CSV</button>
     <select id="sel-print-pack" title="Choose print pack">
