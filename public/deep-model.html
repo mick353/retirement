@@ -851,8 +851,8 @@ main{min-width:0;}
   #v23-mobile-compactbar .compact-actions{display:flex;gap:6px}
   #v23-mobile-compactbar .btn{min-height:38px;padding:6px 9px}
   .v23-mobile-dock{position:fixed;z-index:75;left:9px;right:9px;bottom:max(9px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(5,1fr);padding:5px;border:1px solid var(--border);border-radius:15px;background:color-mix(in srgb,var(--panel) 94%,transparent);box-shadow:0 16px 42px rgba(0,0,0,.5);backdrop-filter:blur(16px)}
-  .v23-mobile-dock button{min-height:45px;padding:4px;border:0;border-radius:10px;background:transparent;color:var(--muted);font:700 9.5px/1.2 'DM Sans',sans-serif;cursor:pointer}
-  .v23-mobile-dock button.active{background:var(--acc);color:#fff}
+  .v23-mobile-dock a{display:flex;align-items:center;justify-content:center;min-height:45px;padding:4px;border:0;border-radius:10px;background:transparent;color:var(--muted);text-decoration:none;font:700 9.5px/1.2 'DM Sans',sans-serif;cursor:pointer}
+  .v23-mobile-dock a.active{background:var(--acc);color:#fff}
   .v23-fab{display:none!important}
   #v23-shared-banner{align-items:flex-start;flex-direction:column;font-size:11px}
   .v23-overlay{align-items:flex-end;padding:10px}
@@ -4995,12 +4995,25 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     bar.innerHTML=`<div><span>Mobile workbench</span><b id="v23-mobile-summary">Task-focused view</b></div><div class="compact-actions"><a id="v23-mobile-command-link" href="./" class="btn">Summary</a><button class="btn" id="v23-adjust-toggle" type="button" aria-expanded="false">Adjust</button></div>`;
     main.insertBefore(bar,profile);
     const dock=document.createElement("nav");dock.className="v23-mobile-dock";dock.setAttribute("aria-label","V23 mobile tasks");
-    const pages=[["executive","Snapshot"],["income","Cashflow"],["montecarlo","Risk"],["estate","Estate"],["checklist","Review"]];
-    dock.innerHTML=pages.map(([page,label],index)=>`<button type="button" data-v23-page="${page}" class="${index===0?"active":""}">${label}</button>`).join("");
+    const pages=[["executive","Snapshot","Executive summary"],["income","Cashflow","Cashflow"],["montecarlo","Risk","Risk"],["estate","Estate","Estate & tax"],["checklist","Review","Annual review"]];
+    const pageHref=page=>{const url=new URL(location.href);url.searchParams.set("page",page);return url.pathname+url.search+url.hash;};
+    dock.innerHTML=pages.map(([page,label,title])=>`<a href="${pageHref(page)}" data-v23-page="${page}" aria-controls="page-${page}" aria-label="Open ${title}">${label}</a>`).join("");
     document.body.appendChild(dock);
-    const updateDock=page=>dock.querySelectorAll("button").forEach(button=>button.classList.toggle("active",button.dataset.v23Page===page));
-    dock.querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>{showPage(button.dataset.v23Page);updateDock(button.dataset.v23Page);scrollTo({top:0,behavior:"smooth"});}));
+    const updateDock=page=>{
+      const active=String(page||"").replace(/^page-/,"");
+      dock.querySelectorAll("a[data-v23-page]").forEach(link=>{const selected=link.dataset.v23Page===active;link.classList.toggle("active",selected);if(selected)link.setAttribute("aria-current","page");else link.removeAttribute("aria-current");});
+      const selected=pages.find(([id])=>id===active);const summary=document.getElementById("v23-mobile-summary");if(summary)summary.textContent=selected?`Current view: ${selected[2]}`:"Task-focused view";
+    };
+    const openMobilePage=page=>{
+      if(typeof showPage!=="function"){location.assign(pageHref(page));return;}
+      showPage(page);updateDock(page);
+      try{history.pushState({v23Page:page},"",pageHref(page));}catch(e){}
+      scrollTo({top:0,behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+    };
+    dock.querySelectorAll("a[data-v23-page]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();openMobilePage(link.dataset.v23Page);}));
     document.querySelectorAll("nav.side a[data-page]").forEach(link=>link.addEventListener("click",()=>setTimeout(()=>updateDock(link.dataset.page),0)));
+    addEventListener("popstate",()=>{const page=initialPageFromQuery().replace(/^page-/,"");if(typeof showPage==="function")showPage(page);updateDock(page);});
+    updateDock((typeof currentPage==="string"?currentPage:"executive").replace(/^page-/,""));
     const toggle=document.getElementById("v23-adjust-toggle");
     toggle.addEventListener("click",()=>{
       const compact=document.body.classList.toggle("v23-mobile-compact");
