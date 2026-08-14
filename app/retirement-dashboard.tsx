@@ -48,6 +48,14 @@ type ReviewSnapshot = ScenarioState & {
   estate: number;
 };
 
+type ActualReviewCheckpoint = {
+  reviewedAt: string;
+  capital: number | null;
+  spending: number | null;
+  pension: number | null;
+  note: string;
+};
+
 type Rail = {
   key: RailKey;
   short: string;
@@ -537,6 +545,8 @@ export default function RetirementDashboard() {
   const [saved, setSaved] = useState<Record<string, ScenarioState>>({});
   const [reviewSnapshot, setReviewSnapshot] = useState<ReviewSnapshot | null>(null);
   const [reviewChecks, setReviewChecks] = useState<Record<string, boolean>>({});
+  const [actualReviewAge, setActualReviewAge] = useState(75);
+  const [actualCheckpoints, setActualCheckpoints] = useState<Record<number, ActualReviewCheckpoint>>({});
   const importRef = useRef<HTMLInputElement>(null);
 
   const rail = RAILS[railKey];
@@ -572,7 +582,7 @@ export default function RetirementDashboard() {
   const dbtSaved = dbtStart - dbtRemaining;
   const aiContext: Record<string, unknown> = {
     metadata: {
-      modelVersion: "2026-08-14.integrated.1",
+      modelVersion: "2026-08-14.integrated.5",
       baselineDate: "2026-07-18 · integrated release 14 Aug 2026",
       currency: "AUD",
       valueBasis: "Real dollars unless specifically labelled nominal",
@@ -643,7 +653,7 @@ export default function RetirementDashboard() {
     voluntaryRedundancy: { selectedAge: vrAge, selectedMode: vrMode, immediatePensionPath: VR_IMMEDIATE, preserveTo60Path: VR_PRESERVE },
     preRetirement: { phase2ContributionPerFortnight: phase2, phase3ContributionPerFortnight: phase3, nominalReturn, hostplusStartingBalance: HOSTPLUS_STARTING_BALANCE, workbookReconciledAt8Percent: projectHostplusAt60(650, 1_200, HOSTPLUS_BASELINE_RETURN), upperPlanningAnchor: 317_447.66 },
     savedScenarios: saved,
-    annualReview: { snapshot: reviewSnapshot, checks: reviewChecks },
+    annualReview: { snapshot: reviewSnapshot, checks: reviewChecks, actualCheckpoints },
     comparisonPlans: COMPARISON_PLANS,
     sourceRegister: SOURCES,
     links: { activeV23Scenario: v23SpendPlanUrl, activeAtlasScenario: atlasUrl, modelReference: "/model-reference.html", modelReferenceText: "/model-reference.txt" },
@@ -657,6 +667,7 @@ export default function RetirementDashboard() {
         const raw = localStorage.getItem("robinson-retirement-scenarios");
         const snapshot = localStorage.getItem("robinson-retirement-review-snapshot");
         const checks = localStorage.getItem("robinson-retirement-review-checks");
+        const actuals = localStorage.getItem("robinson-retirement-actual-checkpoints");
         const loadScenario = (candidate: Partial<ScenarioState>) => {
           setRailKey(candidate.rail === "A" ? "A" : "B");
           setSpend(clamp(Number(candidate.spend) || 110_000, 76_000, 150_000));
@@ -675,6 +686,7 @@ export default function RetirementDashboard() {
         if (raw) setSaved(JSON.parse(raw));
         if (snapshot) setReviewSnapshot(JSON.parse(snapshot));
         if (checks) setReviewChecks(JSON.parse(checks));
+        if (actuals) setActualCheckpoints(JSON.parse(actuals));
       } catch { /* local preference only */ }
       setScenarioHydrated(true);
     }, 0);
@@ -730,8 +742,24 @@ export default function RetirementDashboard() {
     localStorage.setItem("robinson-retirement-review-checks", JSON.stringify(next));
   };
 
+  const updateActualCheckpoint = (field: "capital" | "spending" | "pension", rawValue: string) => {
+    const value = rawValue === "" ? null : Number(rawValue);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) return;
+    const current = actualCheckpoints[actualReviewAge] ?? { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
+    const next = { ...actualCheckpoints, [actualReviewAge]: { ...current, [field]: value, reviewedAt: new Date().toISOString() } };
+    setActualCheckpoints(next);
+    localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(next));
+  };
+
+  const updateActualCheckpointNote = (note: string) => {
+    const current = actualCheckpoints[actualReviewAge] ?? { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
+    const next = { ...actualCheckpoints, [actualReviewAge]: { ...current, note, reviewedAt: new Date().toISOString() } };
+    setActualCheckpoints(next);
+    localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(next));
+  };
+
   const exportSettings = () => {
-    const payload = { version: "2026-08-14.integrated.4", exportedAt: new Date().toISOString(), current: currentScenario, saved, reviewSnapshot, reviewChecks };
+    const payload = { version: "2026-08-14.integrated.5", exportedAt: new Date().toISOString(), current: currentScenario, saved, reviewSnapshot, reviewChecks, actualCheckpoints };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "robinson-retirement-scenarios.json"; a.click(); URL.revokeObjectURL(url);
@@ -759,6 +787,9 @@ export default function RetirementDashboard() {
       }
       if (parsed.reviewChecks && typeof parsed.reviewChecks === "object") {
         setReviewChecks(parsed.reviewChecks); localStorage.setItem("robinson-retirement-review-checks", JSON.stringify(parsed.reviewChecks));
+      }
+      if (parsed.actualCheckpoints && typeof parsed.actualCheckpoints === "object") {
+        setActualCheckpoints(parsed.actualCheckpoints); localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(parsed.actualCheckpoints));
       }
     } catch { alert("That file is not a valid retirement scenario export."); }
   };
@@ -1021,6 +1052,10 @@ export default function RetirementDashboard() {
 
   const renderRisk = () => {
     const row = ledger.find((item) => item.age === cashflowAge && !item.isOpening) ?? ledger[1];
+    const rowIndex = ledger.findIndex((item) => item.age === row.age && !item.isOpening);
+    const priorRow = ledger[Math.max(0, rowIndex - 1)] ?? ledger[0];
+    const openingPoolC = priorRow.poolC;
+    const openingPoolA = Math.max(0, row.opening - openingPoolC);
     const p10 = fan.p10[targetIndex];
     const p50 = fan.p50[targetIndex];
     const p90 = fan.p90[targetIndex];
@@ -1051,7 +1086,7 @@ export default function RetirementDashboard() {
         </div>
       </section>
       <section className="panel">
-        <div className="panel-head"><div><h3>Selected-year cashflow map</h3><p>Choose a planning year to see how the PSSDB pension and portfolio draw map to the spending target. The retirement-day opening snapshot is capital only.</p></div><label className="age-select">Year<select value={cashflowAge} onChange={(event) => setCashflowAge(Number(event.target.value))}>{ledger.filter((item) => !item.isOpening).map((item) => <option key={item.age} value={item.age}>{item.year} · age {item.ageLabel}</option>)}</select></label></div>
+        <div className="panel-head"><div><h3>Selected-year three-pool money flow</h3><p>Choose a planning year to see PSSDB income, Pool A draw, lifestyle spending, Pool C routing and the resulting investment position. The retirement-day opening snapshot is capital only.</p></div><label className="age-select">Year<select value={cashflowAge} onChange={(event) => setCashflowAge(Number(event.target.value))}>{ledger.filter((item) => !item.isOpening).map((item) => <option key={item.age} value={item.age}>{item.year} · age {item.ageLabel}</option>)}</select></label></div>
         <div className="cashflow-map">
           <div className="flow-source pension"><span>Indexed PSS pension</span><strong>{money(row.pension)}</strong><small>Lifetime income floor</small></div>
           <div className="flow-source draw"><span>Planning portfolio draw</span><strong>{money(row.draw)}</strong><small>{pct(drawRate(row.age), 0)} current-law rate band · provider calculates FY minimum</small></div>
@@ -1059,6 +1094,12 @@ export default function RetirementDashboard() {
           <div className="flow-use spend"><span>Funded lifestyle spending</span><strong>{money(row.fundedSpend)}</strong><small>{row.shortfall > 0 ? `${money(row.shortfall)} target remains unfunded` : "Selected real-dollar plan fully funded"}</small></div>
           <div className="flow-use recycle"><span>Reinvested to Pool C</span><strong>{money(row.reinvestment)}</strong><small>Unspent draw remains invested</small></div>
           <div className="flow-use drag"><span>Pool C tax drag</span><strong>{money(row.tax)}</strong><small>0.35% modelled distribution drag</small></div>
+        </div>
+        <div className="cashflow-capital-grid" aria-label={`Capital movement in ${row.year}`}>
+          <article><span>Opening Pool A</span><b>{money(openingPoolA)}</b><small>Hostplus pension capital before the year&apos;s draw</small></article>
+          <article><span>Opening Pool C</span><b>{money(openingPoolC)}</b><small>External ETF reserve before growth and drag</small></article>
+          <article><span>Net investment growth</span><b>{money(row.investmentGrowth)}</b><small>{pct(realReturn, 1)} real return less Pool C drag</small></article>
+          <article><span>Ending investment capital</span><b>{money(row.ending)}</b><small>Pool A {money(row.abp)} + Pool C {money(row.poolC)}</small></article>
         </div>
       </section>
       <section className="retirement-runway" aria-label="Retirement runway">
@@ -1152,6 +1193,13 @@ export default function RetirementDashboard() {
       { label: `Capital @${targetAge} · like-for-like horizon`, value: endCapital - priorComparableCapital, format: money },
       { label: `Estate @${targetAge} · like-for-like horizon`, value: estate - priorComparableEstate, format: money },
     ] : [];
+    const actualReviewRow = ledger.find((row) => row.age === actualReviewAge && !row.isOpening) ?? ledger[1];
+    const actualCheckpoint = actualCheckpoints[actualReviewAge] ?? { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
+    const actualComparisons = [
+      { label: "Investment capital", planned: actualReviewRow.ending, actual: actualCheckpoint.capital },
+      { label: "PSSDB pension received", planned: actualReviewRow.pension, actual: actualCheckpoint.pension },
+      { label: "Lifestyle spending", planned: actualReviewRow.spend, actual: actualCheckpoint.spending },
+    ];
     return <>
       <SectionHeading eyebrow="Governed update cycle" title="Annual retirement review" copy="Turn a complex model into a repeatable professional process: refresh evidence, compare changes, decide actions and preserve a dated baseline." />
       <section className="review-hero panel">
@@ -1162,6 +1210,22 @@ export default function RetirementDashboard() {
       <section className="panel">
         <div className="panel-head"><div><h3>What changed?</h3><p>{reviewSnapshot ? `Compared with the local snapshot captured ${new Date(reviewSnapshot.capturedAt).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}.` : "Capture a snapshot now; future reviews will display the exact changes here."}</p></div><Badge tone="modelled">Device-local comparison</Badge></div>
         {reviewSnapshot ? <div className="delta-grid">{deltas.map((delta) => <article key={delta.label} className={delta.value === 0 ? "neutral" : delta.value > 0 ? "up" : "down"}><span>{delta.label}</span><strong>{delta.value > 0 ? "+" : ""}{delta.format(delta.value)}</strong><small>{delta.value === 0 ? "No change" : "Since captured baseline"}</small></article>)}</div> : <div className="empty-state"><b>No earlier snapshot on this device</b><p>The site will not invent a comparison. Capture the governed current settings when you are ready to start the review cycle.</p></div>}
+      </section>
+      <section className="panel actual-plan-review">
+        <div className="panel-head"><div><h3>Actual versus plan checkpoint</h3><p>After a retirement planning year closes, record the confirmed outcome here. It compares observed values with that year&apos;s governed ledger without changing any forecast input.</p></div><label className="age-select">Planning year<select value={actualReviewAge} onChange={(event) => setActualReviewAge(Number(event.target.value))}>{ledger.filter((row) => !row.isOpening).map((row) => <option key={row.age} value={row.age}>{row.year} · age {row.ageLabel}</option>)}</select></label></div>
+        <div className="actual-plan-layout">
+          <div className="actual-plan-inputs">
+            <label><span>Actual investment capital at year end</span><input inputMode="decimal" type="number" min="0" placeholder={String(Math.round(actualReviewRow.ending))} value={actualCheckpoint.capital ?? ""} onChange={(event) => updateActualCheckpoint("capital", event.target.value)} /><small>Combined Pool A and Pool C; enter a confirmed statement value.</small></label>
+            <label><span>Actual PSSDB pension received</span><input inputMode="decimal" type="number" min="0" placeholder={String(Math.round(actualReviewRow.pension))} value={actualCheckpoint.pension ?? ""} onChange={(event) => updateActualCheckpoint("pension", event.target.value)} /><small>Total net amount actually received for that planning year.</small></label>
+            <label><span>Actual lifestyle spending</span><input inputMode="decimal" type="number" min="0" placeholder={String(Math.round(actualReviewRow.spend))} value={actualCheckpoint.spending ?? ""} onChange={(event) => updateActualCheckpoint("spending", event.target.value)} /><small>Observed annual spend, not the future spending control.</small></label>
+            <label className="actual-plan-note"><span>Review note</span><textarea placeholder="Source, timing or explanation for any variance" value={actualCheckpoint.note} onChange={(event) => updateActualCheckpointNote(event.target.value)} /></label>
+          </div>
+          <div className="actual-plan-results" aria-live="polite">{actualComparisons.map((item) => {
+            const variance = item.actual === null ? null : item.actual - item.planned;
+            return <article key={item.label} className={variance === null ? "neutral" : variance === 0 ? "neutral" : variance > 0 ? "up" : "down"}><span>{item.label}</span><b>{money(item.planned)} plan</b><strong>{item.actual === null ? "Not entered" : money(item.actual)}</strong><small>{variance === null ? "Enter confirmed value" : `${variance > 0 ? "+" : ""}${money(variance)} vs plan`}</small></article>;
+          })}</div>
+        </div>
+        <p className="actual-plan-footnote">Device-local and included in the review export. It is an observed record for the selected year, not a live account feed and not a change to the retirement model.</p>
       </section>
       <section className="review-grid">
         <div className="panel checklist-panel"><div className="panel-head"><div><h3>Review checklist</h3><p>Complete in order; each task preserves an auditable decision trail.</p></div><button className="text-button" onClick={() => { setReviewChecks({}); localStorage.removeItem("robinson-retirement-review-checks"); }}>Reset</button></div>{checklist.map(([key, label, detail], index) => <label className={reviewChecks[key] ? "done" : ""} key={key}><input type="checkbox" checked={Boolean(reviewChecks[key])} onChange={() => toggleReviewCheck(key)} /><span>{index + 1}</span><div><b>{label}</b><small>{detail}</small></div></label>)}</div>
