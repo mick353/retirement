@@ -395,6 +395,56 @@ function LineChart({ labels, series, height = 280 }: { labels: (string | number)
   );
 }
 
+function HorizonExplorer({ rows, rail, spend, targetAge, atlasUrl }: { rows: ReturnType<typeof operationalLedger>; rail: Rail; spend: number; targetAge: number; atlasUrl: string }) {
+  const targetIndex = clamp(targetAge - 60, 0, rows.length - 1);
+  const [selectedIndex, setSelectedIndex] = useState(targetIndex);
+  useEffect(() => setSelectedIndex(targetIndex), [targetIndex]);
+  const selected = rows[selectedIndex] ?? rows[0];
+  const width = 960;
+  const height = 286;
+  const pad = { l: 72, r: 28, t: 24, b: 45 };
+  const max = Math.max(...rows.map((row) => row.ending), 1) * 1.08;
+  const x = (index: number) => pad.l + (index / Math.max(1, rows.length - 1)) * (width - pad.l - pad.r);
+  const y = (value: number) => pad.t + (1 - value / max) * (height - pad.t - pad.b);
+  const capitalPath = rows.map((row, index) => `${x(index)},${y(row.ending)}`).join(" ");
+  const capitalArea = `${x(0)},${height - pad.b} ${capitalPath} ${x(rows.length - 1)},${height - pad.b}`;
+  const annualDraw = selected.isOpening ? Math.max(0, spend - rail.netPension) : selected.draw;
+  const milestoneAges = [...new Set([60, 61, targetAge, 85, 95])].filter((age) => age >= 60 && age <= 95).sort((a, b) => a - b);
+  const selectAge = (age: number) => setSelectedIndex(clamp(age - 60, 0, rows.length - 1));
+  const stageCopy = selected.isOpening
+    ? "Opening capital on retirement day. Annual pension and drawdown begin in the next planning year."
+    : `The age ${selected.age - 1}→${selected.age} planning year closes with the capital shown here.`;
+  return (
+    <section className="panel horizon-explorer" aria-labelledby="horizon-title">
+      <div className="horizon-header">
+        <div><Badge tone="good">Interactive retirement horizon</Badge><h3 id="horizon-title">See the plan move through time.</h3><p>Capital stays in one scale. The cards below separately show the income floor and the portfolio draw that supports the selected year.</p></div>
+        <a className="secondary" href={atlasUrl} target="_blank" rel="noreferrer">Open Capital Landscape ↗</a>
+      </div>
+      <div className="horizon-stat-grid" aria-label="Selected retirement horizon indicators">
+        <div><span>Selected age</span><b>{selected.age}</b><small>{selected.isOpening ? "Retirement-day opening" : `Year ${selected.age - 60} of retirement`}</small></div>
+        <div><span>Investment capital</span><b>{money(selected.ending)}</b><small>{pct(selected.ending / rail.capital - 1)} from the age-60 opening</small></div>
+        <div><span>Indexed PSS floor</span><b>{money(rail.netPension)}</b><small>{pct(rail.netPension / spend, 1)} of selected annual spend</small></div>
+        <div><span>Planning portfolio draw</span><b>{money(annualDraw)}</b><small>{selected.isOpening ? "Starting annual gap" : "Draw in this planning year"}</small></div>
+      </div>
+      <div className="horizon-chart" role="img" aria-label={`Investment capital horizon from age 60 to 95. Selected age ${selected.age}: ${money(selected.ending)}.`}>
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+          {[0, .5, 1].map((tick) => { const yy = pad.t + tick * (height - pad.t - pad.b); return <g key={tick}><line x1={pad.l} y1={yy} x2={width - pad.r} y2={yy} className="chart-grid" /><text x={pad.l - 12} y={yy + 4} textAnchor="end" className="chart-label">{compactMoney(max * (1 - tick))}</text></g>; })}
+          <polygon points={capitalArea} className="horizon-area" />
+          <polyline points={capitalPath} className="horizon-line" />
+          <line x1={x(selectedIndex)} y1={pad.t} x2={x(selectedIndex)} y2={height - pad.b} className="horizon-inspector-line" />
+          <circle cx={x(selectedIndex)} cy={y(selected.ending)} r="6" className="horizon-inspector-dot"><title>{`Age ${selected.age}: ${money(selected.ending)} investment capital`}</title></circle>
+          {rows.map((row, index) => row.age % 5 === 0 || row.age === 95 ? <text key={row.age} x={x(index)} y={height - 15} textAnchor="middle" className="chart-label">{row.age}</text> : null)}
+        </svg>
+      </div>
+      <div className="horizon-controls">
+        <label><span>Move through retirement</span><input aria-label="Select retirement horizon age" type="range" min="60" max="95" step="1" value={selected.age} onChange={(event) => selectAge(Number(event.target.value))} /></label>
+        <div className="horizon-milestones" role="group" aria-label="Retirement horizon milestones">{milestoneAges.map((age) => <button type="button" key={age} className={age === selected.age ? "active" : ""} aria-pressed={age === selected.age} onClick={() => selectAge(age)}>Age {age}</button>)}</div>
+      </div>
+      <div className="horizon-insight" aria-live="polite"><div><span>At age {selected.age}</span><b>{stageCopy}</b></div><small>The active scenario holds {money(spend)} spending flat in real dollars; V23 remains the place to set different age-band gaps.</small></div>
+    </section>
+  );
+}
+
 function FanChart({ fan, targetAge }: { fan: ReturnType<typeof monteCarloFan>; targetAge: number }) {
   const width = 920;
   const height = 330;
@@ -829,6 +879,8 @@ export default function RetirementDashboard() {
         <div className="comparison-stat"><span>Visible current bank receipt</span><strong>{fmt1.format(currentPf)} / pf</strong><small>Before the retirement release of current obligations</small></div>
         <div className="comparison-stat positive"><span>Cashflow uplift</span><strong>+{fmt1.format(retirementPf - currentPf)} / pf</strong><small>{pct(retirementPf / currentPf - 1)} above current bank inflow</small></div>
       </section>
+
+      <HorizonExplorer rows={ledger} rail={rail} spend={spend} targetAge={targetAge} atlasUrl={atlasUrl} />
 
       <section className="panel spending-handoff" aria-labelledby="spending-handoff-title">
         <div className="spending-handoff-copy">

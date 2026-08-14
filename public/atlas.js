@@ -77,7 +77,7 @@
     washCycles: 6,
   };
 
-  let charts = { income: null, capital: null, frontier: null };
+  let charts = { income: null, capital: null, landscape: null, frontier: null };
   let toastTimer;
 
   function drawRate(age) {
@@ -268,7 +268,78 @@
     $("selectedGross").textContent = money0.format(row.grossEquivalent);
   }
 
-  function renderCapitalChart(rail) {
+  function withAlpha(color, alpha) {
+    if (/^#[0-9a-f]{6}$/i.test(color)) return `${color}${Math.round(alpha * 255).toString(16).padStart(2, "0")}`;
+    return color;
+  }
+
+  function renderLandscapeMode() {
+    const active = Boolean(state.timeMachine);
+    $("capitalLandscape").classList.toggle("time-machine", active);
+    $("timeMachineToggle").setAttribute("aria-pressed", String(active));
+    $("timeMachineToggle").textContent = active ? "Exit Time Machine" : "Enter Time Machine";
+    $("timeMachineNote").textContent = active
+      ? "Time Machine is active: the selected age is brought forward for a closer reading. The data and assumptions are unchanged."
+      : "Landscape mode shows the full path. Time Machine brings the selected age forward while retaining the same ledger and scenario.";
+  }
+
+  function renderCapitalLandscapeReadout(row) {
+    const rail = currentRail();
+    const total = Math.max(1, row.ending);
+    const isOpening = row.age === 60;
+    $("landscapeAgeRange").value = String(row.age);
+    $("landscapeAgeOut").textContent = `Age ${row.age}`;
+    $("landscapeMoment").textContent = isOpening ? "Retirement-day opening" : `Age ${row.age - 1}→${row.age}`;
+    $("landscapeStageValue").textContent = money0.format(row.ending);
+    $("landscapeStageCopy").textContent = isOpening ? "Opening investment capital" : "Total investment capital at year end";
+    $("landscapeTitle").textContent = isOpening ? "Age 60 · opening position" : `Age ${row.age} · end of planning year ${row.age - 60}`;
+    $("landscapeNarrative").textContent = isOpening
+      ? "Capital is measured on retirement day before annual pension, spending or drawdown is applied."
+      : `The indexed PSS floor is ${money0.format(rail.netPension)}. The ledger draws ${money0.format(row.draw)} from Pool A and ends this year with the capital mix shown.`;
+    $("landscapePoolA").textContent = money0.format(row.poolA);
+    $("landscapePoolAShare").textContent = `${pct(row.poolA / total)} of investments`;
+    $("landscapePoolC").textContent = money0.format(row.poolC);
+    $("landscapePoolCShare").textContent = `${pct(row.poolC / total)} of investments · invested reserve`;
+    $("landscapeDraw").textContent = isOpening ? money0.format(Math.max(0, state.spend - rail.netPension)) : money0.format(row.draw);
+    $("landscapeDrawDetail").textContent = isOpening ? "Starting annual portfolio gap" : row.reinvestment > 0 ? `${money0.format(row.reinvestment)} mandatory-draw surplus reinvested` : "Planning portfolio draw in this year";
+    document.querySelectorAll("#landscapeMilestones button").forEach((button) => {
+      const active = Number(button.dataset.landscapeAge) === row.age;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
+
+  function selectCapitalAge(ledger, age) {
+    state.selectedCapitalAge = clamp(Number(age), 60, 95);
+    const row = rowAt(ledger, state.selectedCapitalAge);
+    renderCapitalReadout(row);
+    renderCapitalLandscapeReadout(row);
+  }
+
+  function renderCapitalLandscape(ledger) {
+    const colors = chartTheme();
+    if (charts.landscape) charts.landscape.destroy();
+    const options = baseChartOptions((event, elements, chart) => {
+      const index = chartIndex(chart, event, elements);
+      selectCapitalAge(ledger, Number(chart.data.labels[index]));
+    });
+    options.scales.y.stacked = true;
+    options.scales.x.stacked = true;
+    charts.landscape = new Chart($("capitalLandscapeChart"), {
+      type: "line",
+      data: {
+        labels: ledger.map((row) => row.age),
+        datasets: [
+          { label: "Pool A", data: ledger.map((row) => row.poolA), borderColor: colors.blue, backgroundColor: withAlpha(colors.blue, .34), fill: true, stack: "capital", borderWidth: 3, pointRadius: 0, tension: .16 },
+          { label: "Pool C invested reserve", data: ledger.map((row) => row.poolC), borderColor: colors.green, backgroundColor: withAlpha(colors.green, .30), fill: true, stack: "capital", borderWidth: 3, pointRadius: 0, tension: .16 },
+        ],
+      },
+      options,
+    });
+    renderLandscapeMode();
+  }
+
+  function renderCapitalChart(rail, activeLedger) {
     const colors = chartTheme();
     const returns = [...new Set([0.04, state.realReturn, 0.065].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
     const colorPool = [colors.amber, colors.green, colors.blue];
@@ -290,8 +361,7 @@
       },
       options: baseChartOptions((event, elements, chart) => {
         const index = chartIndex(chart, event, elements);
-        state.selectedCapitalAge = Number(chart.data.labels[index]);
-        renderCapitalReadout(rowAt(operationalLedger(rail, state.spend, state.realReturn), state.selectedCapitalAge));
+        selectCapitalAge(activeLedger, Number(chart.data.labels[index]));
       }),
     });
   }
@@ -511,8 +581,9 @@
     renderArchitecture(rail);
     renderIncomeChart(ledger);
     renderSelectedCashflow(rowAt(ledger, state.selectedIncomeAge));
-    renderCapitalChart(rail);
-    renderCapitalReadout(rowAt(ledger, state.selectedCapitalAge));
+    renderCapitalChart(rail, ledger);
+    renderCapitalLandscape(ledger);
+    selectCapitalAge(ledger, state.selectedCapitalAge);
     renderFrontierChart(points);
     renderFrontierText(rail, points, targetRow);
     renderObjectives(rail, ledger);
@@ -546,8 +617,17 @@
     renderSelectedCashflow(rowAt(operationalLedger(currentRail(), state.spend, state.realReturn), state.selectedIncomeAge));
   });
   $("capitalAgeSelect").addEventListener("change", (event) => {
-    state.selectedCapitalAge = Number(event.target.value);
-    renderCapitalReadout(rowAt(operationalLedger(currentRail(), state.spend, state.realReturn), state.selectedCapitalAge));
+    selectCapitalAge(operationalLedger(currentRail(), state.spend, state.realReturn), Number(event.target.value));
+  });
+  $("landscapeAgeRange").addEventListener("input", (event) => {
+    selectCapitalAge(operationalLedger(currentRail(), state.spend, state.realReturn), Number(event.target.value));
+  });
+  $("landscapeMilestones").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+    selectCapitalAge(operationalLedger(currentRail(), state.spend, state.realReturn), Number(button.dataset.landscapeAge));
+  }));
+  $("timeMachineToggle").addEventListener("click", () => {
+    state.timeMachine = !state.timeMachine;
+    renderLandscapeMode();
   });
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {

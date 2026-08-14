@@ -204,6 +204,38 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; heigh
 .selected-year span, .selected-year b { display: block; }.selected-year span { color: var(--muted); font-size: 8px; font-weight: 850; text-transform: uppercase; }.selected-year b { margin-top: 3px; font-size: 11px; white-space: nowrap; }
 .capital-readout { grid-template-columns: repeat(5, 1fr); }
 
+.landscape-panel { padding: 22px; margin-bottom: 14px; overflow: hidden; background: linear-gradient(120deg, color-mix(in srgb, var(--blue) 8%, var(--panel)), var(--panel) 42%, color-mix(in srgb, var(--green) 8%, var(--panel))); }
+.landscape-head { margin-bottom: 15px; }
+.landscape-head .eyebrow { display: block; margin-bottom: 8px; }
+.landscape-head h3 { font-size: 22px; }
+.time-machine-toggle { flex: 0 0 auto; min-height: 39px; cursor: pointer; font-size: 10px; font-weight: 850; }
+.capital-landscape { transition: .25s ease; }
+.landscape-stage { position: relative; padding: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel-2) 76%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent); }
+.landscape-chart { height: 380px; transform-origin: center bottom; transition: transform .32s ease, filter .32s ease; }
+.capital-landscape.time-machine .landscape-chart { transform: perspective(1150px) rotateX(4deg) translateY(-3px); filter: saturate(1.13) contrast(1.03); }
+.landscape-stage-label { position: absolute; right: 25px; top: 24px; min-width: 150px; padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--blue) 32%, var(--line)); border-radius: 11px; background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: var(--shadow); backdrop-filter: blur(12px); }
+.landscape-stage-label span, .landscape-stage-label b, .landscape-stage-label small { display: block; }
+.landscape-stage-label span { color: var(--green); font-size: 8px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.landscape-stage-label b { margin: 3px 0; font-size: 18px; letter-spacing: -.035em; }
+.landscape-stage-label small { color: var(--muted); font-size: 8px; line-height: 1.3; }
+.landscape-inspector { display: grid; grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr)); gap: 1px; margin-top: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--line); }
+.landscape-inspector > div { min-width: 0; padding: 12px; background: var(--panel-2); }
+.landscape-inspector span, .landscape-inspector b, .landscape-inspector small { display: block; }
+.landscape-inspector span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.landscape-inspector b { margin: 4px 0 3px; font-size: 14px; letter-spacing: -.02em; white-space: nowrap; }
+.landscape-inspector small { color: var(--muted); font-size: 8px; line-height: 1.35; }
+.landscape-copy { background: color-mix(in srgb, var(--blue) 9%, var(--panel-2)) !important; }
+.landscape-copy b { font-size: 13px; white-space: normal; }
+.landscape-age-control { display: grid; grid-template-columns: max-content 1fr max-content; align-items: center; gap: 12px; margin: 14px 6% 0; color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+.landscape-age-control output { min-width: 54px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--panel-2); text-align: center; }
+.landscape-age-control input { margin: 0; }
+.landscape-milestones { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 12px; }
+.landscape-milestones button { min-height: 57px; padding: 9px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 10px; font-weight: 850; text-align: left; }
+.landscape-milestones button:hover { border-color: var(--blue); }
+.landscape-milestones button.active { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, var(--panel)); box-shadow: inset 0 3px 0 var(--blue); }
+.landscape-milestones span { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; font-weight: 600; line-height: 1.25; }
+.landscape-note { margin: 11px 0 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+
 .frontier-grid { grid-template-columns: minmax(0, 1.08fr) minmax(420px, .92fr); }
 .frontier-callout, .priority-callout { margin-top: 12px; padding: 14px; border-radius: 12px; background: linear-gradient(110deg, color-mix(in srgb, var(--green) 10%, var(--panel)), var(--panel-2)); border: 1px solid var(--line); }
 .frontier-callout span, .frontier-callout b, .frontier-callout small, .priority-callout span, .priority-callout b, .priority-callout small { display: block; }
@@ -282,6 +314,8 @@ footer { min-height: 70px; padding: 18px clamp(16px, 3.2vw, 44px); display: flex
   .objective-grid, .classification-grid { grid-template-columns: 1fr 1fr; }
   .timeline { grid-template-columns: repeat(3, 1fr); }
   .guardrail-grid { grid-template-columns: 1fr 1fr; }
+  .landscape-inspector { grid-template-columns: 1fr 1fr; }
+  .landscape-copy { grid-column: 1 / -1; }
 }
 
 @media (max-width: 760px) {
@@ -312,6 +346,15 @@ footer { min-height: 70px; padding: 18px clamp(16px, 3.2vw, 44px); display: flex
   .chart-wrap { height: 320px; }
   .chart-wrap.large { height: 360px; }
   .selected-year, .capital-readout { grid-template-columns: 1fr 1fr; }
+  .landscape-panel { padding: 16px; }
+  .landscape-head { flex-direction: column; }
+  .time-machine-toggle { width: 100%; }
+  .landscape-chart { height: 320px; }
+  .landscape-stage-label { top: 22px; right: 22px; }
+  .landscape-age-control { grid-template-columns: 1fr max-content; margin-inline: 0; }
+  .landscape-age-control input { grid-column: 1 / -1; grid-row: 2; }
+  .landscape-milestones { display: flex; overflow-x: auto; padding-bottom: 3px; }
+  .landscape-milestones button { flex: 0 0 125px; }
   .objective-grid, .classification-grid, .register-grid, .scenario-basis { grid-template-columns: 1fr; }
   .timeline { grid-template-columns: 1fr 1fr; }
   .timeline button { min-height: 120px; }
@@ -329,6 +372,9 @@ footer { min-height: 70px; padding: 18px clamp(16px, 3.2vw, 44px); display: flex
   .metric strong { font-size: 25px; }
   .timeline { grid-template-columns: 1fr; }
   .chart-wrap, .chart-wrap.large { height: 300px; }
+  .landscape-chart { height: 290px; }
+  .landscape-stage-label { position: static; min-width: 0; margin: 6px 6px 2px; }
+  .landscape-inspector { grid-template-columns: 1fr; }
   .panel-head { flex-direction: column; }
 }
 
