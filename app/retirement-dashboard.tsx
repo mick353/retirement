@@ -395,24 +395,131 @@ function LineChart({ labels, series, height = 280 }: { labels: (string | number)
   );
 }
 
+function HorizonTerrainCanvas({ rows, rail, spend, realReturn, taxYear, selectedIndex, perspective, onSelect }: { rows: ReturnType<typeof operationalLedger>; rail: Rail; spend: number; realReturn: number; taxYear: TaxYear; selectedIndex: number; perspective: boolean; onSelect: (index: number) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const geometryRef = useRef({ left: 62, width: 800 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const appRoot = canvas.closest(".retirement-app") as HTMLElement | null;
+    const draw = () => {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(420, Math.round(rect.width));
+      const height = Math.max(350, Math.round(rect.height));
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const style = getComputedStyle(appRoot || document.documentElement);
+      const dark = !appRoot?.classList.contains("light");
+      const palette = {
+        bg: dark ? "#061321" : "#eef5ff",
+        text: style.getPropertyValue("--text").trim() || (dark ? "#eaf2ff" : "#11203a"),
+        muted: style.getPropertyValue("--muted").trim() || "#7186a6",
+        blue: style.getPropertyValue("--blue").trim() || "#5f8dff",
+        green: style.getPropertyValue("--green").trim() || "#45d5a4",
+        amber: style.getPropertyValue("--amber").trim() || "#f0aa54",
+        violet: style.getPropertyValue("--violet").trim() || "#b878ff",
+        line: style.getPropertyValue("--line").trim() || "rgba(90,130,190,.22)",
+      };
+      const alpha = (hex: string, opacity: number) => /^#[0-9a-f]{6}$/i.test(hex) ? `${hex}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` : hex;
+      const pad = { l: width < 680 ? 52 : 70, r: width < 680 ? 34 : 75, t: 42, b: 72 };
+      const capitalBottom = height - 116;
+      const cashflowTop = height - 92;
+      const plotWidth = width - pad.l - pad.r;
+      geometryRef.current = { left: pad.l, width: plotWidth };
+      const x = (index: number) => pad.l + index / Math.max(1, rows.length - 1) * plotWidth;
+      const rates = [...new Set([Math.max(.02, realReturn - .03), Math.max(.02, realReturn - .015), realReturn, Math.min(.075, realReturn + .01), .075].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
+      const paths = rates.map((rate) => operationalLedger(rail, spend, rate, taxYear));
+      const maximum = Math.max(...paths.flatMap((path) => path.map((row) => row.ending)), 1) * 1.06;
+      const y = (value: number, index = 0, layer = 0) => pad.t + (1 - value / maximum) * (capitalBottom - pad.t) - (perspective ? layer * 5 + index * .06 : 0);
+      const gradient = context.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, dark ? "#0a2440" : "#f8fbff");
+      gradient.addColorStop(1, palette.bg);
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+
+      context.strokeStyle = alpha(palette.blue, dark ? .16 : .12);
+      context.lineWidth = 1;
+      for (let grid = 0; grid <= 7; grid += 1) {
+        const xx = pad.l + grid / 7 * plotWidth;
+        context.beginPath(); context.moveTo(xx, capitalBottom); context.lineTo(width / 2 + (xx - width / 2) * (perspective ? .76 : 1), capitalBottom - (perspective ? 45 : 0)); context.stroke();
+      }
+      for (let tick = 0; tick <= 3; tick += 1) {
+        const yy = pad.t + tick / 3 * (capitalBottom - pad.t);
+        context.beginPath(); context.moveTo(pad.l, yy); context.lineTo(width - pad.r, yy); context.stroke();
+        context.fillStyle = palette.muted; context.font = "700 9px Arial, sans-serif"; context.textAlign = "right"; context.fillText(compactMoney(maximum * (1 - tick / 3)), pad.l - 8, yy + 3);
+      }
+
+      const trace = (values: number[], layer: number) => {
+        context.beginPath(); values.forEach((value, index) => index ? context.lineTo(x(index), y(value, index, layer)) : context.moveTo(x(index), y(value, index, layer)));
+      };
+      const values = paths.map((path) => path.map((row) => row.ending));
+      for (let layer = 0; layer < values.length - 1; layer += 1) {
+        context.beginPath();
+        values[layer + 1].forEach((value, index) => index ? context.lineTo(x(index), y(value, index, layer)) : context.moveTo(x(index), y(value, index, layer)));
+        for (let index = values[layer].length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(values[layer][index], index, layer));
+        context.closePath(); context.fillStyle = alpha(layer % 2 ? palette.blue : palette.violet, dark ? .13 + layer * .03 : .09 + layer * .025); context.fill();
+      }
+      values.forEach((path, layer) => {
+        const active = rates[layer] === realReturn;
+        trace(path, layer);
+        context.strokeStyle = active ? palette.green : [palette.violet, palette.blue, palette.blue, palette.amber, palette.violet][layer];
+        context.lineWidth = active ? 4 : 1.5; context.globalAlpha = active ? 1 : .58; context.shadowColor = active ? palette.green : "transparent"; context.shadowBlur = active ? 12 : 0; context.stroke(); context.shadowBlur = 0; context.globalAlpha = 1;
+        const last = path.length - 1; context.fillStyle = active ? palette.green : palette.muted; context.font = active ? "900 9px Arial, sans-serif" : "700 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText(`${pct(rates[layer], 1)}${active ? " active" : ""}`, x(last) + 6, y(path[last], last, layer) + 3);
+      });
+
+      const selectedX = x(selectedIndex);
+      const selectedPathLayer = Math.max(0, rates.indexOf(realReturn));
+      context.fillStyle = alpha(palette.blue, .12); context.fillRect(selectedX - 5, pad.t, 10, height - pad.t - pad.b);
+      context.strokeStyle = palette.blue; context.lineWidth = 2; context.beginPath(); context.moveTo(selectedX, pad.t); context.lineTo(selectedX, height - pad.b); context.stroke();
+      context.beginPath(); context.arc(selectedX, y(rows[selectedIndex].ending, selectedIndex, selectedPathLayer), 7, 0, Math.PI * 2); context.fillStyle = palette.green; context.shadowColor = palette.green; context.shadowBlur = 14; context.fill(); context.shadowBlur = 0;
+
+      const cashMax = Math.max(spend, rail.netPension, ...rows.map((row) => row.draw), 1) * 1.08;
+      const cashY = (value: number) => height - pad.b - value / cashMax * (height - pad.b - cashflowTop);
+      const pss = rows.map(() => rail.netPension);
+      const draws = rows.map((row) => row.isOpening ? Math.max(0, spend - rail.netPension) : row.draw);
+      const traceCash = (series: number[], color: string, dashed = false) => { context.beginPath(); series.forEach((value, index) => index ? context.lineTo(x(index), cashY(value)) : context.moveTo(x(index), cashY(value))); context.strokeStyle = color; context.lineWidth = 2; if (dashed) context.setLineDash([6, 5]); context.stroke(); context.setLineDash([]); };
+      traceCash(pss, palette.violet); traceCash(draws, palette.amber, true);
+      context.fillStyle = palette.muted; context.font = "800 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText("ANNUAL CASHFLOW · SEPARATE SCALE", pad.l, cashflowTop - 8);
+      context.textAlign = "center"; rows.forEach((row, index) => { if (row.age % 5 === 0 || row.age === 95) context.fillText(String(row.age), x(index), height - 17); });
+    };
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas);
+    const themeObserver = new MutationObserver(draw);
+    if (appRoot) themeObserver.observe(appRoot, { attributes: true, attributeFilter: ["class"] });
+    return () => { observer.disconnect(); themeObserver.disconnect(); };
+  }, [rows, rail, spend, realReturn, taxYear, selectedIndex, perspective]);
+
+  const selectFromClientX = (clientX: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const index = Math.round(((clientX - rect.left) / Math.max(1, rect.width) * rect.width - geometryRef.current.left) / Math.max(1, geometryRef.current.width) * (rows.length - 1));
+    onSelect(clamp(index, 0, rows.length - 1));
+  };
+
+  return <canvas ref={canvasRef} className="horizon-terrain-canvas" role="slider" tabIndex={0} aria-label="Interactive three-dimensional retirement capital horizon" aria-valuemin={60} aria-valuemax={95} aria-valuenow={rows[selectedIndex]?.age ?? 60} aria-valuetext={`Age ${rows[selectedIndex]?.age ?? 60}: ${money(rows[selectedIndex]?.ending ?? 0)} investments using ${pct(realReturn, 1)} real return`} onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); selectFromClientX(event.clientX); }} onPointerMove={(event) => { if (event.buttons === 1) selectFromClientX(event.clientX); }} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); onSelect(clamp(selectedIndex - 1, 0, rows.length - 1)); } if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); onSelect(clamp(selectedIndex + 1, 0, rows.length - 1)); } if (event.key === "Home") { event.preventDefault(); onSelect(0); } if (event.key === "End") { event.preventDefault(); onSelect(rows.length - 1); } }} />;
+}
+
 function HorizonExplorer({ rows, rail, spend, realReturn, targetAge, homeValue, taxYear, atlasUrl, onRailChange, onReturnChange }: { rows: ReturnType<typeof operationalLedger>; rail: Rail; spend: number; realReturn: number; targetAge: number; homeValue: number; taxYear: TaxYear; atlasUrl: string; onRailChange: (rail: RailKey) => void; onReturnChange: (value: number) => void }) {
   const targetIndex = clamp(targetAge - 60, 0, rows.length - 1);
   const [selectedIndex, setSelectedIndex] = useState(targetIndex);
+  const [perspective, setPerspective] = useState(true);
+  const [focused, setFocused] = useState(false);
   useEffect(() => setSelectedIndex(targetIndex), [targetIndex]);
+  useEffect(() => {
+    document.body.classList.toggle("horizon-focus-open", focused);
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setFocused(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.classList.remove("horizon-focus-open"); window.removeEventListener("keydown", closeOnEscape); };
+  }, [focused]);
   const selected = rows[selectedIndex] ?? rows[0];
-  const width = 980;
-  const height = 324;
-  const pad = { l: 74, r: 78, t: 32, b: 47 };
-  const max = Math.max(...rows.map((row) => row.ending), 1) * 1.08;
-  const cashflowMax = Math.max(spend, rail.netPension, ...rows.map((row) => row.draw), 1) * 1.18;
-  const x = (index: number) => pad.l + (index / Math.max(1, rows.length - 1)) * (width - pad.l - pad.r);
-  const y = (value: number) => pad.t + (1 - value / max) * (height - pad.t - pad.b);
-  const cashflowY = (value: number) => pad.t + (1 - value / cashflowMax) * (height - pad.t - pad.b);
-  const capitalPath = rows.map((row, index) => `${x(index)},${y(row.ending)}`).join(" ");
-  const capitalArea = `${x(0)},${height - pad.b} ${capitalPath} ${x(rows.length - 1)},${height - pad.b}`;
-  const pssPath = rows.map((_, index) => `${x(index)},${cashflowY(rail.netPension)}`).join(" ");
-  const drawPath = rows.map((row, index) => `${x(index)},${cashflowY(row.isOpening ? Math.max(0, spend - rail.netPension) : row.draw)}`).join(" ");
-  const annualDraw = selected.isOpening ? Math.max(0, spend - rail.netPension) : selected.draw;
   const milestoneAges = [...new Set([60, 61, targetAge, 85, 95])].filter((age) => age >= 60 && age <= 95).sort((a, b) => a - b);
   const selectAge = (age: number) => setSelectedIndex(clamp(age - 60, 0, rows.length - 1));
   const higherSpend = Math.min(150_000, spend + 10_000);
@@ -424,12 +531,14 @@ function HorizonExplorer({ rows, rail, spend, realReturn, targetAge, homeValue, 
   const stageCopy = selected.isOpening
     ? "Opening capital on retirement day. Annual pension and drawdown begin in the next planning year."
     : `The age ${selected.age - 1}→${selected.age} planning year closes with the capital shown here.`;
+  const atlasVisualUrl = `${atlasUrl}${atlasUrl.includes("?") ? "&" : "?"}view=horizon#trajectory`;
   return (
-    <section className="panel horizon-explorer" aria-labelledby="horizon-title">
+    <section className={`panel horizon-explorer ${focused ? "focused" : ""}`} aria-labelledby="horizon-title">
       <div className="horizon-header">
-        <div><Badge tone="good">Interactive retirement horizon</Badge><h3 id="horizon-title">See the whole plan move—not just its end point.</h3><p>Capital uses the left axis. The PSS floor and portfolio draw use the right annual-cashflow axis, so the two different measures remain explicit.</p></div>
-        <a className="secondary" href={atlasUrl} target="_blank" rel="noreferrer">Open Capital Landscape ↗</a>
+        <div><Badge tone="good">Interactive retirement observatory</Badge><h3 id="horizon-title">See the whole plan move—not just its end point.</h3><p>The upper terrain compares deterministic real-return paths; the illuminated path uses your active {pct(realReturn, 1)} assumption. PSS and portfolio draw remain on a separate annual-cashflow lane below.</p></div>
+        <div className="horizon-header-actions"><button type="button" className={`secondary horizon-focus-toggle ${focused ? "active" : ""}`} aria-pressed={focused} onClick={() => setFocused(!focused)}>{focused ? "Close focus" : "Focus view"}</button><div className="horizon-view-toggle" role="group" aria-label="Horizon dimension"><button type="button" className={perspective ? "active" : ""} aria-pressed={perspective} onClick={() => setPerspective(true)}>3D</button><button type="button" className={!perspective ? "active" : ""} aria-pressed={!perspective} onClick={() => setPerspective(false)}>2D</button></div><a className="secondary" href={atlasVisualUrl} target="_blank" rel="noreferrer">Open six-view Atlas ↗</a></div>
       </div>
+      <div className="horizon-focus-metrics" aria-label="Active Horizon assumptions and outcomes"><div><span>Starting capital</span><b>{money(rail.capital)}</b></div><div><span>Net spending</span><b>{money(spend)} p.a.</b></div><div><span>Real return used</span><b>{pct(realReturn, 1)} p.a.</b></div><div><span>Target age</span><b>{targetAge}</b></div><div><span>Home, real</span><b>{money(homeValue)}</b></div><div><span>Indexed PSS floor</span><b>{money(rail.netPension)} p.a.</b></div></div>
       <div className="horizon-command-bar" aria-label="Horizon scenario controls">
         <div className="horizon-rail-control"><span>Rail</span><div role="group" aria-label="Horizon rail"><button type="button" className={rail.key === "A" ? "active" : ""} aria-pressed={rail.key === "A"} onClick={() => onRailChange("A")}>Rail A</button><button type="button" className={rail.key === "B" ? "active" : ""} aria-pressed={rail.key === "B"} onClick={() => onRailChange("B")}>Rail B · {money(spend)}/yr</button></div></div>
         <div className="horizon-return-control"><span>Active real return</span><div><button type="button" aria-label="Decrease real return" onClick={() => onReturnChange(clamp(Number((realReturn - .005).toFixed(4)), .02, .075))}>−</button><b>{pct(realReturn, 1)} real p.a.</b><button type="button" aria-label="Increase real return" onClick={() => onReturnChange(clamp(Number((realReturn + .005).toFixed(4)), .02, .075))}>+</button></div><small>After inflation · all Horizon figures recalculate</small></div>
@@ -437,22 +546,8 @@ function HorizonExplorer({ rows, rail, spend, realReturn, targetAge, homeValue, 
       </div>
       <div className="horizon-main">
         <div>
-          <div className="horizon-chart" role="img" aria-label={`Investment capital, PSS income floor and planning portfolio draw from age 60 to 95. Selected age ${selected.age}: ${money(selected.ending)} investment capital.`}>
-            <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-              {[0, .5, 1].map((tick) => { const yy = pad.t + tick * (height - pad.t - pad.b); return <g key={tick}><line x1={pad.l} y1={yy} x2={width - pad.r} y2={yy} className="chart-grid" /><text x={pad.l - 12} y={yy + 4} textAnchor="end" className="chart-label">{compactMoney(max * (1 - tick))}</text><text x={width - pad.r + 12} y={yy + 4} className="chart-label">{compactMoney(cashflowMax * (1 - tick))}</text></g>; })}
-              <polygon points={capitalArea} className="horizon-area" />
-              <polyline points={capitalPath} className="horizon-line" />
-              <polyline points={pssPath} className="horizon-pss-line" />
-              <polyline points={drawPath} className="horizon-draw-line" />
-              <line x1={x(selectedIndex)} y1={pad.t} x2={x(selectedIndex)} y2={height - pad.b} className="horizon-inspector-line" />
-              <circle cx={x(selectedIndex)} cy={y(selected.ending)} r="6" className="horizon-inspector-dot"><title>{`Age ${selected.age}: ${money(selected.ending)} investment capital`}</title></circle>
-              <circle cx={x(selectedIndex)} cy={cashflowY(rail.netPension)} r="4.5" className="horizon-pss-dot" />
-              <circle cx={x(selectedIndex)} cy={cashflowY(annualDraw)} r="4.5" className="horizon-draw-dot" />
-              <text x={pad.l} y={16} className="horizon-axis-title">Investment capital</text><text x={width - pad.r} y={16} textAnchor="end" className="horizon-axis-title">Annual cashflow</text>
-              {rows.map((row, index) => row.age % 5 === 0 || row.age === 95 ? <text key={row.age} x={x(index)} y={height - 15} textAnchor="middle" className="chart-label">{row.age}</text> : null)}
-            </svg>
-          </div>
-          <div className="horizon-legend"><span><i className="capital" />Investment capital · left axis</span><span><i className="draw" />Planning portfolio draw · right axis</span><span><i className="floor" />Indexed PSS floor · right axis</span></div>
+          <div className="horizon-chart"><HorizonTerrainCanvas rows={rows} rail={rail} spend={spend} realReturn={realReturn} taxYear={taxYear} selectedIndex={selectedIndex} perspective={perspective} onSelect={setSelectedIndex} /></div>
+          <div className="horizon-legend"><span><i className="capital" />Active capital path · {pct(realReturn, 1)} real</span><span><i className="scenario" />Alternative return slices · not probabilities</span><span><i className="draw" />Planning draw · annual lane</span><span><i className="floor" />Indexed PSS floor · annual lane</span></div>
         </div>
         <aside className="horizon-whatif" aria-live="polite"><span>At age {selected.age}</span><h4>What if annual spending changes by $10,000?</h4><div><i className="up">↑</i><p><b>Spend $10,000 more</b><small>{money(higherSpend)} / year</small></p><strong>{higherSpendCapital >= selected.ending ? "+" : "−"}{money(Math.abs(higherSpendCapital - selected.ending))}</strong></div><div><i className="down">↓</i><p><b>Spend $10,000 less</b><small>{money(lowerSpend)} / year</small></p><strong>+{money(Math.max(0, lowerSpendCapital - selected.ending))}</strong></div><small className="horizon-whatif-note">Change in investment capital versus the active plan, using the same {pct(realReturn, 1)} real return.</small></aside>
       </div>

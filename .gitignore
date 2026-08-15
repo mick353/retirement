@@ -5,6 +5,7 @@ coverage/
 .wrangler/
 .sites-runtime/
 screenshots/
+qa-artifacts/
 .env*
 .DS_Store
 npm-debug.log*

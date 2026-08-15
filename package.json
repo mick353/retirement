@@ -11,8 +11,9 @@
     "dev:pages": "vite --config vite.pages.config.ts",
     "typecheck": "tsc --noEmit --project tsconfig.pages.json",
     "validate:model": "node tools/validate-retirement-model.mjs",
+    "validate:visuals": "node --check public/atlas.js && node tools/validate-atlas-visuals.mjs",
     "build": "npm run build:pages",
-    "build:pages": "npm run validate:model && vite build --config vite.pages.config.ts",
+    "build:pages": "npm run validate:model && npm run validate:visuals && vite build --config vite.pages.config.ts",
     "preview": "vite preview --config vite.pages.config.ts",
     "preview:pages": "vite preview --config vite.pages.config.ts"
   },

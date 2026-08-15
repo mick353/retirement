@@ -75,11 +75,16 @@
     selectedCapitalAge: clamp(Number(params.get("age")) || 75, 60, 95),
     inspectionAge: clamp(Number(params.get("age")) || 75, 60, 95),
     washCycles: 6,
-    timeMachine: false,
+    visualMode: ["horizon", "river", "orbit", "waterfall", "sunburst", "table"].includes(params.get("view")) ? params.get("view") : "horizon",
+    visualPerspective: true,
+    compareRail: false,
   };
 
-  let charts = { income: null, capital: null, landscape: null, frontier: null };
-  let activeLandscapeLedger = [];
+  let charts = { income: null, capital: null, frontier: null };
+  let activeVisualLedger = [];
+  let visualGeometry = null;
+  let visualPointerDown = false;
+  let visualPlayTimer = null;
   let toastTimer;
 
   function drawRate(age) {
@@ -172,6 +177,7 @@
       taxYear: state.taxYear,
       reserveMonths: String(state.liquidityMonths),
       seed: String(state.simulationSeed),
+      view: state.visualMode,
     });
     return query.toString();
   }
@@ -275,199 +281,504 @@
     return color;
   }
 
-  function renderTimeMachineCanvas(ledger) {
-    const canvas = $("timeMachineCanvas");
-    if (!canvas || !state.timeMachine || !ledger || !ledger.length) return;
+  const VISUAL_MODE_COPY = {
+    horizon: {
+      label: "RETIREMENT HORIZON",
+      hint: "Drag across the terrain or use the age controls",
+      summary: "The active ledger is illuminated inside a deterministic real-return corridor. Change the return above and the full surface recalculates.",
+      disclosure: "Horizon compares deterministic real-return paths around the active rate. These are scenario slices, not probabilities. The illuminated path and every readout use the active annual ledger.",
+    },
+    river: {
+      label: "FINANCIAL RIVER",
+      hint: "Move the time gate to inspect what funds each year",
+      summary: "Annual PSS, portfolio draw and reinvestment flows sit above a separately scaled Pool A and Pool C capital river, avoiding any mix of income and stock units.",
+      disclosure: "Financial River keeps annual cash flows and capital stocks on separate visual scales. Flow widths and the selected-age gate recalculate from the same active ledger.",
+    },
+    orbit: {
+      label: "LEGACY ORBIT",
+      hint: "Drag around the age orbit or select a capital layer",
+      summary: "A spatial cross-section separates Pool A, Pool C and the real home while the age orbit moves the same ledger through time.",
+      disclosure: "Legacy Orbit is a composition view. The central layers are real capital and home values; the PSS floor remains an annual-income halo and is never added to estate capital.",
+    },
+    waterfall: {
+      label: "CAPITAL WATERFALL",
+      hint: "Use the age controls to reconcile any planning year",
+      summary: "Opening capital, real earnings, draw, external tax drag and reinvestment reconcile exactly to the selected year-end balance.",
+      disclosure: "Waterfall uses exact annual ledger movements in real dollars. Pool A and Pool C earnings are calculated at the active real return; Pool C then carries the modelled 0.35% distribution drag.",
+    },
+    sunburst: {
+      label: "ESTATE SUNBURST",
+      hint: "Move through time to see the composition rebalance",
+      summary: "The selected estate is decomposed into Pool A, Pool C and the real home, with the PSS coverage ring shown separately as annual income context.",
+      disclosure: "Sunburst shows composition, not certainty. The home is held constant in real dollars and the investment layers come from the active annual ledger.",
+    },
+    table: {
+      label: "EXACT ANNUAL LEDGER",
+      hint: "Select a row or use the age controls",
+      summary: "Every birthday-year row exposes the exact values behind all five graphical views.",
+      disclosure: "The table is the exact annual real-dollar ledger used by every visual mode. Age 60 is the opening snapshot; annual pension, draw, spending and growth begin in the age 60→61 row.",
+    },
+  };
+
+  function canvasFrame() {
+    const canvas = $("visualCanvas");
     const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+    if (!rect.width || !rect.height) return null;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.max(320, Math.round(rect.width));
-    const height = Math.max(260, Math.round(rect.height));
+    const height = Math.max(360, Math.round(rect.height));
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     const context = canvas.getContext("2d");
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, width, height);
+    return { canvas, context, width, height };
+  }
 
-    const colors = chartTheme();
-    const style = getComputedStyle(document.documentElement);
-    const panel = style.getPropertyValue("--panel").trim();
-    const pad = { l: 58, r: 40, t: 38, b: 48 };
-    const depth = { x: Math.min(26, width * .035), y: -Math.min(18, height * .05) };
-    const maximum = Math.max(...ledger.map((row) => row.ending), 1) * 1.08;
-    const plotWidth = width - pad.l - pad.r;
-    const plotHeight = height - pad.t - pad.b;
-    const x = (index) => pad.l + index / Math.max(1, ledger.length - 1) * plotWidth;
-    const y = (value) => pad.t + (1 - value / maximum) * plotHeight;
-    const selectedIndex = clamp(state.selectedCapitalAge - 60, 0, ledger.length - 1);
-    const selected = ledger[selectedIndex];
+  function visualPalette(light = false) {
+    return light ? {
+      bg: "#f8fbff", panel: "#ffffff", text: "#10203a", muted: "#637994", grid: "#d8e3f2",
+      blue: "#2f67dc", green: "#11845e", amber: "#d17a12", violet: "#7650c8", cyan: "#47b9d7", danger: "#c53c56",
+    } : {
+      bg: "#030b16", panel: "#08182b", text: "#edf4ff", muted: "#8da7ca", grid: "#17304e",
+      blue: "#5f8dff", green: "#4bd9aa", amber: "#f3aa52", violet: "#bd79ff", cyan: "#54c7e8", danger: "#ff728c",
+    };
+  }
 
-    context.fillStyle = panel;
-    context.fillRect(0, 0, width, height);
-    context.strokeStyle = withAlpha(colors.line, .72);
+  function traceLine(context, values, x, y) {
+    context.beginPath();
+    values.forEach((value, index) => index ? context.lineTo(x(index), y(value, index)) : context.moveTo(x(index), y(value, index)));
+  }
+
+  function fillBetween(context, upper, lower, x, y, fill) {
+    context.beginPath();
+    upper.forEach((value, index) => index ? context.lineTo(x(index), y(value, index)) : context.moveTo(x(index), y(value, index)));
+    for (let index = lower.length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(lower[index], index));
+    context.closePath();
+    context.fillStyle = fill;
+    context.fill();
+  }
+
+  function drawPerspectiveFloor(context, width, height, pad, palette) {
+    const horizon = height - pad.b;
+    const depth = state.visualPerspective ? Math.min(68, height * .14) : 0;
+    context.save();
+    context.strokeStyle = withAlpha(palette.grid, .72);
     context.lineWidth = 1;
-    for (let gridTick = 0; gridTick <= 4; gridTick += 1) {
-      const yy = pad.t + gridTick / 4 * plotHeight;
+    for (let index = 0; index <= 8; index += 1) {
+      const xx = pad.l + index / 8 * (width - pad.l - pad.r);
       context.beginPath();
-      context.moveTo(pad.l, yy);
-      context.lineTo(width - pad.r, yy);
+      context.moveTo(xx, horizon);
+      context.lineTo(width / 2 + (xx - width / 2) * .72, horizon - depth);
       context.stroke();
-      context.fillStyle = colors.text;
-      context.font = "700 10px system-ui, sans-serif";
+    }
+    for (let index = 0; index <= 4; index += 1) {
+      const yy = horizon - index / 4 * depth;
+      const inset = index / 4 * (width * .07);
+      context.beginPath();
+      context.moveTo(pad.l + inset, yy);
+      context.lineTo(width - pad.r - inset, yy);
+      context.stroke();
+    }
+    context.restore();
+  }
+
+  function drawHorizon(frame, ledger) {
+    const { context, width, height } = frame;
+    const palette = visualPalette(false);
+    const pad = { l: width < 620 ? 48 : 68, r: width < 620 ? 24 : 76, t: 76, b: 62 };
+    const rates = [...new Set([.02, .04, state.realReturn, .065, .075].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
+    const paths = rates.map((rate) => operationalLedger(currentRail(), state.spend, rate));
+    const maximum = Math.max(...paths.flatMap((path) => path.map((row) => row.ending)), 1) * 1.08;
+    const x = (index) => pad.l + index / Math.max(1, ledger.length - 1) * (width - pad.l - pad.r);
+    const y = (value, index = 0, layer = 0) => pad.t + (1 - value / maximum) * (height - pad.t - pad.b) - (state.visualPerspective ? layer * 5 + index * .08 : 0);
+    const gradient = context.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, "#0a2441");
+    gradient.addColorStop(1, palette.bg);
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, width, height);
+    drawPerspectiveFloor(context, width, height, pad, palette);
+
+    context.font = "700 10px Arial, sans-serif";
+    context.fillStyle = palette.muted;
+    context.textBaseline = "middle";
+    for (let tick = 0; tick <= 4; tick += 1) {
+      const yy = pad.t + tick / 4 * (height - pad.t - pad.b);
+      context.strokeStyle = withAlpha(palette.grid, .72);
+      context.beginPath(); context.moveTo(pad.l, yy); context.lineTo(width - pad.r, yy); context.stroke();
       context.textAlign = "right";
-      context.fillText(compact(maximum * (1 - gridTick / 4)), pad.l - 8, yy + 3);
+      context.fillText(compact(maximum * (1 - tick / 4)), pad.l - 8, yy);
     }
 
-    context.fillStyle = withAlpha(colors.blue, .055);
+    const sortedValues = paths.map((path) => path.map((row) => row.ending));
+    for (let index = 0; index < sortedValues.length - 1; index += 1) {
+      fillBetween(context, sortedValues[index + 1], sortedValues[index], x, (value, point) => y(value, point, index), withAlpha(index % 2 ? palette.blue : palette.violet, .13 + index * .035));
+    }
+
+    paths.forEach((path, layer) => {
+      const active = rates[layer] === state.realReturn;
+      const values = path.map((row) => row.ending);
+      traceLine(context, values, x, (value, index) => y(value, index, layer));
+      context.strokeStyle = active ? palette.green : [palette.violet, palette.blue, palette.cyan, palette.amber, palette.violet][layer];
+      context.lineWidth = active ? 4 : 1.6;
+      context.globalAlpha = active ? 1 : .62;
+      context.shadowColor = active ? palette.green : "transparent";
+      context.shadowBlur = active ? 13 : 0;
+      context.stroke();
+      context.shadowBlur = 0;
+      context.globalAlpha = 1;
+      const last = values.length - 1;
+      context.fillStyle = active ? palette.green : palette.muted;
+      context.font = active ? "900 10px Arial, sans-serif" : "700 9px Arial, sans-serif";
+      context.textAlign = "left";
+      context.fillText(`${pct(rates[layer])}${active ? " active" : ""}`, x(last) + 7, y(values[last], last, layer));
+    });
+
+    if (state.compareRail) {
+      const other = operationalLedger(RAILS[state.rail === "A" ? "B" : "A"], state.spend, state.realReturn).map((row) => row.ending);
+      traceLine(context, other, x, (value, index) => y(value, index, 0));
+      context.setLineDash([7, 6]); context.strokeStyle = palette.amber; context.lineWidth = 2; context.globalAlpha = .9; context.stroke(); context.setLineDash([]); context.globalAlpha = 1;
+    }
+
+    const selectedIndex = clamp(state.selectedCapitalAge - 60, 0, ledger.length - 1);
+    const selectedX = x(selectedIndex);
+    const plane = context.createLinearGradient(selectedX, pad.t, selectedX, height - pad.b);
+    plane.addColorStop(0, withAlpha(palette.cyan, .03)); plane.addColorStop(.5, withAlpha(palette.cyan, .26)); plane.addColorStop(1, withAlpha(palette.cyan, .04));
+    context.fillStyle = plane; context.fillRect(selectedX - 5, pad.t, 10, height - pad.t - pad.b);
+    context.strokeStyle = palette.cyan; context.lineWidth = 2; context.beginPath(); context.moveTo(selectedX, pad.t); context.lineTo(selectedX, height - pad.b); context.stroke();
+    const selectedY = y(ledger[selectedIndex].ending, selectedIndex, rates.indexOf(state.realReturn));
+    context.beginPath(); context.arc(selectedX, selectedY, 7, 0, Math.PI * 2); context.fillStyle = palette.green; context.shadowColor = palette.green; context.shadowBlur = 15; context.fill(); context.shadowBlur = 0;
+    context.textAlign = "center"; context.fillStyle = palette.text; context.font = "800 10px Arial, sans-serif";
+    ledger.forEach((row, index) => { if (row.age % 5 === 0 || row.age === 95) context.fillText(String(row.age), x(index), height - 27); });
+    context.textAlign = "left"; context.fillStyle = palette.muted; context.font = "800 9px Arial, sans-serif"; context.fillText("REAL INVESTMENT CAPITAL · RETURN SCENARIO SLICES", pad.l, 58);
+    visualGeometry = { mode: "linear", plotLeft: pad.l, plotWidth: width - pad.l - pad.r, width, height };
+  }
+
+  function drawRibbon(context, values, x, centre, widthScale, color, label, palette) {
+    const upper = values.map((value, index) => centre(index) - Math.max(3, value * widthScale) / 2);
+    const lower = values.map((value, index) => centre(index) + Math.max(3, value * widthScale) / 2);
     context.beginPath();
-    context.moveTo(pad.l, height - pad.b);
-    context.lineTo(width - pad.r, height - pad.b);
-    context.lineTo(width - pad.r + depth.x, height - pad.b + depth.y);
-    context.lineTo(pad.l + depth.x, height - pad.b + depth.y);
+    upper.forEach((value, index) => index ? context.lineTo(x(index), value) : context.moveTo(x(index), value));
+    for (let index = lower.length - 1; index >= 0; index -= 1) context.lineTo(x(index), lower[index]);
     context.closePath();
-    context.fill();
+    const gradient = context.createLinearGradient(x(0), 0, x(values.length - 1), 0);
+    gradient.addColorStop(0, withAlpha(color, .45)); gradient.addColorStop(.5, withAlpha(color, .8)); gradient.addColorStop(1, withAlpha(color, .5));
+    context.fillStyle = gradient; context.shadowColor = withAlpha(color, .35); context.shadowBlur = 12; context.fill(); context.shadowBlur = 0;
+    context.strokeStyle = color; context.lineWidth = 1.5; context.stroke();
+    context.fillStyle = palette.text; context.font = "800 9px Arial, sans-serif"; context.textAlign = "left"; context.fillText(label, x(0), centre(0) - Math.max(3, values[0] * widthScale) / 2 - 10);
+  }
 
-    const drawLayer = (lower, upper, fill, stroke) => {
-      context.beginPath();
-      upper.forEach((value, index) => index ? context.lineTo(x(index), y(value)) : context.moveTo(x(index), y(value)));
-      for (let index = lower.length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(lower[index]));
-      context.closePath();
-      context.fillStyle = fill;
-      context.fill();
-      context.strokeStyle = stroke;
-      context.lineWidth = 2.4;
-      context.stroke();
+  function drawRiver(frame, ledger) {
+    const { context, width, height } = frame;
+    const palette = visualPalette(true);
+    const pad = { l: width < 620 ? 42 : 70, r: 30, t: 92, b: 46 };
+    const x = (index) => pad.l + index / Math.max(1, ledger.length - 1) * (width - pad.l - pad.r);
+    const annualMax = Math.max(state.spend, currentRail().netPension, ...ledger.map((row) => row.draw), 1);
+    const widthScale = Math.min(50, height * .09) / annualMax;
+    context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
+    context.strokeStyle = palette.grid; context.lineWidth = 1;
+    ledger.forEach((row, index) => { if (row.age % 5 === 0 || row.age === 95) { context.beginPath(); context.moveTo(x(index), pad.t); context.lineTo(x(index), height - pad.b); context.stroke(); } });
 
-      context.beginPath();
-      upper.forEach((value, index) => index ? context.lineTo(x(index) + depth.x, y(value) + depth.y) : context.moveTo(x(index) + depth.x, y(value) + depth.y));
-      context.strokeStyle = withAlpha(stroke, .62);
-      context.lineWidth = 1.5;
-      context.stroke();
-      [[0], [upper.length - 1]].forEach(([index]) => {
-        context.beginPath();
-        context.moveTo(x(index), y(upper[index]));
-        context.lineTo(x(index) + depth.x, y(upper[index]) + depth.y);
-        context.stroke();
-      });
-    };
+    const pssValues = ledger.map((row) => row.age === 60 ? 0 : row.pension);
+    const drawValues = ledger.map((row) => row.age === 60 ? Math.max(0, state.spend - currentRail().netPension) : row.draw);
+    const surplusValues = ledger.map((row) => row.reinvestment);
+    drawRibbon(context, pssValues, x, (index) => height * .28 + Math.sin(index * .35) * 8, widthScale, palette.green, "INDEXED PSS · ANNUAL FLOW", palette);
+    drawRibbon(context, drawValues, x, (index) => height * .43 + Math.sin(index * .27 + .8) * 13, widthScale, palette.blue, "POOL A DRAW · ANNUAL FLOW", palette);
+    drawRibbon(context, surplusValues, x, (index) => height * .56 + Math.sin(index * .31 + 1.4) * 8, widthScale, palette.violet, "REINVESTED SURPLUS · ANNUAL FLOW", palette);
 
-    const zeroes = ledger.map(() => 0);
-    const poolC = ledger.map((row) => row.poolC);
-    const ending = ledger.map((row) => row.ending);
-    drawLayer(zeroes, poolC, withAlpha(colors.violet, .38), colors.violet);
-    drawLayer(poolC, ending, withAlpha(colors.blue, .40), colors.blue);
+    const capitalTop = height * .70;
+    const capitalBottom = height - pad.b;
+    const maximum = Math.max(...ledger.map((row) => row.ending), 1) * 1.06;
+    const capitalY = (value) => capitalBottom - value / maximum * (capitalBottom - capitalTop);
+    fillBetween(context, ledger.map((row) => row.ending), ledger.map(() => 0), x, capitalY, withAlpha(palette.blue, .22));
+    fillBetween(context, ledger.map((row) => row.poolC), ledger.map(() => 0), x, capitalY, withAlpha(palette.violet, .32));
+    traceLine(context, ledger.map((row) => row.ending), x, capitalY); context.strokeStyle = palette.blue; context.lineWidth = 3; context.stroke();
+    traceLine(context, ledger.map((row) => row.poolC), x, capitalY); context.strokeStyle = palette.violet; context.lineWidth = 2; context.stroke();
+    context.fillStyle = palette.muted; context.font = "800 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText("CAPITAL STOCK · SEPARATE SCALE", pad.l, capitalTop - 12);
+    if (state.compareRail) {
+      const other = operationalLedger(RAILS[state.rail === "A" ? "B" : "A"], state.spend, state.realReturn);
+      traceLine(context, other.map((row) => row.ending), x, capitalY); context.setLineDash([6, 5]); context.strokeStyle = palette.amber; context.lineWidth = 2; context.stroke(); context.setLineDash([]);
+    }
 
-    const planeX = x(selectedIndex);
-    context.fillStyle = withAlpha(colors.green, .14);
-    context.fillRect(planeX - 2, pad.t, 4, plotHeight);
-    context.setLineDash([5, 5]);
-    context.strokeStyle = colors.green;
-    context.lineWidth = 1.5;
-    context.beginPath();
-    context.moveTo(planeX, pad.t);
-    context.lineTo(planeX, height - pad.b);
-    context.stroke();
-    context.setLineDash([]);
-    ledger.forEach((row, index) => {
-      if (row.age % 5 !== 0 && index !== selectedIndex && row.age !== 95) return;
-      context.beginPath();
-      context.arc(x(index), y(row.ending), index === selectedIndex ? 6 : 3.5, 0, Math.PI * 2);
-      context.fillStyle = index === selectedIndex ? colors.green : colors.blue;
-      context.fill();
-      context.strokeStyle = panel;
-      context.lineWidth = 2;
-      context.stroke();
-      context.fillStyle = colors.text;
-      context.font = "700 10px system-ui, sans-serif";
-      context.textAlign = "center";
-      context.fillText(String(row.age), x(index), height - 18);
+    const selectedIndex = clamp(state.selectedCapitalAge - 60, 0, ledger.length - 1);
+    const gateX = x(selectedIndex);
+    const gate = context.createLinearGradient(gateX, 0, gateX, height);
+    gate.addColorStop(0, withAlpha(palette.violet, .02)); gate.addColorStop(.5, withAlpha(palette.violet, .22)); gate.addColorStop(1, withAlpha(palette.violet, .04));
+    context.fillStyle = gate; context.fillRect(gateX - 6, 70, 12, height - 105);
+    context.strokeStyle = palette.violet; context.lineWidth = 2; context.beginPath(); context.moveTo(gateX, 72); context.lineTo(gateX, height - 34); context.stroke();
+    context.beginPath(); context.arc(gateX, 72, 7, 0, Math.PI * 2); context.fillStyle = palette.panel; context.fill(); context.strokeStyle = palette.violet; context.lineWidth = 3; context.stroke();
+    const selected = ledger[selectedIndex];
+    const calloutWidth = 142;
+    const calloutX = gateX > width - calloutWidth - 28 ? gateX - calloutWidth - 12 : gateX + 12;
+    context.fillStyle = withAlpha(palette.panel, .93); context.fillRect(calloutX, 92, calloutWidth, 68); context.strokeStyle = withAlpha(palette.violet, .35); context.strokeRect(calloutX, 92, calloutWidth, 68);
+    context.textAlign = "left"; context.fillStyle = palette.text; context.font = "900 9px Arial, sans-serif"; context.fillText(`AGE ${selected.age} FLOW GATE`, calloutX + 9, 108);
+    context.fillStyle = palette.muted; context.font = "700 8px Arial, sans-serif"; context.fillText(`PSS ${money0.format(selected.age === 60 ? currentRail().netPension : selected.pension)} p.a.`, calloutX + 9, 125); context.fillText(`Draw ${money0.format(selected.age === 60 ? Math.max(0, state.spend - currentRail().netPension) : selected.draw)} p.a.`, calloutX + 9, 140); context.fillText(`Reinvest ${money0.format(selected.reinvestment)} p.a.`, calloutX + 9, 155);
+    context.fillStyle = palette.text; context.font = "900 10px Arial, sans-serif"; context.textAlign = "center";
+    ledger.forEach((row, index) => { if (row.age % 5 === 0 || row.age === 95 || row.age === state.selectedCapitalAge) context.fillText(String(row.age), x(index), height - 22); });
+    visualGeometry = { mode: "linear", plotLeft: pad.l, plotWidth: width - pad.l - pad.r, width, height };
+  }
+
+  function drawEllipsePlatform(context, cx, cy, rx, ry, depth, color, label, value, palette) {
+    for (let offset = depth; offset >= 1; offset -= 1) {
+      context.beginPath(); context.ellipse(cx, cy + offset, rx, ry, 0, 0, Math.PI * 2); context.fillStyle = withAlpha(color, .16 + offset / Math.max(1, depth) * .16); context.fill();
+    }
+    const gradient = context.createRadialGradient(cx - rx * .28, cy - ry * .35, 4, cx, cy, rx);
+    gradient.addColorStop(0, withAlpha("#ffffff", .22)); gradient.addColorStop(.22, withAlpha(color, .94)); gradient.addColorStop(1, withAlpha(color, .5));
+    context.beginPath(); context.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); context.fillStyle = gradient; context.shadowColor = withAlpha(color, .45); context.shadowBlur = 15; context.fill(); context.shadowBlur = 0; context.strokeStyle = withAlpha("#ffffff", .34); context.lineWidth = 1; context.stroke();
+    if (rx > 65) { context.fillStyle = palette.text; context.font = "900 9px Arial, sans-serif"; context.textAlign = "center"; context.fillText(label, cx, cy - 3); context.fillStyle = withAlpha(palette.text, .8); context.font = "700 9px Arial, sans-serif"; context.fillText(money0.format(value), cx, cy + 10); }
+  }
+
+  function drawOrbit(frame, ledger) {
+    const { context, width, height } = frame;
+    const palette = visualPalette(false);
+    context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
+    const cx = width * .53;
+    const cy = height * .49;
+    const orbitRx = Math.min(width * .39, 410);
+    const orbitRy = Math.min(height * .35, 185);
+    const start = Math.PI * 1.12;
+    const span = Math.PI * 1.72;
+    context.strokeStyle = withAlpha(palette.blue, .65); context.lineWidth = 2; context.shadowColor = palette.blue; context.shadowBlur = 8; context.beginPath(); context.ellipse(cx, cy, orbitRx, orbitRy, 0, start, start + span); context.stroke(); context.shadowBlur = 0;
+    context.strokeStyle = withAlpha(palette.green, .23); context.lineWidth = 10; context.beginPath(); context.ellipse(cx, cy, orbitRx - 18, orbitRy - 8, 0, start, start + span); context.stroke();
+    if (state.compareRail) { context.setLineDash([7, 6]); context.strokeStyle = palette.amber; context.lineWidth = 1.5; context.beginPath(); context.ellipse(cx, cy, orbitRx + 12, orbitRy + 6, 0, start, start + span); context.stroke(); context.setLineDash([]); }
+
+    const selected = rowAt(ledger, state.selectedCapitalAge);
+    const estate = Math.max(1, selected.ending + state.home);
+    const maxRadius = Math.min(width * .24, 225);
+    const radius = (value, floor) => Math.max(floor, Math.sqrt(Math.max(0, value) / estate) * maxRadius);
+    drawEllipsePlatform(context, cx, cy + 83, radius(state.home, 105), Math.max(25, radius(state.home, 105) * .27), state.visualPerspective ? 18 : 2, palette.amber, "HOME · ESTATE BASE", state.home, palette);
+    drawEllipsePlatform(context, cx, cy + 29, radius(selected.poolA, 120), Math.max(29, radius(selected.poolA, 120) * .27), state.visualPerspective ? 16 : 2, palette.blue, "POOL A · FLEXIBLE CAPITAL", selected.poolA, palette);
+    drawEllipsePlatform(context, cx, cy - 25, radius(selected.poolC, 68), Math.max(22, radius(selected.poolC, 68) * .3), state.visualPerspective ? 14 : 2, palette.violet, "POOL C · INVESTED RESERVE", selected.poolC, palette);
+    context.beginPath(); context.ellipse(cx, cy - 72, Math.min(82, maxRadius * .42), 25, 0, 0, Math.PI * 2); context.strokeStyle = palette.green; context.lineWidth = 5; context.shadowColor = palette.green; context.shadowBlur = 14; context.stroke(); context.shadowBlur = 0;
+    context.fillStyle = palette.green; context.font = "900 9px Arial, sans-serif"; context.textAlign = "center"; context.fillText(`PSS FLOOR ${money0.format(currentRail().netPension)} P.A.`, cx, cy - 72);
+
+    const zones = [];
+    ledger.forEach((row) => {
+      const progress = (row.age - 60) / 35;
+      const angle = start + progress * span;
+      const x = cx + Math.cos(angle) * orbitRx;
+      const y = cy + Math.sin(angle) * orbitRy;
+      zones.push({ age: row.age, x, y, r: row.age === state.selectedCapitalAge ? 13 : 7 });
+      if (row.age % 5 === 0 || [60, 67, 70, state.targetAge, 85, 95].includes(row.age)) {
+        context.beginPath(); context.arc(x, y, row.age === state.selectedCapitalAge ? 10 : 4, 0, Math.PI * 2); context.fillStyle = row.age === state.selectedCapitalAge ? palette.cyan : [67, 70, 85, 95].includes(row.age) ? palette.violet : palette.blue; context.shadowColor = context.fillStyle; context.shadowBlur = row.age === state.selectedCapitalAge ? 18 : 6; context.fill(); context.shadowBlur = 0;
+        context.fillStyle = row.age === state.selectedCapitalAge ? palette.text : palette.muted; context.font = row.age === state.selectedCapitalAge ? "900 18px Arial, sans-serif" : "800 9px Arial, sans-serif"; context.textAlign = "center"; context.fillText(String(row.age), x, y - (row.age === state.selectedCapitalAge ? 20 : 13));
+      }
     });
-
-    context.fillStyle = colors.green;
-    context.font = "900 10px system-ui, sans-serif";
-    context.textAlign = selectedIndex > ledger.length - 7 ? "right" : "left";
-    context.fillText(`AGE ${selected.age}`, selectedIndex > ledger.length - 7 ? planeX - 9 : planeX + 9, pad.t + 13);
-    context.fillStyle = style.getPropertyValue("--text").trim();
-    context.font = "800 15px system-ui, sans-serif";
-    context.fillText(`${money0.format(selected.ending)} investments`, selectedIndex > ledger.length - 7 ? planeX - 9 : planeX + 9, pad.t + 33);
-    context.fillStyle = colors.text;
-    context.font = "700 10px system-ui, sans-serif";
-    context.fillText(`Pool A ${money0.format(selected.poolA)} · Pool C ${money0.format(selected.poolC)}`, selectedIndex > ledger.length - 7 ? planeX - 9 : planeX + 9, pad.t + 49);
-    canvas.dataset.plotLeft = String(pad.l);
-    canvas.dataset.plotWidth = String(plotWidth);
+    const selectedZone = zones[state.selectedCapitalAge - 60];
+    context.strokeStyle = palette.cyan; context.lineWidth = 2; context.beginPath(); context.moveTo(selectedZone.x, selectedZone.y); context.lineTo(cx, cy - 44); context.stroke();
+    context.fillStyle = palette.muted; context.font = "800 8px Arial, sans-serif"; context.textAlign = "center"; context.fillText("AGE ORBIT · 60 TO 95", cx, height - 24);
+    visualGeometry = { mode: "orbit", zones, width, height };
   }
 
-  function renderLandscapeMode() {
-    const active = Boolean(state.timeMachine);
-    $("capitalLandscape").classList.toggle("time-machine", active);
-    $("timeMachineToggle").setAttribute("aria-pressed", String(active));
-    $("timeMachineToggle").textContent = active ? "Exit Time Machine" : "Enter Time Machine";
-    $("timeMachineNote").textContent = active
-      ? `Time Machine is active: click a capital point to bring that year forward in depth. It uses the same active ${pct(state.realReturn)} real-return ledger.`
-      : `Landscape mode shows the full path using the active ${pct(state.realReturn)} real-return ledger. Activate Time Machine for a depth view with a selected-age plane and clickable points.`;
-    renderTimeMachineCanvas(activeLandscapeLedger);
-  }
-
-  function renderCapitalLandscapeReadout(row) {
-    const rail = currentRail();
-    const total = Math.max(1, row.ending);
+  function drawWaterfall(frame, ledger) {
+    const { context, width, height } = frame;
+    const palette = visualPalette(false);
+    context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
+    const row = rowAt(ledger, state.selectedCapitalAge);
     const isOpening = row.age === 60;
-    $("landscapeAgeRange").value = String(row.age);
-    $("landscapeAgeOut").textContent = `Age ${row.age}`;
-    $("landscapeMoment").textContent = isOpening ? "Retirement-day opening" : `Age ${row.age - 1}→${row.age}`;
-    $("landscapeStageValue").textContent = money0.format(row.ending);
-    $("landscapeStageCopy").textContent = isOpening ? "Opening investment capital" : "Total investment capital at year end";
-    $("landscapeSummary").textContent = `Pool A and Pool C are layered from the active annual ledger at ${pct(state.realReturn)} real return p.a. after inflation. Income stays out of this capital-composition scale.`;
-    $("landscapeTitle").textContent = isOpening ? "Age 60 · opening position" : `Age ${row.age} · end of planning year ${row.age - 60}`;
-    $("landscapeNarrative").textContent = isOpening
-      ? "Capital is measured on retirement day before annual pension, spending or drawdown is applied."
-      : `The indexed PSS floor is ${money0.format(rail.netPension)}. The ledger draws ${money0.format(row.draw)} from Pool A and ends this year with the capital mix shown.`;
-    $("landscapePoolA").textContent = money0.format(row.poolA);
-    $("landscapePoolAShare").textContent = `${pct(row.poolA / total)} of investments`;
-    $("landscapePoolC").textContent = money0.format(row.poolC);
-    $("landscapePoolCShare").textContent = `${pct(row.poolC / total)} of investments · invested reserve`;
-    $("landscapeDraw").textContent = isOpening ? money0.format(Math.max(0, state.spend - rail.netPension)) : money0.format(row.draw);
-    $("landscapeDrawDetail").textContent = isOpening ? "Starting annual portfolio gap" : row.reinvestment > 0 ? `${money0.format(row.reinvestment)} mandatory-draw surplus reinvested` : "Planning portfolio draw in this year";
-    $("landscapeReturn").textContent = `${pct(state.realReturn)} real p.a.`;
-    $("landscapeReturnDetail").textContent = "After inflation · live scenario";
-    document.querySelectorAll("#landscapeMilestones button").forEach((button) => {
-      const active = Number(button.dataset.landscapeAge) === row.age;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
+    const opening = row.openingA + row.openingC;
+    const earnA = isOpening ? 0 : row.openingA * state.realReturn;
+    const earnC = isOpening ? 0 : row.openingC * state.realReturn;
+    const items = isOpening ? [
+      { label: "Opening capital", value: row.ending, total: true },
+    ] : [
+      { label: "Opening capital", value: opening, total: true },
+      { label: "Pool A earnings", value: earnA },
+      { label: "Pool C earnings", value: earnC },
+      { label: "Portfolio draw", value: -row.draw },
+      { label: "External drag", value: -row.externalTaxDrag },
+      { label: "Reinvested surplus", value: row.reinvestment },
+      { label: "Ending capital", value: row.ending, total: true },
+    ];
+    const pad = { l: 56, r: 28, t: 110, b: 82 };
+    const plotHeight = height - pad.t - pad.b;
+    const maximum = Math.max(opening + Math.max(0, earnA) + Math.max(0, earnC) + Math.max(0, row.reinvestment), row.ending, 1) * 1.08;
+    const y = (value) => pad.t + (1 - value / maximum) * plotHeight;
+    const gap = (width - pad.l - pad.r) / items.length;
+    let running = 0;
+    context.strokeStyle = palette.grid; context.lineWidth = 1;
+    [0, .25, .5, .75, 1].forEach((tick) => { const yy = pad.t + tick * plotHeight; context.beginPath(); context.moveTo(pad.l, yy); context.lineTo(width - pad.r, yy); context.stroke(); context.fillStyle = palette.muted; context.font = "700 9px Arial, sans-serif"; context.textAlign = "right"; context.fillText(compact(maximum * (1 - tick)), pad.l - 8, yy); });
+    items.forEach((item, index) => {
+      const x = pad.l + index * gap + gap * .16;
+      const barWidth = gap * .68;
+      const startValue = item.total ? 0 : running;
+      const endValue = item.total ? item.value : running + item.value;
+      const top = y(Math.max(startValue, endValue));
+      const bottom = y(Math.min(startValue, endValue));
+      const color = item.total ? palette.blue : item.value >= 0 ? palette.green : item.label === "Portfolio draw" ? palette.amber : palette.danger;
+      const gradient = context.createLinearGradient(0, top, 0, bottom);
+      gradient.addColorStop(0, withAlpha(color, .95)); gradient.addColorStop(1, withAlpha(color, .45));
+      context.fillStyle = gradient; context.fillRect(x, top, barWidth, Math.max(4, bottom - top)); context.strokeStyle = withAlpha("#ffffff", .22); context.strokeRect(x, top, barWidth, Math.max(4, bottom - top));
+      context.fillStyle = palette.text; context.font = "800 9px Arial, sans-serif"; context.textAlign = "center"; context.fillText(item.total ? money0.format(item.value) : `${item.value >= 0 ? "+" : "−"}${money0.format(Math.abs(item.value))}`, x + barWidth / 2, Math.max(94, top - 10));
+      const words = item.label.split(" "); context.fillStyle = palette.muted; context.font = "700 8px Arial, sans-serif"; words.forEach((word, wordIndex) => context.fillText(word, x + barWidth / 2, height - 48 + wordIndex * 10));
+      if (!item.total) running = endValue; else if (index === 0) running = item.value;
+      if (index < items.length - 1 && !items[index + 1].total) { context.setLineDash([4, 4]); context.strokeStyle = palette.grid; context.beginPath(); context.moveTo(x + barWidth, y(running)); context.lineTo(x + gap, y(running)); context.stroke(); context.setLineDash([]); }
     });
+    context.fillStyle = palette.muted; context.font = "800 9px Arial, sans-serif"; context.textAlign = "left"; context.fillText(`${isOpening ? "RETIREMENT-DAY OPENING" : `AGE ${row.age - 1}→${row.age}`} · ${pct(state.realReturn)} REAL RETURN USED`, pad.l, 76);
+    visualGeometry = { mode: "static", width, height };
+  }
+
+  function drawSunburst(frame, ledger) {
+    const { context, width, height } = frame;
+    const palette = visualPalette(false);
+    context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
+    const row = rowAt(ledger, state.selectedCapitalAge);
+    const parts = [
+      { label: "Pool A", value: row.poolA, color: palette.blue },
+      { label: "Pool C", value: row.poolC, color: palette.violet },
+      { label: "Home", value: state.home, color: palette.amber },
+    ];
+    const total = Math.max(1, parts.reduce((sum, part) => sum + part.value, 0));
+    const cx = width * .46;
+    const cy = height * .52;
+    const outer = Math.min(width, height) * .30;
+    const inner = outer * .48;
+    let angle = -Math.PI / 2;
+    for (let depth = state.visualPerspective ? 18 : 2; depth >= 1; depth -= 1) {
+      let sideAngle = -Math.PI / 2;
+      parts.forEach((part) => { const sweep = part.value / total * Math.PI * 2; context.beginPath(); context.arc(cx, cy + depth, outer, sideAngle, sideAngle + sweep); context.arc(cx, cy + depth, inner, sideAngle + sweep, sideAngle, true); context.closePath(); context.fillStyle = withAlpha(part.color, .14 + depth / 18 * .13); context.fill(); sideAngle += sweep; });
+    }
+    parts.forEach((part) => {
+      const sweep = part.value / total * Math.PI * 2;
+      const gradient = context.createRadialGradient(cx, cy, inner, cx, cy, outer);
+      gradient.addColorStop(0, withAlpha(part.color, .46)); gradient.addColorStop(1, part.color);
+      context.beginPath(); context.arc(cx, cy, outer, angle, angle + sweep); context.arc(cx, cy, inner, angle + sweep, angle, true); context.closePath(); context.fillStyle = gradient; context.shadowColor = withAlpha(part.color, .35); context.shadowBlur = 13; context.fill(); context.shadowBlur = 0; context.strokeStyle = withAlpha("#ffffff", .3); context.lineWidth = 2; context.stroke();
+      const mid = angle + sweep / 2;
+      const labelRadius = (outer + inner) / 2;
+      const lx = cx + Math.cos(mid) * labelRadius;
+      const ly = cy + Math.sin(mid) * labelRadius;
+      if (part.value / total > .08) { context.fillStyle = palette.text; context.font = "900 10px Arial, sans-serif"; context.textAlign = "center"; context.fillText(part.label, lx, ly - 5); context.font = "700 9px Arial, sans-serif"; context.fillText(pct(part.value / total), lx, ly + 8); }
+      angle += sweep;
+    });
+    context.fillStyle = palette.text; context.textAlign = "center"; context.font = "900 14px Arial, sans-serif"; context.fillText(`AGE ${row.age} ESTATE`, cx, cy - 8); context.font = "900 21px Arial, sans-serif"; context.fillText(money0.format(total), cx, cy + 15); context.fillStyle = palette.muted; context.font = "700 9px Arial, sans-serif"; context.fillText("REAL · BEFORE COSTS AND RESIDUAL DBT", cx, cy + 34);
+    const coverage = clamp(currentRail().netPension / Math.max(1, state.spend), 0, 1);
+    context.beginPath(); context.arc(cx, cy, outer + 28, -.5 * Math.PI, -.5 * Math.PI + coverage * Math.PI * 2); context.strokeStyle = palette.green; context.lineWidth = 7; context.lineCap = "round"; context.stroke(); context.lineCap = "butt";
+    context.fillStyle = palette.green; context.font = "900 10px Arial, sans-serif"; context.fillText(`PSS COVERS ${pct(coverage)} OF PLANNED SPENDING`, cx, cy - outer - 49);
+    const legendX = Math.min(width - 185, cx + outer + 58);
+    parts.forEach((part, index) => { const yy = cy - 44 + index * 56; context.fillStyle = part.color; context.beginPath(); context.arc(legendX, yy, 6, 0, Math.PI * 2); context.fill(); context.fillStyle = palette.text; context.textAlign = "left"; context.font = "900 10px Arial, sans-serif"; context.fillText(part.label, legendX + 14, yy - 5); context.fillStyle = palette.muted; context.font = "700 9px Arial, sans-serif"; context.fillText(`${money0.format(part.value)} · ${pct(part.value / total)}`, legendX + 14, yy + 10); });
+    visualGeometry = { mode: "static", width, height };
+  }
+
+  function renderVisualTable(ledger) {
+    $("visualTableBody").innerHTML = ledger.map((row) => `<tr tabindex="0" data-visual-row-age="${row.age}" class="${row.age === state.selectedCapitalAge ? "active" : ""}"><td>${row.age === 60 ? "60 · opening" : `${row.age - 1}→${row.age}`}</td><td>${money0.format(row.openingA)}</td><td>${money0.format(row.openingC)}</td><td>${money0.format(row.pension)}</td><td>${money0.format(row.mandatory)}</td><td>${money0.format(row.draw)}</td><td>${money0.format(row.reinvestment)}</td><td>${money0.format(row.externalTaxDrag)}</td><td>${money0.format(row.poolA)}</td><td>${money0.format(row.poolC)}</td><td>${money0.format(row.ending)}</td><td>${money0.format(row.ending + state.home)}</td></tr>`).join("");
+    $("visualTableBody").querySelectorAll("tr").forEach((row) => {
+      const select = () => selectCapitalAge(ledger, Number(row.dataset.visualRowAge));
+      row.addEventListener("click", select);
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
+    });
+  }
+
+  function renderVisualInspector(ledger) {
+    const rail = currentRail();
+    const row = rowAt(ledger, state.selectedCapitalAge);
+    const isOpening = row.age === 60;
+    const estate = row.ending + state.home;
+    const total = Math.max(1, estate);
+    $("visualAgeRange").value = String(row.age);
+    $("visualAgeOut").textContent = String(row.age);
+    $("visualStageAge").textContent = `AGE ${row.age}`;
+    $("visualInspectorAge").textContent = `Age ${row.age}`;
+    $("visualInspectorYear").textContent = isOpening ? "Retirement-day opening snapshot" : `End of planning year ${row.age - 60} · age ${row.age - 1}→${row.age}`;
+    $("visualInspectorCapital").textContent = money0.format(row.ending);
+    $("visualInspectorCapitalChange").textContent = `${pct(state.realReturn)} real return used · after inflation`;
+    $("visualInspectorEstate").textContent = money0.format(estate);
+    $("visualInspectorPoolA").textContent = money0.format(row.poolA);
+    $("visualInspectorPoolC").textContent = money0.format(row.poolC);
+    $("visualInspectorPension").textContent = `${money0.format(rail.netPension)} p.a.`;
+    $("visualInspectorDraw").textContent = `${money0.format(isOpening ? Math.max(0, state.spend - rail.netPension) : row.draw)} p.a.`;
+    $("visualInspectorReinvestment").textContent = `${money0.format(row.reinvestment)} p.a.`;
+    $("visualInspectorDrag").textContent = `${money0.format(row.externalTaxDrag)} p.a.`;
+    $("visualInspectorGross").textContent = isOpening ? "Begins in year 1" : `${money0.format(row.grossEquivalent)} p.a.`;
+    $("visualInspectorCoverage").textContent = pct(rail.netPension / Math.max(1, state.spend));
+    $("visualShareA").textContent = pct(row.poolA / total);
+    $("visualShareC").textContent = pct(row.poolC / total);
+    $("visualShareHome").textContent = pct(state.home / total);
+    $("visualCanvas").setAttribute("aria-valuenow", String(row.age));
+    $("visualCanvas").setAttribute("aria-valuetext", `Age ${row.age}: ${money0.format(row.ending)} investments and ${money0.format(estate)} gross estate using ${pct(state.realReturn)} real return`);
+    $("visualMilestones").querySelectorAll("button").forEach((button) => { const active = Number(button.dataset.visualAge) === row.age; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
+    $("visualV23Link").href = `./deep-model.html?${scenarioQuery()}`;
+  }
+
+  function renderVisualStudio(ledger) {
+    activeVisualLedger = ledger;
+    const copy = VISUAL_MODE_COPY[state.visualMode];
+    $("visualWorkspace").dataset.mode = state.visualMode;
+    $("visualStageMode").textContent = copy.label;
+    $("visualStageHint").textContent = copy.hint;
+    $("visualSummary").textContent = copy.summary;
+    $("visualDisclosure").textContent = copy.disclosure;
+    $("visualRail").textContent = state.rail;
+    $("visualSpend").textContent = `${money0.format(state.spend)} p.a.`;
+    $("visualReturn").textContent = `${pct(state.realReturn)} p.a.`;
+    $("visualTarget").textContent = String(state.targetAge);
+    $("visualDimensionToggle").classList.toggle("active", state.visualPerspective);
+    $("visualDimensionToggle").setAttribute("aria-pressed", String(state.visualPerspective));
+    $("visualDimensionToggle").textContent = state.visualPerspective ? "Perspective" : "Flat";
+    $("visualCompareRail").classList.toggle("active", state.compareRail);
+    $("visualCompareRail").setAttribute("aria-pressed", String(state.compareRail));
+    $("visualCompareRail").textContent = state.compareRail ? `Rail ${state.rail === "A" ? "B" : "A"} visible` : `Compare Rail ${state.rail === "A" ? "B" : "A"}`;
+    $("visualModeTabs").querySelectorAll("button").forEach((button) => { const active = button.dataset.visualMode === state.visualMode; button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); });
+    const tableMode = state.visualMode === "table";
+    $("visualWorkspace").hidden = tableMode;
+    $("visualTableWrap").hidden = !tableMode;
+    renderVisualInspector(ledger);
+    renderVisualTable(ledger);
+    if (tableMode) return;
+    const frame = canvasFrame();
+    if (!frame) return;
+    if (state.visualMode === "horizon") drawHorizon(frame, ledger);
+    else if (state.visualMode === "river") drawRiver(frame, ledger);
+    else if (state.visualMode === "orbit") drawOrbit(frame, ledger);
+    else if (state.visualMode === "waterfall") drawWaterfall(frame, ledger);
+    else drawSunburst(frame, ledger);
   }
 
   function selectCapitalAge(ledger, age) {
     state.selectedCapitalAge = clamp(Number(age), 60, 95);
-    const row = rowAt(ledger, state.selectedCapitalAge);
-    renderCapitalReadout(row);
-    renderCapitalLandscapeReadout(row);
-    renderTimeMachineCanvas(ledger);
+    renderCapitalReadout(rowAt(ledger, state.selectedCapitalAge));
+    renderVisualStudio(ledger);
   }
 
-  function renderCapitalLandscape(ledger) {
-    activeLandscapeLedger = ledger;
-    const colors = chartTheme();
-    if (charts.landscape) charts.landscape.destroy();
-    const options = baseChartOptions((event, elements, chart) => {
-      const index = chartIndex(chart, event, elements);
-      selectCapitalAge(ledger, Number(chart.data.labels[index]));
-    });
-    options.scales.y.stacked = true;
-    options.scales.x.stacked = true;
-    charts.landscape = new Chart($("capitalLandscapeChart"), {
-      type: "line",
-      data: {
-        labels: ledger.map((row) => row.age),
-        datasets: [
-          { label: "Pool A", data: ledger.map((row) => row.poolA), borderColor: colors.blue, backgroundColor: withAlpha(colors.blue, .34), fill: true, stack: "capital", borderWidth: 3, pointRadius: 0, tension: .16 },
-          { label: "Pool C invested reserve", data: ledger.map((row) => row.poolC), borderColor: colors.green, backgroundColor: withAlpha(colors.green, .30), fill: true, stack: "capital", borderWidth: 3, pointRadius: 0, tension: .16 },
-        ],
-      },
-      options,
-    });
-    renderLandscapeMode();
-    renderTimeMachineCanvas(ledger);
+  function visualAgeFromPoint(event) {
+    if (!visualGeometry || !activeVisualLedger.length) return state.selectedCapitalAge;
+    const rect = $("visualCanvas").getBoundingClientRect();
+    const pointX = (event.clientX - rect.left) / Math.max(1, rect.width) * visualGeometry.width;
+    const pointY = (event.clientY - rect.top) / Math.max(1, rect.height) * visualGeometry.height;
+    if (visualGeometry.mode === "linear") return clamp(Math.round(60 + (pointX - visualGeometry.plotLeft) / Math.max(1, visualGeometry.plotWidth) * 35), 60, 95);
+    if (visualGeometry.mode === "orbit") return visualGeometry.zones.reduce((nearest, zone) => Math.hypot(zone.x - pointX, zone.y - pointY) < Math.hypot(nearest.x - pointX, nearest.y - pointY) ? zone : nearest, visualGeometry.zones[0]).age;
+    return state.selectedCapitalAge;
+  }
+
+  function renderVisualHover(event) {
+    if (!visualGeometry || visualGeometry.mode === "static") { $("visualHover").hidden = true; return; }
+    const age = visualAgeFromPoint(event);
+    const row = rowAt(activeVisualLedger, age);
+    const rect = $("visualCanvas").getBoundingClientRect();
+    const hover = $("visualHover");
+    hover.innerHTML = `<b>Age ${age}</b><span>${money0.format(row.ending)} investments</span><span>${money0.format(row.ending + state.home)} estate</span><span>${pct(state.realReturn)} real return used</span>`;
+    hover.style.left = `${clamp(event.clientX - rect.left + 14, 10, Math.max(10, rect.width - 220))}px`;
+    hover.style.top = `${clamp(event.clientY - rect.top + 14, 64, Math.max(64, rect.height - 100))}px`;
+    hover.hidden = false;
+  }
+
+  function stopVisualPlay() {
+    clearInterval(visualPlayTimer);
+    visualPlayTimer = null;
+    $("visualPlay").setAttribute("aria-pressed", "false");
+    $("visualPlay").textContent = "Play retirement";
+    $("visualPlayMobile").textContent = "Play";
+  }
+
+  function toggleVisualPlay() {
+    if (visualPlayTimer) { stopVisualPlay(); return; }
+    if (state.selectedCapitalAge >= 95) selectCapitalAge(activeVisualLedger, 60);
+    $("visualPlay").setAttribute("aria-pressed", "true");
+    $("visualPlay").textContent = "Pause";
+    $("visualPlayMobile").textContent = "Pause";
+    visualPlayTimer = setInterval(() => {
+      if (state.selectedCapitalAge >= 95) { stopVisualPlay(); return; }
+      selectCapitalAge(activeVisualLedger, state.selectedCapitalAge + 1);
+    }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 900 : 420);
   }
 
   function renderCapitalChart(rail, activeLedger) {
@@ -713,8 +1024,8 @@
     renderIncomeChart(ledger);
     renderSelectedCashflow(rowAt(ledger, state.selectedIncomeAge));
     renderCapitalChart(rail, ledger);
-    renderCapitalLandscape(ledger);
-    selectCapitalAge(ledger, state.selectedCapitalAge);
+    renderCapitalReadout(rowAt(ledger, state.selectedCapitalAge));
+    renderVisualStudio(ledger);
     renderFrontierChart(points);
     renderFrontierText(rail, points, targetRow);
     renderObjectives(rail, ledger);
@@ -750,30 +1061,50 @@
   $("capitalAgeSelect").addEventListener("change", (event) => {
     selectCapitalAge(operationalLedger(currentRail(), state.spend, state.realReturn), Number(event.target.value));
   });
-  $("landscapeAgeRange").addEventListener("input", (event) => {
-    selectCapitalAge(operationalLedger(currentRail(), state.spend, state.realReturn), Number(event.target.value));
-  });
-  $("landscapeMilestones").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
-    selectCapitalAge(operationalLedger(currentRail(), state.spend, state.realReturn), Number(button.dataset.landscapeAge));
+  $("visualAgeRange").addEventListener("input", (event) => selectCapitalAge(activeVisualLedger, Number(event.target.value)));
+  $("visualMilestones").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => selectCapitalAge(activeVisualLedger, Number(button.dataset.visualAge))));
+  $("visualModeTabs").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+    state.visualMode = button.dataset.visualMode;
+    stopVisualPlay();
+    renderAll();
   }));
-  $("timeMachineToggle").addEventListener("click", () => {
-    state.timeMachine = !state.timeMachine;
-    renderLandscapeMode();
+  $("visualDimensionToggle").addEventListener("click", () => { state.visualPerspective = !state.visualPerspective; renderVisualStudio(activeVisualLedger); });
+  $("visualCompareRail").addEventListener("click", () => { state.compareRail = !state.compareRail; renderVisualStudio(activeVisualLedger); });
+  $("visualFocusToggle").addEventListener("click", () => {
+    const active = document.body.classList.toggle("visual-focus-open");
+    $("visualFocusToggle").classList.toggle("active", active);
+    $("visualFocusToggle").setAttribute("aria-pressed", String(active));
+    $("visualFocusToggle").textContent = active ? "Close focus" : "Focus view";
+    setTimeout(() => renderVisualStudio(activeVisualLedger), 40);
   });
-  $("timeMachineCanvas").addEventListener("click", (event) => {
-    if (!activeLandscapeLedger.length) return;
-    const canvas = event.currentTarget;
-    const rect = canvas.getBoundingClientRect();
-    const chartX = (event.clientX - rect.left) / Math.max(1, rect.width) * canvas.width / Math.min(window.devicePixelRatio || 1, 2);
-    const index = clamp(Math.round((chartX - Number(canvas.dataset.plotLeft || 0)) / Math.max(1, Number(canvas.dataset.plotWidth || 1)) * (activeLandscapeLedger.length - 1)), 0, activeLandscapeLedger.length - 1);
-    selectCapitalAge(activeLandscapeLedger, activeLandscapeLedger[index].age);
+  $("visualPlay").addEventListener("click", toggleVisualPlay);
+  $("visualPlayMobile").addEventListener("click", toggleVisualPlay);
+  $("visualCanvas").addEventListener("pointerdown", (event) => {
+    if (!visualGeometry || visualGeometry.mode === "static") return;
+    visualPointerDown = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    selectCapitalAge(activeVisualLedger, visualAgeFromPoint(event));
   });
-  window.addEventListener("resize", () => {
-    if (activeLandscapeLedger.length && state.timeMachine) renderTimeMachineCanvas(activeLandscapeLedger);
+  $("visualCanvas").addEventListener("pointermove", (event) => {
+    renderVisualHover(event);
+    if (visualPointerDown) selectCapitalAge(activeVisualLedger, visualAgeFromPoint(event));
   });
+  $("visualCanvas").addEventListener("pointerup", () => { visualPointerDown = false; });
+  $("visualCanvas").addEventListener("pointercancel", () => { visualPointerDown = false; });
+  $("visualCanvas").addEventListener("pointerleave", () => { visualPointerDown = false; $("visualHover").hidden = true; });
+  $("visualCanvas").addEventListener("keydown", (event) => {
+    if (["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp", "Home", "End"].includes(event.key)) event.preventDefault();
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") selectCapitalAge(activeVisualLedger, state.selectedCapitalAge - 1);
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") selectCapitalAge(activeVisualLedger, state.selectedCapitalAge + 1);
+    if (event.key === "Home") selectCapitalAge(activeVisualLedger, 60);
+    if (event.key === "End") selectCapitalAge(activeVisualLedger, 95);
+  });
+  let visualResizeTimer;
+  window.addEventListener("resize", () => { clearTimeout(visualResizeTimer); visualResizeTimer = setTimeout(() => { if (activeVisualLedger.length) renderVisualStudio(activeVisualLedger); }, 100); });
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
-    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, timeMachine: false });
+    stopVisualPlay();
+    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, visualMode: "horizon", visualPerspective: true, compareRail: false });
     renderAll();
     showToast("Rail B central baseline restored.");
   });
@@ -804,6 +1135,14 @@
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("visual-focus-open")) {
+      document.body.classList.remove("visual-focus-open");
+      $("visualFocusToggle").classList.remove("active");
+      $("visualFocusToggle").setAttribute("aria-pressed", "false");
+      $("visualFocusToggle").textContent = "Focus view";
+      setTimeout(() => renderVisualStudio(activeVisualLedger), 40);
+      return;
+    }
     if ((event.key === "r" || event.key === "R") && !/input|textarea|select/i.test(document.activeElement.tagName)) {
       state.rail = state.rail === "A" ? "B" : "A";
       state.washCycles = 6;

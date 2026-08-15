@@ -185,6 +185,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .horizon-header h3 { margin: 9px 0 4px; font-size: 23px; letter-spacing: -.035em; }
 .horizon-header p { max-width: 680px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .horizon-header a { flex: 0 0 auto; text-decoration: none; font-size: 11px; }
+.horizon-header-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; }
+.horizon-view-toggle { display: flex; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.horizon-view-toggle button { min-width: 41px; min-height: 40px; padding: 6px 9px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font-size: 10px; font-weight: 900; }
+.horizon-view-toggle button:first-child { border-left: 0; }
+.horizon-view-toggle button.active { color: #fff; background: var(--blue-strong); box-shadow: inset 0 -3px 0 color-mix(in srgb, #fff 36%, transparent); }
+.horizon-focus-toggle { min-height: 40px; font-size: 10px; font-weight: 850; }
+.horizon-focus-toggle.active { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--panel)); }
+body.horizon-focus-open { overflow: hidden; }
+.horizon-explorer.focused { position: fixed; inset: 10px; z-index: 90; max-height: calc(100vh - 20px); overflow: auto; margin: 0; border-color: color-mix(in srgb, var(--blue) 58%, var(--line)); background: radial-gradient(780px 430px at 75% 4%, color-mix(in srgb, var(--green) 12%, transparent), transparent 62%), var(--bg); box-shadow: 0 34px 100px rgba(0,0,0,.58); }
+.horizon-explorer.focused .horizon-terrain-canvas { height: min(49vh, 500px); }
+.horizon-focus-metrics { display: none; }
+.horizon-explorer.focused .horizon-focus-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; margin-top: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
+.horizon-focus-metrics > div { min-width: 0; padding: 10px 11px; background: var(--panel-2); }
+.horizon-focus-metrics span, .horizon-focus-metrics b { display: block; }
+.horizon-focus-metrics span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.horizon-focus-metrics b { margin-top: 4px; font-size: 12px; white-space: nowrap; }
 .horizon-command-bar { display: grid; grid-template-columns: minmax(220px, .9fr) minmax(255px, 1fr) minmax(220px, .9fr); gap: 1px; margin-top: 17px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--line); }
 .horizon-command-bar > div { min-width: 0; padding: 13px 14px; background: color-mix(in srgb, var(--panel-2) 92%, transparent); }
 .horizon-command-bar span, .horizon-command-bar b, .horizon-command-bar small { display: block; }
@@ -201,6 +217,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .horizon-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 280px); gap: 14px; margin-top: 14px; align-items: stretch; }
 .horizon-chart { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: radial-gradient(circle at 76% 18%, rgba(71,214,160,.12), transparent 28%), color-mix(in srgb, var(--panel-2) 86%, transparent); }
 .horizon-chart svg { width: 100%; min-height: 324px; display: block; }
+.horizon-terrain-canvas { display: block; width: 100%; height: 420px; cursor: crosshair; touch-action: none; }
 .horizon-area { fill: rgba(71,214,160,.14); }
 .horizon-line { fill: none; stroke: var(--green); stroke-width: 4; vector-effect: non-scaling-stroke; filter: drop-shadow(0 3px 5px rgba(71,214,160,.16)); }
 .horizon-pss-line { fill: none; stroke: var(--violet); stroke-width: 3; vector-effect: non-scaling-stroke; }
@@ -213,6 +230,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .horizon-legend { display: flex; flex-wrap: wrap; gap: 9px 15px; margin: 9px 4px 0; color: var(--muted); font-size: 9px; }
 .horizon-legend span { display: flex; align-items: center; gap: 6px; }
 .horizon-legend i { width: 17px; height: 3px; border-radius: 4px; background: var(--green); }
+.horizon-legend i.scenario { height: 7px; background: color-mix(in srgb, var(--blue) 38%, transparent); }
 .horizon-legend i.draw { background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 10px); }
 .horizon-legend i.floor { background: var(--violet); }
 .horizon-whatif { display: flex; flex-direction: column; padding: 16px; border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line)); border-radius: 15px; background: linear-gradient(155deg, color-mix(in srgb, var(--blue) 11%, var(--panel)), var(--panel-2)); }
@@ -700,11 +718,16 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .hero-actions > * { width: 100%; text-align: center; }
   .horizon-explorer { padding: 16px; }
   .horizon-header { flex-direction: column; }
-  .horizon-header a { width: 100%; }
+  .horizon-header-actions { width: 100%; }
+  .horizon-header a { flex: 1; }
   .horizon-command-bar { grid-template-columns: 1fr; }
   .horizon-method { grid-column: auto; }
-  .horizon-chart { overflow-x: auto; }
+  .horizon-chart { overflow: hidden; }
   .horizon-chart svg { min-width: 720px; }
+  .horizon-terrain-canvas { height: 365px; }
+  .horizon-explorer.focused { inset: 4px; max-height: calc(100vh - 8px); }
+  .horizon-explorer.focused .horizon-terrain-canvas { height: 390px; }
+  .horizon-explorer.focused .horizon-focus-metrics { grid-template-columns: 1fr 1fr; }
   .horizon-controls { grid-template-columns: 1fr; margin-inline: 0; }
   .horizon-milestones { justify-content: flex-start; }
   .horizon-bottom-grid, .horizon-outcomes { grid-template-columns: 1fr; }

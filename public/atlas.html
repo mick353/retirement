@@ -7,7 +7,7 @@
   <meta name="description" content="Interactive Robinson Retirement strategy atlas: income floor, capital trajectory, spending-estate frontier, tax controls and governed scenario handoff.">
   <title>Retirement Atlas — Robinson Retirement</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./atlas.css?v=8">
+  <link rel="stylesheet" href="./atlas.css?v=17">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to analysis</a>
@@ -171,33 +171,90 @@
       <div class="section-heading">
         <div class="eyebrow">03 · Capital trajectory</div>
         <h2>Spending is visible in the capital path—not hidden behind a terminal number.</h2>
-        <p>Start with the capital landscape to move through the active plan year by year. The return-comparison lines then hold spending constant and change only the real return.</p>
+        <p>Open the visual studio to move through the active plan year by year, switch illustrations without changing the ledger, and keep the real return used visible throughout. The return-comparison chart below then holds spending constant and changes only the real return.</p>
       </div>
-      <div class="panel landscape-panel" aria-labelledby="landscape-title">
-        <div class="panel-head landscape-head"><div><span class="eyebrow">Capital landscape</span><h3 id="landscape-title">Bring each retirement year into focus.</h3><p id="landscapeSummary">Pool A and Pool C are layered from the active annual ledger. This is a capital-composition view, so income stays out of the vertical scale.</p></div><button type="button" class="secondary time-machine-toggle" id="timeMachineToggle" aria-pressed="false">Enter Time Machine</button></div>
-        <div class="capital-landscape" id="capitalLandscape">
-          <div class="landscape-stage">
-            <div class="chart-wrap landscape-chart"><canvas id="capitalLandscapeChart" aria-label="Interactive Pool A and Pool C capital landscape" role="img"></canvas></div>
-            <canvas id="timeMachineCanvas" class="time-machine-canvas" aria-label="Interactive three-dimensional capital Time Machine view" role="img"></canvas>
-            <div class="landscape-stage-label" aria-live="polite"><span id="landscapeMoment">Age 75</span><b id="landscapeStageValue">$0</b><small id="landscapeStageCopy">Total investment capital</small></div>
+      <div class="panel visual-studio" aria-labelledby="visual-studio-title">
+        <div class="visual-studio-head">
+          <div>
+            <span class="eyebrow">Interactive visual studio</span>
+            <h3 id="visual-studio-title">One governed ledger. Six ways to understand it.</h3>
+            <p id="visualSummary">The Horizon, Financial River and Legacy Orbit are synchronized lenses over the same annual Rail B ledger—not separate calculations.</p>
           </div>
-          <div class="landscape-inspector" aria-live="polite">
-            <div class="landscape-copy"><span>Selected moment</span><b id="landscapeTitle">Age 75</b><small id="landscapeNarrative">Select an age to inspect its investment mix and planned draw.</small></div>
-            <div><span>Pool A</span><b id="landscapePoolA">$0</b><small id="landscapePoolAShare">0% of investments</small></div>
-            <div><span>Pool C reserve</span><b id="landscapePoolC">$0</b><small id="landscapePoolCShare">0% of investments</small></div>
-            <div><span>Planning draw</span><b id="landscapeDraw">$0</b><small id="landscapeDrawDetail">Annual portfolio draw</small></div>
-            <div><span>Active real return</span><b id="landscapeReturn">5.0%</b><small id="landscapeReturnDetail">After inflation · live scenario</small></div>
+          <div class="visual-live-basis" aria-label="Visualisation calculation basis">
+            <span><small>Rail</small><b id="visualRail">B</b></span>
+            <span><small>Net spending</small><b id="visualSpend">$110,000 p.a.</b></span>
+            <span><small>Real return used</small><b id="visualReturn">5.0% p.a.</b></span>
+            <span><small>Target age</small><b id="visualTarget">75</b></span>
           </div>
-          <label class="landscape-age-control" for="landscapeAgeRange"><span>Travel by age</span><input id="landscapeAgeRange" type="range" min="60" max="95" step="1" value="75" aria-label="Select capital landscape age"><output id="landscapeAgeOut">75</output></label>
-          <div class="landscape-milestones" id="landscapeMilestones" role="group" aria-label="Capital landscape milestones">
-            <button type="button" data-landscape-age="60">Age 60<span>Opening capital</span></button>
-            <button type="button" data-landscape-age="61">Age 61<span>First planning year</span></button>
-            <button type="button" data-landscape-age="75" class="active">Age 75<span>Primary wealth test</span></button>
-            <button type="button" data-landscape-age="85">Age 85<span>Long-range estate</span></button>
-            <button type="button" data-landscape-age="95">Age 95<span>Longevity guardrail</span></button>
-          </div>
-          <p class="landscape-note" id="timeMachineNote">Landscape mode shows the full path. Activate Time Machine for a depth view with a selected-age plane and clickable points.</p>
         </div>
+
+        <div class="visual-toolbar">
+          <div class="visual-mode-tabs" id="visualModeTabs" role="tablist" aria-label="Choose capital visualisation">
+            <button type="button" role="tab" aria-selected="true" class="active" data-visual-mode="horizon"><b>Horizon</b><small>3D return paths</small></button>
+            <button type="button" role="tab" aria-selected="false" data-visual-mode="river"><b>Financial River</b><small>Income and capital flow</small></button>
+            <button type="button" role="tab" aria-selected="false" data-visual-mode="orbit"><b>Legacy Orbit</b><small>Spatial estate map</small></button>
+            <button type="button" role="tab" aria-selected="false" data-visual-mode="waterfall"><b>Waterfall</b><small>Year reconciliation</small></button>
+            <button type="button" role="tab" aria-selected="false" data-visual-mode="sunburst"><b>Sunburst</b><small>Estate composition</small></button>
+            <button type="button" role="tab" aria-selected="false" data-visual-mode="table"><b>Table</b><small>Exact annual ledger</small></button>
+          </div>
+          <div class="visual-tools" aria-label="Visualisation controls">
+            <button type="button" class="secondary" id="visualFocusToggle" aria-pressed="false">Focus view</button>
+            <button type="button" class="secondary active" id="visualDimensionToggle" aria-pressed="true">Perspective</button>
+            <button type="button" class="secondary" id="visualCompareRail" aria-pressed="false">Compare Rail A</button>
+            <button type="button" class="secondary" id="visualPlay" aria-pressed="false">Play retirement</button>
+          </div>
+        </div>
+
+        <div class="visual-workspace" id="visualWorkspace" data-mode="horizon">
+          <div class="visual-stage" id="visualStage">
+            <canvas id="visualCanvas" tabindex="0" role="slider" aria-label="Interactive retirement visualisation" aria-valuemin="60" aria-valuemax="95" aria-valuenow="75"></canvas>
+            <div class="visual-stage-badge"><span id="visualStageMode">RETIREMENT HORIZON</span><b id="visualStageAge">AGE 75</b><small id="visualStageHint">Drag across the chart or use the age controls</small></div>
+            <div class="visual-hover" id="visualHover" hidden></div>
+          </div>
+
+          <aside class="visual-inspector" aria-live="polite">
+            <div class="visual-inspector-head"><span id="visualInspectorKicker">Selected cross-section</span><b id="visualInspectorAge">Age 75</b><small id="visualInspectorYear">End of planning year 15</small></div>
+            <div class="visual-inspector-primary"><span>Investments, real</span><b id="visualInspectorCapital">$0</b><small id="visualInspectorCapitalChange">Same active annual ledger</small></div>
+            <dl>
+              <div><dt>Gross estate</dt><dd id="visualInspectorEstate">$0</dd></div>
+              <div><dt>Pool A</dt><dd id="visualInspectorPoolA">$0</dd></div>
+              <div><dt>Pool C</dt><dd id="visualInspectorPoolC">$0</dd></div>
+              <div><dt>Indexed PSS floor</dt><dd id="visualInspectorPension">$0 p.a.</dd></div>
+              <div><dt>Portfolio draw</dt><dd id="visualInspectorDraw">$0 p.a.</dd></div>
+              <div><dt>Reinvested surplus</dt><dd id="visualInspectorReinvestment">$0 p.a.</dd></div>
+              <div><dt>External tax drag</dt><dd id="visualInspectorDrag">$0 p.a.</dd></div>
+              <div><dt>Gross salary equivalent</dt><dd id="visualInspectorGross">$0 p.a.</dd></div>
+              <div><dt>PSS coverage</dt><dd id="visualInspectorCoverage">0%</dd></div>
+            </dl>
+            <div class="visual-composition" aria-label="Selected estate composition">
+              <span style="--share: 33%"><i class="pool-a"></i><small>Pool A</small><b id="visualShareA">0%</b></span>
+              <span style="--share: 33%"><i class="pool-c"></i><small>Pool C</small><b id="visualShareC">0%</b></span>
+              <span style="--share: 33%"><i class="home"></i><small>Home</small><b id="visualShareHome">0%</b></span>
+            </div>
+            <a class="primary visual-v23-link" id="visualV23Link" href="./deep-model.html">Open active scenario in V23</a>
+          </aside>
+        </div>
+
+        <div class="visual-table-wrap" id="visualTableWrap" hidden>
+          <table aria-label="Exact annual capital ledger">
+            <thead><tr><th>Age</th><th>Opening A</th><th>Opening C</th><th>PSS</th><th>Mandatory</th><th>Draw</th><th>Reinvested</th><th>External drag</th><th>Pool A</th><th>Pool C</th><th>Investments</th><th>Estate</th></tr></thead>
+            <tbody id="visualTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="visual-age-dock">
+          <button type="button" class="visual-play-mobile" id="visualPlayMobile" aria-label="Play retirement years">Play</button>
+          <label for="visualAgeRange"><span>Travel through retirement</span><input id="visualAgeRange" type="range" min="60" max="95" step="1" value="75" aria-label="Select visualisation age"><output id="visualAgeOut">75</output></label>
+          <div class="visual-milestones" id="visualMilestones" role="group" aria-label="Retirement milestones">
+            <button type="button" data-visual-age="60">60<small>Start</small></button>
+            <button type="button" data-visual-age="67">67<small>Pension age</small></button>
+            <button type="button" data-visual-age="70">70<small>Review</small></button>
+            <button type="button" data-visual-age="75" class="active">75<small>Target</small></button>
+            <button type="button" data-visual-age="85">85<small>Longevity</small></button>
+            <button type="button" data-visual-age="95">95<small>Guardrail</small></button>
+          </div>
+        </div>
+        <p class="visual-disclosure" id="visualDisclosure">Horizon compares deterministic real-return paths around the active 5.0% rate. These are scenario slices, not probabilities. The illuminated path and every readout use the active annual ledger.</p>
       </div>
       <div class="panel chart-panel">
         <div class="panel-head"><div><h3>Return comparison across the same active plan</h3><p>Age 60 is opening capital on 21 December 2033. The age-61 point is the end of Year 1 and includes the full age 60→61 PSSDB income, draw, spending and investment growth. Click a point to inspect that year.</p></div><span class="badge modelled">Annual real-dollar engine</span></div>
@@ -345,12 +402,12 @@
   </main>
 
   <footer>
-    <span>Robinson Retirement Atlas · integrated release 2026-08-14</span>
+    <span>Robinson Retirement Atlas · integrated release 2026-08-15</span>
     <span>Decision-support model only · current law assumed · verify before implementation</span>
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./vendor/chart.umd.js"></script>
-  <script src="./atlas.js?v=11"></script>
+  <script src="./atlas.js?v=17"></script>
 </body>
 </html>
