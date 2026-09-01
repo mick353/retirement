@@ -18,7 +18,7 @@
   - `qa-artifacts/compare-orbit.png`
 - Desktop comparison viewport: 1440 × 1024 CSS pixels, device scale factor 1.
 - The concept and implementation panels were normalized to equal 720 × 512 regions without distortion. Browser chrome was treated as non-product framing.
-- State checked: Rail B, $110,000 flat real spending, 7.0% real return, target age 75, $500,000 real home, 2026–27 tax basis and 12-month reserve policy.
+- State checked: Rail B 60/40 election, $110,000 flat real spending, 7.0% real return, target age 75, $500,000 real home, 2026–27 tax basis and 12-month reserve policy.
 - Mobile regression viewport: 390 × 844 CSS pixels.
 
 ## Full-view comparison
@@ -57,11 +57,13 @@
 ## Functional QA
 
 - All six synchronized modes switch successfully: Horizon, Financial River, Legacy Orbit, Waterfall, Sunburst and Table.
-- Every mode retained the same age-75 investment capital ($1,676,639) at the 7.0% Rail B scenario; Table alone swaps the canvas for the exact annual ledger.
+- Every mode uses one governed annual ledger. Under the 1 September Rail B 60/40 release, the 7.0% / $110,000 scenario produces $2,083,135 investment capital at age 75; Table alone swaps the canvas for the exact ledger.
 - Perspective, alternate-rail comparison, play/pause and focus controls update and restore correctly.
 - Playback advanced the selected age from 75 to 78 and paused without changing scenario assumptions.
 - Command Centre 2D/3D switching works; keyboard ArrowRight moved age 75 to 76 and the milestone restored age 75.
-- Changing the URL return from 7.0% to 7.5% updated both public surfaces. Command Centre and Atlas both reported age-75 investments of $1,825,830; Atlas displayed 7.5% in the metric, active visual basis and ledger inspector.
+- Changing the URL return from 7.0% to 7.5% updates both public surfaces. Under the September 60/40 source, the reconciled age-75 result is $2,253,745; Atlas displays 7.5% in the metric, active visual basis and ledger inspector.
+- Election regression covers 60/40, 65/35, 70/30 and 100% across Command Centre, Atlas and V23. The 100% case was checked at $90k, $100k, $110k and $130k spending: voluntary portfolio draw remains $0 and the exact PSS surplus routes to Pool C.
+- Wash regression verifies direct PSS components and source-limited maxima of 6, 5, 4 and 0 cycles for the four Rail B elections, plus 5 for Rail A.
 - At 390 × 844, Atlas has no page-level horizontal overflow. The six mode buttons scroll inside their own toolbar, while the focused canvas remains within the viewport.
 - TypeScript, governed-model invariants, visual DOM bindings and the production build all pass.
 

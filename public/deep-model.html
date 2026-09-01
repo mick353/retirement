@@ -238,6 +238,13 @@ body.print-pack section.page.print-pack-include{display:flex}
   background:var(--acc);color:#03080f;border-color:var(--acc);font-weight:700;
   box-shadow:0 0 16px rgba(77,131,255,.35);
 }
+.pss-election-studio{display:grid;gap:9px;margin-top:14px;padding:12px 14px;border:1px solid rgba(47,212,146,.34);border-radius:12px;background:linear-gradient(135deg,rgba(47,212,146,.08),rgba(77,131,255,.07))}
+.pss-election-studio>div:first-child{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.pss-election-studio>div:first-child strong{color:var(--text);font-size:12px}
+.pss-election-options{display:flex;gap:7px;flex-wrap:wrap}
+.pss-election-options .pill{padding:7px 13px;background:var(--chip);color:var(--muted);border:1px solid var(--border);border-radius:999px;cursor:pointer;font:700 11px/1 inherit}
+.pss-election-options .pill.active{color:#03120b;background:var(--acc2);border-color:var(--acc2);box-shadow:0 0 16px rgba(47,212,146,.2)}
+#pss-election-summary{line-height:1.5}
 .custom-form{display:none;margin-top:14px;background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:14px}
 .custom-form.show{display:block}
 .custom-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
@@ -874,7 +881,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.1 · integrated 14 Aug 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.2 · PSS election release · 1 Sep 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -954,6 +961,19 @@ main{min-width:0;}
         <span class="pill active" data-profile="michael">Michael (default)</span>
         <span class="pill" data-profile="custom">Custom</span>
         <span class="muted smaller" id="profile-summary"></span>
+      </div>
+      <div class="pss-election-studio" aria-labelledby="pss-election-title">
+        <div>
+          <strong id="pss-election-title">Rail B PSS pension / lump-sum election</strong>
+          <span class="muted smaller">Source-backed 1 Sep 2026 estimates. Choose an election to load its pension, lump sum, TBC allocation, component split and wash limit everywhere in V23.</span>
+        </div>
+        <div class="pss-election-options" role="group" aria-label="Rail B PSS election">
+          <button class="pill" type="button" data-pss-election="60-40">60 / 40</button>
+          <button class="pill" type="button" data-pss-election="65-35">65 / 35</button>
+          <button class="pill" type="button" data-pss-election="70-30">70 / 30</button>
+          <button class="pill" type="button" data-pss-election="100">100% pension</button>
+        </div>
+        <div class="muted smaller" id="pss-election-summary"></div>
       </div>
       <div class="custom-form" id="customForm">
         <div class="custom-grid">
@@ -1214,7 +1234,7 @@ main{min-width:0;}
     <section class="page" id="page-reinvest">
       <div class="panel">
         <h2>Surplus recycled (likely path)</h2>
-        <div class="muted smaller">Opening balances follow the active profile. Rail A reproduces the governed V5.0 opening; a shared Rail B scenario uses the newer July source opening. The $5k TBC buffer, NCC-wash controls and Pool C routing remain explicit.</div>
+        <div class="muted smaller">Opening balances follow the active profile. Rail A preserves the March/V5 control; Rail B uses the selected 1 September iEstimator. The TBC position, source-limited NCC wash and Pool C routing remain explicit.</div>
         <div class="chart-wrap"><canvas id="ri_chart"></canvas></div>
       </div>
       <div class="panel"><h2>Reinvestment table</h2><table id="ri_tbl"></table></div>
@@ -1250,7 +1270,7 @@ main{min-width:0;}
             <div class="slider-block"><div class="lab"><span>Annual wash amount</span><span class="val" id="lbl-washamt"></span></div>
               <input type="range" id="sl_washamt" min="0" max="200000" step="5000" value="130000"></div>
             <div class="slider-block"><div class="lab"><span>Maximum washes</span><span class="val" id="lbl-washmax"></span></div>
-              <input type="range" id="sl_washmax" min="0" max="7" step="1" value="7"></div>
+              <input type="range" id="sl_washmax" min="0" max="7" step="1" value="6"></div>
           </div>
           <div>
             <div class="slider-block"><div class="lab"><span>Stop when remaining DBT ≤</span><span class="val" id="lbl-washtgt"></span></div>
@@ -1280,7 +1300,7 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-estate">
-      <div class="note good"><b>The NCC wash is modelled here.</b> The active engine uses the master-locked 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed convention on both rails. The worst-case cards still assume 100% taxable and no wash as a deliberate stress ceiling.</div>
+      <div class="note good"><b>The NCC wash is modelled from the active PSS source.</b> Rail A uses its March 2026 component split; every Rail B election uses its own 1 Sep 2026 iEstimator split and original PSS lump as the maximum washable source. Hostplus components remain unresolved and are not silently assigned the PSS ratio. The 100% pension election has no lump and therefore no PSS wash. Worst-case cards still use 100% taxable and no wash as a deliberate stress ceiling.</div>
       <div class="note good"><b>How to read this page.</b> The green line is the active wash-only model; the dashed amber line is a deliberately severe tax ceiling. This is a scenario band, not a probability interval or forecast. The single-number cards marked “max tax” are stress tests.</div>
       <div class="cards" id="estate_cards"></div>
       <div class="grid-2">
@@ -1301,7 +1321,7 @@ main{min-width:0;}
         <div class="muted smaller" style="margin-bottom:10px">Four structural factors can move actual tax materially away from the severe ceiling. The green line remains modelled and depends on annual component refreshes.</div>
         <div class="decision-grid">
           <div class="decision-card"><div class="k">1 · Spouse / dependant exemption</div><div class="v">DBT can be $0</div><div class="s">Super paid to a spouse or other tax dependant attracts <b>no</b> death benefits tax at all, regardless of the taxable component. The 17% only applies to adult non-dependants (e.g. independent children).</div></div>
-          <div class="decision-card"><div class="k">2 · Tax-free super component</div><div class="v">Only part is taxed</div><div class="s">The PSS lump sum and Hostplus carry tax-free components. The worst-case cards assume 100% taxable; the wash model uses the master-locked 70.97% taxable-taxed convention on both rails.</div></div>
+          <div class="decision-card"><div class="k">2 · Tax-free super component</div><div class="v">Source-specific</div><div class="s">Each PSS election uses the exact component split in its own iEstimator. Hostplus components remain unresolved and are not assigned the PSS ratio. The worst-case cards still assume 100% taxable.</div></div>
           <div class="decision-card"><div class="k">3 · CGT is on the gain, not the balance</div><div class="v">Far less than 23.5%</div><div class="s">Pool C CGT applies only to <i>unrealised gains</i>, not the whole balance. On death, assets transfer at your cost base — no CGT event is triggered then; beneficiaries inherit the cost base and pay only when they sell, at their own rate and discount.</div></div>
           <div class="decision-card"><div class="k">4 · Late-life restructuring</div><div class="v">Withdraw tax-free</div><div class="s">Over 60 you can withdraw from super tax-free while alive, converting it to personal cash that escapes DBT entirely. A re-contribution or simple drawdown strategy in late life can sharply reduce the super DBT exposure shown here.</div></div>
         </div>
@@ -1618,8 +1638,36 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.1";
+const APP_VERSION = "v23.2";
 const TBC_AT_RETIREMENT = 2_100_000;
+const TBC_PLANNING_BUFFER = 5_000;
+const HOSTPLUS_AT_60 = 317_447.66;
+const PSS_ELECTIONS = Object.freeze({
+  "60-40":{key:"60-40",label:"60 / 40",pensionPct:60,lumpPct:40,grossPension:91_776.03,netPension:86_240.18,lumpSum:673_024.21,lumpTaxFree:160_278.23,lumpTaxableTaxed:512_745.98,lumpUntaxed:0,source:"i-Estimator-1-9-2026_60-40.pdf"},
+  "65-35":{key:"65-35",label:"65 / 35",pensionPct:65,lumpPct:35,grossPension:99_424.03,netPension:93_888.34,lumpSum:588_896.19,lumpTaxFree:140_243.46,lumpTaxableTaxed:448_652.73,lumpUntaxed:0,source:"i-Estimator-1-9-2026_65-35.pdf"},
+  "70-30":{key:"70-30",label:"70 / 30",pensionPct:70,lumpPct:30,grossPension:107_072.03,netPension:101_536.24,lumpSum:504_768.16,lumpTaxFree:120_208.67,lumpTaxableTaxed:384_559.49,lumpUntaxed:0,source:"i-Estimator-1-9-2026_70-30.pdf"},
+  "100":{key:"100",label:"100% pension",pensionPct:100,lumpPct:0,grossPension:152_960.05,netPension:143_104.26,lumpSum:0,lumpTaxFree:0,lumpTaxableTaxed:0,lumpUntaxed:0,source:"i-Estimator-1-9-2026_100percent.pdf"}
+});
+function railBProfileForElection(key="60-40"){
+  const e=PSS_ELECTIONS[key]||PSS_ELECTIONS["60-40"];
+  const dbSpecialValue=e.grossPension*16;
+  const tbcHeadroom=Math.max(0,TBC_AT_RETIREMENT-dbSpecialValue-TBC_PLANNING_BUFFER);
+  const poolA=Math.min(e.lumpSum+HOSTPLUS_AT_60,tbcHeadroom);
+  const poolC=Math.max(0,e.lumpSum+HOSTPLUS_AT_60-poolA);
+  const taxableShare=e.lumpSum>0?e.lumpTaxableTaxed/e.lumpSum:0;
+  const washMax=e.lumpSum>0?Math.ceil(e.lumpSum/130_000):0;
+  return{
+    name:`Rail B · ${e.label}`,pssElection:e.key,retireAge:60,
+    grossPension:e.grossPension,netPension:e.netPension,lumpSum:e.lumpSum,hostplus:HOSTPLUS_AT_60,tbc:TBC_AT_RETIREMENT,
+    floor:500,target:1000,strong:1500,defaultGap:Math.max(0,110_000-e.netPension),
+    defaultGapBands:[{age:60,amount:Math.max(0,110_000-e.netPension),unit:"dollar"}],
+    poolA_day1:poolA,poolB_day1:0,poolC_day1:poolC,tsbBuffer:TBC_PLANNING_BUFFER,
+    dbSpecialValue,lumpTaxFree:e.lumpTaxFree,lumpTaxableTaxed:e.lumpTaxableTaxed,lumpUntaxed:e.lumpUntaxed,
+    washSourceGross:e.lumpSum,washTaxableShare:taxableShare,washMax,
+    washEvidence:`${e.source}: PSS lump components are ${fmtFull(e.lumpTaxFree)} tax-free, ${fmtFull(e.lumpTaxableTaxed)} taxable-taxed and ${fmtFull(e.lumpUntaxed)} untaxed. Hostplus components remain unresolved and are not assigned the PSS component ratio.`,
+    tbcHeadroom,tbcExcess:Math.max(0,dbSpecialValue-TBC_AT_RETIREMENT),washAge:61,washCapThrough:74,locked:false
+  };
+}
 
 const PROFILES = {
   michael: {
@@ -1631,8 +1679,8 @@ const PROFILES = {
     defaultGap:24000,
     defaultGapBands:[{age:60, amount:24000, unit:"dollar"}],
     poolA_day1:840887, poolB_day1:0, poolC_day1:51362, tsbBuffer:5000,
-    dbSpecialValue:1254112.64, washTaxableShare:0.709677,
-    washEvidence:"Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
+    dbSpecialValue:1254112.64,lumpTaxFree:141581.47,lumpTaxableTaxed:433220.20,lumpUntaxed:0,washSourceGross:574801.67,washTaxableShare:433220.20/574801.67,washMax:5,
+    washEvidence:"March 2026 Rail A iEstimator: PSS lump components are $141,581.47 tax-free, $433,220.20 taxable-taxed and $0 untaxed. Hostplus components remain unresolved and are not assigned the PSS component ratio.",
     washAge:61, washCapThrough:74,
     locked:true
   },
@@ -1645,8 +1693,8 @@ const PROFILES = {
     defaultGap:24000,
     defaultGapBands:[{age:60, amount:24000, unit:"dollar"}],
     poolA_day1:840887, poolB_day1:0, poolC_day1:51362, tsbBuffer:5000,
-    dbSpecialValue:1254112.64, washTaxableShare:0.709677,
-    washEvidence:"Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
+    dbSpecialValue:1254112.64,lumpTaxFree:141581.47,lumpTaxableTaxed:433220.20,lumpUntaxed:0,washSourceGross:574801.67,washTaxableShare:433220.20/574801.67,washMax:5,
+    washEvidence:"March 2026 Rail A iEstimator: PSS lump components are $141,581.47 tax-free, $433,220.20 taxable-taxed and $0 untaxed. Hostplus components remain unresolved and are not assigned the PSS component ratio.",
     washAge:61, washCapThrough:74,
     locked:false
   }
@@ -1661,7 +1709,9 @@ const SCENARIOS = {
 
 const STATE = {
   profile:"michael",
-  wash:{enabled:true,startAge:61,annual:130000,maxWashes:7,cutoffAge:75,targetDBT:10000,method:"separate",schedule:{},tsbBuffer:5000},
+  pssElection:"60-40",
+  totalSpendTarget:null,
+  wash:{enabled:true,startAge:61,annual:130000,maxWashes:6,cutoffAge:75,targetDBT:10000,method:"separate",schedule:{},tsbBuffer:5000},
   targetAge:75,
   gapBands:[{age:60, amount:24000, unit:"dollar"}],
   gapGrowth:0,
@@ -1788,6 +1838,9 @@ function lifestylePhaseDefinitions(sim,p){
   const operating=sim.rows.filter(r=>!r.launchSnapshot);
   if(!operating.length)return[];
   const firstOperatingAge=operating[0].age,lastOperatingAge=operating[operating.length-1].age;
+  if(STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined){
+    return[{start:firstOperatingAge,end:lastOperatingAge,label:`Imported total-spend phase (age ${p.retireAge}–${lastOperatingAge})`,input:`${fmtFull(STATE.totalSpendTarget)} total net spending p.a.; V23 derives either the portfolio gap or the PSS surplus`}];
+  }
   if(STATE.spendMode!=="fixed"){
     const rule=STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of mandatory draw`:`${fmtPctClean(STATE.spendReturnPct,0)} of investment earnings`;
     return[{start:firstOperatingAge,end:lastOperatingAge,label:`Spend override (age ${p.retireAge}–${lastOperatingAge})`,input:rule}];
@@ -1801,12 +1854,13 @@ function lifestylePhaseDefinitions(sim,p){
 }
 function cashflowRoutine(row){
   if((row.spendingShortfall||0)>0.005)return"shortfall";
+  if((row.pensionSurplus||0)>0.005)return"psssurplus";
   if((row.extraDraw||0)>0.005)return"extra";
   if((row.surplus||0)>0.005)return"surplus";
   return"matched";
 }
 function cashflowRoutineLabel(routine){
-  return routine==="shortfall"?"Target gap not fully funded":routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
+  return routine==="shortfall"?"Target spend not fully funded":routine==="psssurplus"?"PSS surplus → Pool C":routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
 }
 function splitPhaseByCashflow(phase,sim){
   const sourceRows=sim.rows.filter(row=>!row.launchSnapshot&&row.age>=phase.start&&row.age<=phase.end);
@@ -1901,12 +1955,28 @@ function mandRate(age){
 }
 function getProfile(){return PROFILES[STATE.profile];}
 function isRailBProfile(p=getProfile()){return String(p?.name||"").startsWith("Rail B");}
-function openingSourceLabel(p=getProfile()){return isRailBProfile(p)?"Rail B · July 2026 shared source":"Rail A · V5.0 governed baseline";}
+function openingSourceLabel(p=getProfile()){return isRailBProfile(p)?`Rail B · ${PSS_ELECTIONS[p.pssElection]?.label||"selected election"} · 1 Sep 2026 source`:"Rail A · March 2026 iEstimator / V5.0 control";}
 function openingPoolNote(p=getProfile()){
   const pc=fmt$(p.poolC_day1??0);
   return isRailBProfile(p)
-    ? `Rail B shared opening from the newer July source: Pool B $0; Pool C ${pc}; $5k TBC buffer retained.`
+    ? `Rail B ${PSS_ELECTIONS[p.pssElection]?.label||"selected"} opening from the 1 Sep 2026 source: Pool B $0; Pool C ${pc}; $5k TBC planning buffer retained where capacity exists.`
     : `Rail A V5.0 opening: Pool B fully commuted; Pool C ${pc}; $5k TBC buffer retained.`;
+}
+function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000}={}){
+  const e=PSS_ELECTIONS[key]||PSS_ELECTIONS["60-40"];
+  PROFILES.custom=railBProfileForElection(e.key);
+  STATE.profile="custom";
+  STATE.pssElection=e.key;
+  STATE.totalSpendTarget=spendTarget===null?null:(Number.isFinite(Number(spendTarget))?Math.max(0,Number(spendTarget)):null);
+  const gap=Math.max(0,(STATE.totalSpendTarget??110_000)-PROFILES.custom.netPension);
+  PROFILES.custom.defaultGap=gap;
+  PROFILES.custom.defaultGapBands=[{age:60,amount:gap,unit:"dollar"}];
+  STATE.gapBands=[{age:60,amount:gap,unit:"dollar"}];
+  STATE.spendMode="fixed";
+  STATE.wash.enabled=e.lumpSum>0;
+  STATE.wash.maxWashes=PROFILES.custom.washMax;
+  STATE.wash.schedule={};
+  return PROFILES.custom;
 }
 function tIdx(){return STATE.targetAge-getProfile().retireAge;}
 
@@ -1955,6 +2025,7 @@ function runModel(opts){
   const poolCDrag=opts.poolCDrag??STATE.poolCDrag;
   const spendMode=opts.spendMode??STATE.spendMode;
   const spendReturnPct=opts.spendReturnPct??STATE.spendReturnPct;
+  const totalSpendTarget=opts.totalSpendTarget!==undefined?opts.totalSpendTarget:STATE.totalSpendTarget;
   const oneOff=opts.oneOff??STATE.oneOff;
   const oneOffAge=opts.oneOffAge??startAge;
   const oneOffSpread=opts.oneOffSpread??1;
@@ -1969,9 +2040,9 @@ function runModel(opts){
     const w=withdrawFromPools(oneOff/oneOffSpread,abp,acc);abp=w.abp;acc=w.acc;launchOneOff=w.drawn;
   }
   rows.push({
-    age:startAge,gap:0,fundedGap:0,spendingShortfall:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,
+    age:startAge,targetSpend:0,gap:0,fundedGap:0,fundedTotalSpend:0,spendingShortfall:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,pensionToPoolC:0,
     extraDraw:0,oneOffDrawn:launchOneOff,abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,
-    pension:0,headroom,rA:0,rB:0,rC:0,launchSnapshot:true
+    pension:0,pensionSpent:0,pensionSurplus:0,headroom,rA:0,rB:0,rC:0,launchSnapshot:true
   });
   for(let age=startAge+1;age<=endAge;age++){
     const t=age-startAge-1;
@@ -1980,16 +2051,25 @@ function runModel(opts){
     const rC=Math.max(-1,(annualReturns?annualReturns[t]?.A??abpReturn:abpReturn)-poolCDrag);
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
     const investmentReturn=Math.max(0,preAbp*rA+preAcc*rB+prePoolC*rC);
-    const gap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age),spendMode,spendReturnPct});
+    const requestedGap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age),spendMode,spendReturnPct});
+    const targetSpend=totalSpendTarget===null||totalSpendTarget===undefined
+      ? p.netPension+requestedGap
+      : Math.max(0,Number(totalSpendTarget))*Math.pow(1+gapGrowth,t);
+    const pensionSpent=Math.min(p.netPension,targetSpend);
+    const pensionSurplus=Math.max(0,p.netPension-targetSpend);
+    const gap=Math.max(0,targetSpend-p.netPension);
     const mr=mandRate(age);const mandDraw=preAbp*mr;
     abp=preAbp*(1+rA)-mandDraw;acc*=(1+rB);poolC*=(1+rC);
     const realExit=Math.min(gap,mandDraw);
     let surplus=mandDraw-realExit;let toABP=0,toPoolC=0;
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;toABP=r.toABP;toPoolC=r.toPoolC;}
+    const pensionToPoolC=pensionSurplus;
+    if(pensionToPoolC>0){poolC+=pensionToPoolC;toPoolC+=pensionToPoolC;}
     let extraDraw=0;
     if(gap>mandDraw){const w=withdrawFromPools(gap-mandDraw,abp,acc);abp=w.abp;acc=w.acc;extraDraw=w.drawn;}
     const fundedGap=realExit+extraDraw;
-    const spendingShortfall=Math.max(0,gap-fundedGap);
+    const fundedTotalSpend=pensionSpent+fundedGap;
+    const spendingShortfall=Math.max(0,targetSpend-fundedTotalSpend);
     let oneOffDrawn=0;
     if(oneOff>0){const ageEnd=oneOffAge+oneOffSpread-1;if(age>=oneOffAge&&age<=ageEnd){const slice=oneOff/oneOffSpread;const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;oneOffDrawn=w.drawn;}}
     // NCC wash (V5.0 Integrated Optimiser): Pool A commutes $130k out → BANK (creates room).
@@ -2001,8 +2081,8 @@ function runModel(opts){
       if(abp>aCap){poolC+=abp-aCap;abp=aCap;}
     }
     rows.push({
-      age,gap,fundedGap,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,extraDraw,oneOffDrawn,
-      abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,pension:p.netPension,headroom,rA,rB,rC
+      age,targetSpend,gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,oneOffDrawn,
+      abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,pension:p.netPension,pensionSpent,pensionSurplus,headroom,rA,rB,rC
     });
   }
   return{rows,tbcAlloc};
@@ -2357,17 +2437,20 @@ function renderExecutive(){
   const likely_cap=likely.rows[idx].total;
   const tsb=tbcAlloc.sv+(p.poolA_day1??tbcAlloc.poolA)+(p.poolB_day1??tbcAlloc.poolB);
   const operatingRows=likely.rows.filter(r=>!r.launchSnapshot);
-  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit+r.extraDraw;});
+  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumD+=r.realExit+r.extraDraw;});
   const avgIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
   const floorStatus=targetStatus(conserv_cap,p);const baseStatus=targetStatus(base_cap,p);const likelyStatus=targetStatus(likely_cap,p);
-  const ncStatus=p.locked?{cls:"good",label:"Wash strategy",detail:`TSB ${Math.round((p.tbc-tsb)/1000)}k below TBC — NCC wash from age ${p.washAge??61}`}:(tsb>p.tbc?{cls:"good",label:"NCC blocked",detail:"TSB above TBC"}:{cls:"warn",label:"NCC possible",detail:"custom profile has headroom"});
+  const ncStatus=Number(p.washSourceGross??p.lumpSum??0)<=0
+    ? {cls:"warn",label:"No PSS wash",detail:"100% pension has no PSS lump source"}
+    : p.locked?{cls:"good",label:"Wash strategy",detail:`TSB ${Math.round((p.tbc-tsb)/1000)}k below TBC — source limit ${p.washMax??5} cycles`}
+    :(tsb>p.tbc?{cls:"warn",label:"NCC eligibility review",detail:"DB special value is above the TBC planning anchor"}:{cls:"good",label:"PSS wash modelled",detail:`source limit ${p.washMax??0} cycles; verify annual eligibility`});
   document.getElementById("exec_badges").innerHTML=[
     pillHtml(likelyStatus,`Active ${fmtPct(STATE.likely)}: `),pillHtml(floorStatus,"Reference 4%: "),pillHtml(baseStatus,"Reference 5%: "),pillHtml(ncStatus),
     `<span class="status-pill good">Today dollars<span class="muted"> · No nominal drift</span></span>`,
     `<span class="status-pill good">Target age ${ta}<span class="muted"> · Adjust via slider</span></span>`
   ].join("");
   document.getElementById("exec_cards").innerHTML=`
-    <div class="card accent"><div class="label">Presentation answer</div><div class="value">60/40 settled</div><div class="sub">PSS floor plus ABP/accum/ETF pools carry lifestyle and legacy targets.</div></div>
+    <div class="card accent"><div class="label">Presentation answer</div><div class="value">${isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"Rail B selected"):"Rail A control"}</div><div class="sub">Active source set; compare pension, capital, TBC, spending surplus/gap, wash and estate outcomes together.</div></div>
     <div class="card"><div class="label">TBC planning anchor</div><div class="value">${fmt$(p.tbc)}</div><div class="sub">TBC headroom $${tbcAlloc.poolA.toLocaleString()}; Day 1 Pool A $${(p.poolA_day1??tbcAlloc.poolA).toLocaleString()} after $5k XD.</div></div>
     <div class="card good"><div class="label">Active capital @${ta}</div><div class="value">${fmt$(likely_cap)}</div><div class="sub">${fmtPct(STATE.likely)} real [MODELLED] · ${likelyStatus.detail}.</div></div>
     <div class="card"><div class="label">Fixed comparison range @${ta}</div><div class="value">${fmt$(conserv_cap)} – ${fmt$(base_cap)}</div><div class="sub">Reference only: 4.0% conservative to 5.0% base. Active result is the green card.</div></div>
@@ -2391,7 +2474,7 @@ function renderExecutive(){
     return[r.name,fmt$(cap),fmt$(cap-p.floor*1000),fmt$(cap-p.target*1000),`<span class="audit-${st.cls==="good"?"ok":st.cls==="warn"?"watch":"lock"}">${st.label}</span>`];
   }),["Scenario",`Capital @${ta}`,"Floor margin","Target margin","Status"]);
   document.getElementById("exec_policy").innerHTML=[
-    ["Capital strategy","Keep 60/40","The revised model confirms the retirement split is not the weak point; disciplined Pool C routing is."],
+    ["PSS election",isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"Selected"):"Rail A control","Compare all four source-backed Rail B elections; Pool C routing, TBC use and the pension-versus-capital trade-off update together."],
     ["TBC mechanics","Use $2.1M anchor","Today's-dollar modelling means future indexation is not double-counted; update only if real policy changes."],
     ["Surplus rule","Externalise to Pool C","TSB held $5k below TBC (Day 1). NCC wash active from age 61 to clean DBT. Surplus Pool A draws continue to externalise into Pool C."],
     ["Spend rule",STATE.spendMode==="returnPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of positive annual investment earnings`:(STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of the mandatory ABP drawdown`:"Age bands ($ / % return / % draw)"),"Controls the annual lifestyle gap above the PSS pension."],
@@ -2413,7 +2496,7 @@ function renderOverview(){
     <div class="tier"><div class="lbl">Aspirational</div><div class="v">${fmt$(2000000)} @${ta}</div></div>
   `;
   const operatingRows=likely.rows.filter(r=>!r.launchSnapshot);
-  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit+r.extraDraw;});
+  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumD+=r.realExit+r.extraDraw;});
   const avgTotalIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
   document.getElementById("ovCards").innerHTML=`
     <div class="card accent"><div class="label">Combined capital @60</div><div class="value">${fmt$((p.poolA_day1??tbcAlloc.poolA)+(p.poolB_day1??tbcAlloc.poolB)+(p.poolC_day1??0))}</div><div class="sub">Pool A ${fmt$(p.poolA_day1??tbcAlloc.poolA)} · Pool B ${fmt$(p.poolB_day1??tbcAlloc.poolB)} · Pool C ${fmt$(p.poolC_day1??0)}</div></div>
@@ -2620,17 +2703,17 @@ function renderIncome(){
   const tc=getThemeColors();
   const operatingRows=sim.rows.filter(r=>!r.launchSnapshot);
   const operatingAges=operatingRows.map(r=>`${r.age-1}→${r.age}`);
-  let cumP=0,cumD=0,cumX=0;operatingRows.forEach(r=>{cumP+=r.pension;cumD+=r.realExit;cumX+=r.extraDraw;});
+  let cumP=0,cumPSurplus=0,cumD=0,cumX=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumPSurplus+=r.pensionSurplus||0;cumD+=r.realExit;cumX+=r.extraDraw;});
   const lifetimeTotal=cumP+cumD+cumX;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
-  const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pension||0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0);
+  const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pensionSpent??firstYear?.pension??0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0);
   document.getElementById("in_cards").innerHTML=`
     <div class="card accent"><div class="label">Avg total usable income</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
-    <div class="card"><div class="label">PSS net pension (CPI-flat)</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight</div></div>
-    <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS ${fmt$(cumP)} + Pool A ${fmt$(cumD)}${cumX>0?` + Pool A extra ${fmt$(cumX)}`:``}</div></div>
+    <div class="card"><div class="label">PSS net pension (CPI-flat)</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight${cumPSurplus>0?` · excess above spend is saved`:``}</div></div>
+    <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS consumed ${fmt$(cumP)} + Pool A ${fmt$(cumD)}${cumX>0?` + Pool A extra ${fmt$(cumX)}`:``}${cumPSurplus>0?` · PSS surplus ${fmt$(cumPSurplus)} → Pool C`:``}</div></div>
     <div class="card"><div class="label">Year 1 income (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">Includes PSSDB pension and investment draw · ${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
   makeChart("in_chart",{type:"bar",data:{labels:operatingAges,datasets:[
-    {label:"PSS net pension",data:operatingRows.map(r=>r.pension),backgroundColor:tc.pension,stack:"s"},
+    {label:"PSS pension consumed",data:operatingRows.map(r=>r.pensionSpent??r.pension),backgroundColor:tc.pension,stack:"s"},
     {label:"Pool A draw consumed",data:operatingRows.map(r=>r.realExit),backgroundColor:tc.poolA,stack:"s"},
     {label:"Pool A extra draw (gap above mandatory)",data:operatingRows.map(r=>r.extraDraw),backgroundColor:tc.poolB,stack:"s"},
     {label:"Max without extra draw (PSS + mandatory draw)",data:operatingRows.map(r=>r.pension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
@@ -2642,8 +2725,8 @@ function renderIncome(){
   const cashflowPhases=cashflowSubPhases(phases,sim);
   let cumSpend=0;
   const sgn=v=>v<0?`<span style="color:var(--bad,#ff6b6b)">−${fmtFull(Math.abs(v))}</span>`:fmtFull(v);
-  const T={earn:0,mand:0,drawn:0,extra:0,surp:0,ret:0,targetGap:0,spend:0,shortfall:0,inc:0};
-  sim.rows.forEach(r=>{const sp=r.fundedGap??(r.realExit+r.extraDraw);T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.targetGap+=r.gap;T.spend+=sp;T.shortfall+=r.spendingShortfall||0;T.ret+=(r.investmentReturn-sp);T.inc+=(r.pension+sp);});
+  const T={earn:0,mand:0,drawn:0,extra:0,surp:0,pssSurp:0,ret:0,targetGap:0,spend:0,shortfall:0,inc:0};
+  sim.rows.forEach(r=>{const sp=r.fundedGap??(r.realExit+r.extraDraw);const ps=r.pensionSpent??r.pension;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.pssSurp+=r.pensionSurplus||0;T.targetGap+=r.gap;T.spend+=sp;T.shortfall+=r.spendingShortfall||0;T.ret+=(r.investmentReturn-sp+(r.pensionSurplus||0));T.inc+=(ps+sp);});
   const rows=cashflowPhases.map(phase=>{
     const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=phase.start&&r.age<=phase.end);
     const n=segs.length||1;
@@ -2651,37 +2734,39 @@ function renderIncome(){
     const avgExtra=segs.reduce((s,r)=>s+r.extraDraw,0)/n;
     const avgMand=segs.reduce((s,r)=>s+r.mandDraw,0)/n;
     const avgSurplus=segs.reduce((s,r)=>s+r.surplus,0)/n;
+    const avgPssSurplus=segs.reduce((s,r)=>s+(r.pensionSurplus||0),0)/n;
+    const avgPensionSpent=segs.reduce((s,r)=>s+(r.pensionSpent??r.pension),0)/n;
     const avgEarn=segs.reduce((s,r)=>s+r.investmentReturn,0)/n;
     const avgTargetGap=segs.reduce((s,r)=>s+r.gap,0)/n;
     const avgSpend=avgDrawn+avgExtra;
     const avgShortfall=segs.reduce((s,r)=>s+(r.spendingShortfall||0),0)/n;
-    const avgRetained=avgEarn-avgSpend;
-    const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))),0);
+    const avgRetained=avgEarn-avgSpend+avgPssSurplus;
+    const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))+(r.pensionSurplus||0)),0);
     const spendVsMand=avgMand>0?(avgSpend/avgMand*100):0;
     const spendVsEarn=avgEarn>0?(avgSpend/avgEarn*100):0;
-    const totalAnnual=p.netPension+avgSpend;
+    const totalAnnual=avgPensionSpent+avgSpend;
     const grossEquivalent=grossSalaryEquivalent(totalAnnual);
     cumSpend+=totalAnnual*segs.length;
     const mandCell=spendVsMand>100.5?`<span style="color:var(--warn,#ffb454)">${spendVsMand.toFixed(1)}%</span>`:`${spendVsMand.toFixed(1)}%`;
-    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
+    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),fmtFull(avgPssSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
   });
   const lifetimeAnnualIncome=T.inc/Math.max(1,operatingRows.length);
   rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.targetGap/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,T.shortfall>0?`<b>${fmtFull(T.shortfall)}</b>`:"—",`<b>${(T.mand>0?T.spend/T.mand*100:0).toFixed(1)}%</b>`,`<b>${(T.earn>0?T.spend/T.earn*100:0).toFixed(1)}%</b>`,
-    `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.surp)}</b>`,
+    `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.surp)}</b>`,`<b>${fmtFull(T.pssSurp)}</b>`,
     `<b>${sgn(T.ret)}</b>`,`<b>${sgn(T.ret)}</b>`,`<b>${fmtFull(T.inc)}</b>`,`<b>${fmtFull(grossSalaryEquivalent(lifetimeAnnualIncome))}/yr avg</b>`,"—",`<b>${fmtFull(T.inc)}</b>`]);
   makeChart("in_chart2",{type:"line",data:{labels:operatingAges,datasets:[
     {label:"Investment earnings (Pool A + Pool C)",data:operatingRows.map(r=>r.investmentReturn),borderColor:tc.good,backgroundColor:(tc.good||"#2fd492")+"22",fill:"origin",tension:.2,borderWidth:2},
     {label:"Funded lifestyle gap",data:operatingRows.map(r=>r.fundedGap??(r.realExit+r.extraDraw)),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
     {label:"Target lifestyle gap",data:operatingRows.map(r=>r.gap),borderColor:tc.acc3,borderDash:[4,4],fill:false,tension:.2,borderWidth:2},
-    {label:"Retained earnings (compounds)",data:operatingRows.map(r=>r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
+    {label:"Retained cashflow (earnings + PSS surplus − portfolio spend)",data:operatingRows.map(r=>r.investmentReturn+(r.pensionSurplus||0)-(r.fundedGap??(r.realExit+r.extraDraw))),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
     {label:"Zero line",data:operatingAges.map(()=>0),borderColor:tc.soft,borderDash:[2,3],pointRadius:0,fill:false,borderWidth:1,order:99}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg target gap","Avg funded gap","Avg shortfall","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
+  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg target gap","Avg funded gap","Avg shortfall","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg mandatory surplus→C","Avg PSS surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
   const inTblNote=document.getElementById("in_tbl");
   if(inTblNote&&!document.getElementById("in_tbl_note")){const nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";
-    nz.innerHTML=`Exact dollars (no $k rounding). Each row stays within one active age-band input, then automatically splits whenever the funding routine changes: extra Pool A draw, mandatory surplus to Pool C, exact coverage, or a funding shortfall. “Target gap” is what the age band asks for; “funded gap” is what Pool A actually supplied. Pool C is never automatically drawn. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Statutory ABP payments are calculated by the provider by financial year, including the first-year pro-rating.`;
+    nz.innerHTML=`Exact dollars (no $k rounding). Each row stays within one active age-band input, then automatically splits whenever the funding routine changes: PSS surplus to Pool C, extra Pool A draw, mandatory surplus, exact coverage, or a funding shortfall. An imported Command Centre target is total net spending; V23 derives the portfolio gap, or sends pension above that target to Pool C. Manual editing clears that imported total and restores native gap-above-PSS bands. Pool C is never automatically drawn. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Statutory ABP payments are calculated by the provider by financial year, including the first-year pro-rating.`;
     inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
 }
 
@@ -2691,7 +2776,8 @@ function renderReinvest(){
   const tc=getThemeColors();const ages=sim.rows.map(r=>r.age);
   makeChart("ri_chart",{type:"bar",data:{labels:ages,datasets:[
     {label:"Surplus → Pool A (TBC headroom)",data:sim.rows.map(r=>r.toABP),backgroundColor:tc.poolA,stack:"s"},
-    {label:"Surplus → Pool C (External ETF)",data:sim.rows.map(r=>r.toPoolC),backgroundColor:tc.poolC,stack:"s"}
+    {label:"Mandatory-draw surplus → Pool C",data:sim.rows.map(r=>Math.max(0,r.toPoolC-(r.pensionToPoolC||0))),backgroundColor:tc.poolC,stack:"s"},
+    {label:"PSS pension surplus → Pool C",data:sim.rows.map(r=>r.pensionToPoolC||0),backgroundColor:tc.good,stack:"s"}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{stacked:true,ticks:{callback:moneyTick}},x:{stacked:true}}}});
   // Show every year 60-90 with a Pool C return column so the balance reconciles row-by-row.
@@ -2700,14 +2786,14 @@ function renderReinvest(){
   const rows=display.map((r,i)=>{
     const prevPoolC=i===0?(p.poolC_day1??0):display[i-1].poolC;
     const poolCReturn=prevPoolC*r.rC;
-    return[r.age,fmt$(r.mandDraw),fmt$(r.realExit),fmt$(r.surplus),fmt$(r.toPoolC),fmt$(poolCReturn),fmt$(r.poolC)];
+    return[r.age,fmt$(r.mandDraw),fmt$(r.realExit),fmt$(r.surplus),fmt$(r.pensionToPoolC||0),fmt$(r.toPoolC),fmt$(poolCReturn),fmt$(r.poolC)];
   });
-  renderTable("ri_tbl",rows,["Age","Mandatory draw","Spent from mand. draw","Surplus","→ Pool C","Pool C return","Pool C balance"]);
+  renderTable("ri_tbl",rows,["Age","Mandatory draw","Spent from mand. draw","Mandatory surplus","PSS surplus","Total → Pool C","Pool C return","Pool C balance"]);
   const tbl=document.getElementById("ri_tbl");
   if(tbl&&!document.getElementById("ri_note")){
     const note=document.createElement("p");
     note.id="ri_note";note.className="muted smaller";note.style.marginTop="8px";
-    note.textContent=`Each row reconciles: Pool C balance = prior balance + Pool C return + surplus routed. Pool C return = prior balance × (likely return − drag). ${openingPoolNote(p)} NCC wash controls start at age ${p.washAge??61}.`;
+    note.textContent=`Each row reconciles: Pool C balance = prior balance + Pool C return + mandatory-draw surplus + any PSS pension above the total spending target. Pool C return = prior balance × (likely return − drag). ${openingPoolNote(p)} NCC wash controls start at age ${p.washAge??61}.`;
     tbl.parentNode.insertBefore(note,tbl.nextSibling);
   }
 }
@@ -2775,10 +2861,10 @@ function nccCapForTSB(tsb){
 function computeWashPath(p,rows){
   const W=STATE.wash||{};
   const sv=Number(p.dbSpecialValue??(p.grossPension||0)*16);
-  const base=Math.max(0,(rows[0]?.abp||0)+(rows[0]?.acc||0));
-  const taxableShare=Math.max(0,Math.min(1,Number(p.washTaxableShare??0.709677)));
-  let taxable=taxableShare*base;
-  let dirty=base;                     // balance of the ORIGINAL ("dirty") interest
+  const sourceGross=Math.max(0,Number(p.washSourceGross??p.lumpSum??0));
+  const taxableShare=sourceGross>0?Math.max(0,Math.min(1,Number(p.lumpTaxableTaxed??0)/sourceGross)):0;
+  let taxable=Math.max(0,Number(p.lumpTaxableTaxed??0));
+  let dirty=sourceGross;               // only the original PSS lump; Hostplus components are unresolved
   let washes=0;
   const out=[];
   for(let rowIndex=0;rowIndex<rows.length;rowIndex++){
@@ -2794,13 +2880,13 @@ function computeWashPath(p,rows){
     if(!W.enabled) blocked="wash off";
     else if(r.age<W.startAge) blocked="before start age";
     else if(r.age>=W.cutoffAge) blocked="planning cutoff reached — verify legal timing";
-    else if(washes>=W.maxWashes) blocked="max washes reached";
+    else if(washes>=Math.min(W.maxWashes,p.washMax??W.maxWashes)) blocked="source-limited max washes reached";
     else if(dbtBefore<=W.targetDBT) blocked="DBT target met";
     else if(W.method==="separate" && dirty<=0) blocked="taxable component exhausted";
     else {
       const sched=(W.schedule||{})[r.age];
       amt=(sched!==undefined&&sched!==null)?Number(sched):Number(W.annual||0);
-      amt=Math.min(amt,capacity,superBal);
+      amt=Math.min(amt,capacity,superBal,dirty);
       if(amt<=0){blocked="amount 0";}
       else{
         let removed=0;
@@ -2817,7 +2903,7 @@ function computeWashPath(p,rows){
         washes++;
       }
     }
-    const share=superBal>0?Math.min(1,taxable/superBal):0;
+    const share=dirty>0?Math.min(1,taxable/dirty):0;
     out.push({age:r.age,superBal,tsb,priorPlanningTsb,share,taxable,dbt:taxable*DBT_RATE,wash:amt,washes,blocked,capacity,dirty});
   }
   return out;
@@ -2838,11 +2924,13 @@ function renderWash(){
   const atTarget=path[idx]||last;
   const saved=dbt0-atTarget.dbt;
   const cleared=path.find(r=>r.dbt<=W.targetDBT);
+  const sourceGross=Math.max(0,Number(p.washSourceGross??p.lumpSum??0));
   document.getElementById("wash_cards").innerHTML=`
     <div class="card"><div class="label">Washes run</div><div class="value">${washYears.length}</div><div class="sub">${washYears.length?`ages ${washYears[0].age}\u2013${washYears[washYears.length-1].age}`:"none"} \u00b7 ${fmtFull(totalWashed)} recycled</div></div>
-    <div class="card good"><div class="label">Residual taxable share @${STATE.targetAge}</div><div class="value">${(atTarget.share*100).toFixed(1)}%</div><div class="sub">opening assumption ${(Number(p.washTaxableShare??0.709677)*100).toFixed(2)}% · wash-only schedule</div></div>
+    <div class="card good"><div class="label">Residual PSS taxable share @${STATE.targetAge}</div><div class="value">${(atTarget.share*100).toFixed(1)}%</div><div class="sub">source split ${(Number(p.washTaxableShare??0)*100).toFixed(2)}% · source-limited wash schedule</div></div>
     <div class="card ${atTarget.dbt<=W.targetDBT?"good":"warn"}"><div class="label">DBT remaining @${STATE.targetAge}</div><div class="value">${fmtFull(atTarget.dbt)}</div><div class="sub">was ${fmtFull(dbt0)} unwashed \u2014 saved ${fmtFull(saved)}</div></div>
     <div class="card"><div class="label">DBT target reached</div><div class="value">${cleared?("age "+cleared.age):"not reached"}</div><div class="sub">target \u2264 ${fmtFull(W.targetDBT)} \u00b7 method: ${W.method==="merged"?"merged warning comparator":"separate interests"}</div></div>
+    <div class="card"><div class="label">Original PSS wash source</div><div class="value">${fmtFull(sourceGross)}</div><div class="sub">${sourceGross>0?`${p.washMax??0} maximum source-limited cycle${(p.washMax??0)===1?"":"s"}`:"100% pension: no PSS lump to wash"}</div></div>
     <div class="card"><div class="label">Annual NCC capacity (planning)</div><div class="value">${fmtFull(path[0].capacity)}</div><div class="sub">birthday-model proxy only — verify actual prior-30-June TSB and provider eligibility before every contribution</div></div>`;
   makeChart("wash_chart",{type:"line",data:{labels:ages,datasets:[
     {label:"Taxable component ($)",data:path.map(r=>r.taxable),borderColor:tc.warn,backgroundColor:(tc.warn||"#ffb454")+"22",fill:"origin",tension:.2,borderWidth:2,yAxisID:"y"},
@@ -2854,11 +2942,17 @@ function renderWash(){
     scales:{y:{ticks:{callback:moneyTick}},y1:{position:"right",min:0,max:80,grid:{drawOnChartArea:false},ticks:{callback:v=>v+"%"}}}}});
   const rows=path.filter(r=>r.age<=Math.max(80,W.cutoffAge)).map(r=>{
     const ov=(W.schedule||{})[r.age];
-    const inp=`<input type="number" class="wash-sched" data-age="${r.age}" min="0" step="5000" placeholder="${fmtFull(W.annual)}" value="${ov!==undefined&&ov!==null?ov:""}" style="width:110px">`;
+    const inp=`<input type="number" class="wash-sched" data-age="${r.age}" min="0" step="5000" placeholder="${fmtFull(W.annual)}" value="${ov!==undefined&&ov!==null?ov:""}" style="width:110px" ${sourceGross<=0?"disabled":""}>`;
     const status=r.wash>0?`<span style="color:var(--good,#2fd492)">washed ${fmtFull(r.wash)}</span>`:`<span class="muted">${r.blocked||"\u2014"}</span>`;
     return[r.age,fmtFull(r.superBal),(r.share*100).toFixed(1)+"%",fmtFull(r.taxable),fmtFull(r.dbt),fmtFull(r.capacity),inp,status];
   });
   renderTable("wash_tbl",rows,["Age","Super (A+B)","Taxable share","Taxable component","DBT if death","NCC capacity","Wash amount","Status"]);
+  const washTable=document.getElementById("wash_tbl");
+  if(washTable){
+    let note=document.getElementById("wash-source-note");
+    if(!note){note=document.createElement("div");note.id="wash-source-note";note.className="note";washTable.parentNode.insertBefore(note,washTable);}
+    note.innerHTML=`<b>Component provenance:</b> ${p.washEvidence||"No source-backed component split is attached to this custom profile."}`;
+  }
   document.querySelectorAll("#wash_tbl .wash-sched").forEach(el=>{
     el.addEventListener("change",()=>{
       const a=Number(el.dataset.age); const v=el.value.trim();
@@ -2880,7 +2974,7 @@ function renderEstate(){
   const DBT=0.17;                 // 15% + 2% Medicare on taxable super component to a non-dependant
   const CGT_DISC=0.235;           // 47% top marginal x 50% CGT discount = 23.5% effective, applied to FULL balance (worst case)
   // REALISTIC MID CASE: a portion of super is tax-free; only the GAIN in Pool C is taxed, at a more typical marginal rate.
-  const TAXABLE_SHARE=Number(p.washTaxableShare??0.709677);
+  const TAXABLE_SHARE=Number(p.washTaxableShare??0);
   const POOLC_GAIN_SHARE=0.50;    // assume ~half of Pool C balance is unrealised gain (rest is cost base, untaxed)
   const CGT_MID=0.30*0.50;        // ~30% marginal x 50% discount = 15% effective on the gain only
   const ages=likely.rows.map(r=>r.age);
@@ -3361,6 +3455,8 @@ function renderAudit(){
   const rows=[
     ["Model version",APP_VERSION,"—"],
     ["Profile",p.name,"—"],
+    ["PSS election",isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"selected"):"Rail A historical control",isRailBProfile(p)?PSS_ELECTIONS[p.pssElection]?.source:"March 2026 iEstimator"],
+    ["Total-spend override",STATE.totalSpendTarget===null?"Off — native gap bands":fmtFull(STATE.totalSpendTarget)+" p.a.","Imported total target derives either portfolio gap or PSS surplus"],
     ["Retire age",p.retireAge,"locked"],
     ["Target age",ta,"adjustable via slider"],
     ["Gross pension pa","$"+p.grossPension.toLocaleString(),"locked — PSS DB formula"],
@@ -3389,6 +3485,12 @@ function renderAudit(){
   ];
   renderTable("audit_tbl",rows,["Parameter","Value","Notes"]);
   renderTable("audit_source_tbl",[
+    ["i-Estimator-1-9-2026_60-40.pdf","Current Rail B source","60/40 gross/net pension, lump sum and exact components"],
+    ["i-Estimator-1-9-2026_65-35.pdf","Current Rail B option","65/35 gross/net pension, lump sum and exact components"],
+    ["i-Estimator-1-9-2026_70-30.pdf","Current Rail B option","70/30 gross/net pension, lump sum and exact components"],
+    ["i-Estimator-1-9-2026_100percent.pdf","Current Rail B option","100% pension; no PSS lump or PSS wash source"],
+    ["Statement 2026.pdf","Superseded pending reissue","Incorrect super salary; retained as evidence only, not current Rail B estimate authority"],
+    ["Paystub_2026_08_26.pdf","Salary evidence","Current actual salary used as the iEstimator starting salary; backpay resolved"],
     ["Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx","Canonical Rail A workbook","V5.0 Integrated Optimiser — NCC wash from age 61, Day 1 balances and Pool C drag 0.35%"],
     ["Robinson_Retirement_Dashboard_V23_2026-07-18.html","Integrated source dashboard","V23 source integrated here with dual-rail navigation and corrected wash controls"],
     ["robinson_retirement_v19.html","Version history only","v19 is no longer present in the root folder; v20 carries forward the QA pass, chart-focus wiring/legibility, save-slot spending-rule fix, reduced-motion/accessibility polish"],
@@ -3492,19 +3594,20 @@ function renderDecisions(){
   const p=getProfile();
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   document.getElementById("dec_cards").innerHTML=`
-    <div class="decision-card"><div class="k">Primary decision</div><div class="v">Keep 60/40</div><div class="s">Do not re-litigate unless PSS source data or legislation changes.</div></div>
+    <div class="decision-card"><div class="k">Active PSS election</div><div class="v">${isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"Selected"):"Rail A control"}</div><div class="s">All four 1 Sep 2026 Rail B elections are live what-if options; 60/40 is the default comparison, not an irreversible decision.</div></div>
     <div class="decision-card"><div class="k">TBC anchor</div><div class="v">${fmt$(p.tbc)}</div><div class="s">2026-27 indexed planning assumption, all today's dollars.</div></div>
     <div class="decision-card"><div class="k">Pool split (Day 1)</div><div class="v">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="s">${openingPoolNote(p)}</div></div>
     <div class="decision-card"><div class="k">Current version</div><div class="v">${APP_VERSION}</div><div class="s">Feature-rich dashboard after Codex wiring pass.</div></div>
   `;
   renderTable("dec_tbl",[
-    ["60/40 retirement split","Settled","PSS pension plus capital pools clear the floor under conservative modelling.","Revisit only if i-Estimator/source data changes."],
+    ["Rail B PSS election","Selectable",`Active option: ${isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"selected"):"Rail A control"}. 60/40, 65/35, 70/30 and 100% pension use separate 1 Sep 2026 source values.`,"Compare income, liquidity, TBC, wash capacity and estate results before the retirement election."],
     ["$2.1M TBC anchor","Current assumption","Used as 2026-27 real-dollar planning anchor.","Review annually against ATO indexation and personal cap rules."],
     ["Pool C external ETF",openingSourceLabel(p),`Pool C opens at ${fmt$(p.poolC_day1??0)}. NCC wash controls begin at age ${p.washAge??61}; surplus draws continue to externalise.`,"Review ETF drag and tax assumptions annually."],
     ["Dynamic target age","Added in v17C","Shows how results change from age 70-90.","Use for adviser-style sensitivity reviews."],
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.2","Sep 2026","Four source-backed Rail B PSS elections added across the complete model. Imported spending is now treated as total net spending: when PSS exceeds the target, the excess routes to Pool C instead of being silently spent. PSS washes use each iEstimator's actual original-lump components and stop at the source limit; 100% pension has no PSS wash. TBC excess/headroom, audit sources, sharing, persistence and exports update with the election."],
     ["v23","Jul 2026","New spend mode \u2014 Override: % of mandatory drawdown. The gap becomes a percentage of the compulsory ABP minimum draw, so it can never exceed that minimum and no voluntary extra Pool A draw occurs at any setting; the unspent remainder routes to Pool C. A matching % draw age-band unit is added. The existing return-based override is renamed % of investment earnings: the two denominators differ (earnings run about 1.72x the mandatory draw at 6.5%). The income chart gains a max-without-extra-draw ceiling line (PSS + mandatory draw). Extra-draw series and columns relabelled Pool B \u2192 Pool A, because extraDraw is funded from Pool A while Pool B holds $0 throughout the projection. DBT taxable share corrected to 70.97%. Guide system, assumptions ledger and spend-mode affordances added."],
     ["v20","Jun 2026","V5.0 alignment: Day 1 balances updated (Pool A $840,887, Pool B $0, Pool C $51,362); Pool C drag corrected to 0.35%; wash strategy status display; localStorage keys bumped to v20_state; all engine start values, display cards, audit table, recalibrate defaults updated."],
     ["v19","Jun 2026","Deep QA/version bump: chart focus now opens only by double-click or keyboard, pop-up readout is opaque/high-contrast, save slots correctly label global % of positive-return spending, reduced-motion support and small accessibility fixes added."],
@@ -3677,7 +3780,7 @@ function signedPct(v){return(v>=0?"+":"")+((v*100).toFixed(1))+"%";}
 function pctDiff(base,val){if(!base)return"—";return signedPct((val-base)/Math.abs(base));}
 function captureScenarioState(){
   return {
-    profile:STATE.profile,targetAge:STATE.targetAge,likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,
+    profile:STATE.profile,pssElection:STATE.pssElection,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,
     gapBands:STATE.gapBands.map(b=>({...b})),gapGrowth:STATE.gapGrowth,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
@@ -3686,7 +3789,8 @@ function captureScenarioState(){
 }
 function applyScenarioState(s){
   if(!s)return;
-  ["profile","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
+  if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(s.pssElection,{spendTarget:s.totalSpendTarget});
+  ["profile","pssElection","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
   if(Array.isArray(s.gapBands)&&s.gapBands.length){
     const clean=normaliseGapBands(s.gapBands);STATE.gapBands=clean.bands;
     if(clean.duplicateAges.length)alert(`Duplicate start age${clean.duplicateAges.length>1?"s":""} ${clean.duplicateAges.join(", ")} removed from the imported plan; the later value was kept.`);
@@ -3704,8 +3808,8 @@ function renameSlot(slot,name){
   saveState();renderSaveSlots();
 }
 function scenarioStateResult(s){
-  const p=PROFILES[s?.profile||STATE.profile]||getProfile();
-  const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag});
+  const p=s?.pssElection&&PSS_ELECTIONS[s.pssElection]?railBProfileForElection(s.pssElection):(PROFILES[s?.profile||STATE.profile]||getProfile());
+  const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,totalSpendTarget:s?.totalSpendTarget??null,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag});
   const idx=Math.max(0,Math.min(sim.rows.length-1,(s?.targetAge??STATE.targetAge)-p.retireAge));
   return {profile:p,sim,row:sim.rows[idx]};
 }
@@ -3728,7 +3832,7 @@ function applyScenarioPreset(id){
     drawcap:{gapBands:[{age:ra,amount:100,unit:"drawPct"}],spendMode:"drawPct",spendReturnPct:1.00,oneOff:0,likely:.065,vol:.12,targetAge:75}
   };
   const p=presets[id];if(!p)return;
-  Object.assign(STATE,p,{gapBands:normaliseGapBands(p.gapBands).bands});
+  Object.assign(STATE,p,{gapBands:normaliseGapBands(p.gapBands).bands,totalSpendTarget:null});
   applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
 }
 function wireNotes(){
@@ -3903,7 +4007,7 @@ function updateLabels(){
   set("lbl-washon",_W.enabled?"On":"Off");
   set("lbl-washstart","Age "+_W.startAge);
   set("lbl-washamt",fmtFull(_W.annual));
-  set("lbl-washmax",String(_W.maxWashes));
+  set("lbl-washmax",String(Math.min(_W.maxWashes,p.washMax??_W.maxWashes)));
   set("lbl-washtgt",fmtFull(_W.targetDBT));
   set("lbl-washcut","Age "+_W.cutoffAge);
   set("lbl-washmethod",_W.method==="merged"?"Merged (inefficient)":"Separate interests");
@@ -3914,12 +4018,14 @@ function updateLabels(){
   const _wx=document.getElementById("sl_washmax"); if(_wx)_wx.value=_W.maxWashes;
   const _wt=document.getElementById("sl_washtgt"); if(_wt)_wt.value=_W.targetDBT;
   const _wc=document.getElementById("sl_washcut"); if(_wc)_wc.value=_W.cutoffAge;
+  const noPssWash=Number(p.washSourceGross??p.lumpSum??0)<=0;
+  [_wo,_ws,_wa,_wx,_wt,_wc,_wm].forEach(control=>{if(control)control.disabled=noPssWash;});
   set("lbl-spendmode",STATE.spendMode==="returnPct"?"Override: % earnings":(STATE.spendMode==="drawPct"?"Override: % draw":"Age bands"));
   set("lbl-spendbasis",STATE.spendMode==="returnPct"?"Spend % of annual investment earnings":(STATE.spendMode==="drawPct"?"Spend % of mandatory drawdown":"Spend % (override slider — inactive)"));
   set("lbl-spendreturn",fmtPctClean(STATE.spendReturnPct,0));
   set("lbl-oo","$"+(STATE.oneOff/1000).toFixed(0)+"k");
   set("lbl-poolcdrag",fmtPctClean(STATE.poolCDrag,2));
-  set("lbl-gap-summary",bandsToString(STATE.gapBands));
+  set("lbl-gap-summary",STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined?`${fmtFull(STATE.totalSpendTarget)} total spend · derived gap/surplus`:bandsToString(STATE.gapBands));
   set("lbl-cpi",STATE.cpi+"%");
   set("lbl-cpidur",STATE.cpiDur+" yrs");
   set("lbl-cpiage","age "+STATE.cpiAge);
@@ -3955,6 +4061,14 @@ function updateLabels(){
     const pa=p.poolA_day1??al.poolA;const pb=p.poolB_day1??al.poolB;const pc=p.poolC_day1??0;
     ps.innerHTML=`Pension <strong>$${p.grossPension.toLocaleString()}</strong> | Lump sum <strong>$${p.lumpSum.toLocaleString()}</strong> | Pool A <strong>$${pa.toLocaleString()}</strong> | Pool B <strong>$${pb.toLocaleString()}</strong> | Pool C <strong>$${pc.toLocaleString()}</strong> | TBC <strong>$${p.tbc.toLocaleString()}</strong>`;
   }
+  document.querySelectorAll("[data-pss-election]").forEach(button=>button.classList.toggle("active",isRailBProfile(p)&&button.dataset.pssElection===p.pssElection));
+  const electionSummary=document.getElementById("pss-election-summary");
+  if(electionSummary){
+    const e=PSS_ELECTIONS[p.pssElection];
+    electionSummary.innerHTML=isRailBProfile(p)&&e
+      ? `<b>${e.label} active:</b> net PSS ${fmtFull(e.netPension)} p.a. · lump ${fmtFull(e.lumpSum)} · ${p.washMax} source-limited wash cycle${p.washMax===1?"":"s"}${p.tbcExcess>0?` · <span style="color:var(--warn)">${fmtFull(p.tbcExcess)} DB special-value excess over the current $2.1m TBC anchor; confirm provider/tax treatment</span>`:` · ${fmtFull(p.tbcHeadroom)} ABP headroom after the $5k planning buffer`}`
+      : `<b>Rail A control active.</b> Choose a Rail B election above to load the corresponding 1 Sep 2026 estimate.`;
+  }
 }
 
 function applyStateToInputs(){
@@ -3988,7 +4102,9 @@ function applyStateToInputs(){
 function renderBandRows(){
   const container=document.getElementById("band-rows");
   if(!container)return;
-  const modeNote=STATE.spendMode==="returnPct"
+  const modeNote=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined
+      ? `<div class="note good" style="margin-bottom:8px"><b>Imported total-spend target: ${fmtFull(STATE.totalSpendTarget)} p.a.</b> V23 automatically derives the portfolio gap when PSS is lower, or sends the PSS excess to Pool C when PSS is higher. Edit any band below to switch back to native gap-above-PSS controls.</div>`
+      : STATE.spendMode==="returnPct"
       ? `<div class="note warn" style="margin-bottom:8px">Age-band rows are retained but IGNORED — the annual gap is overridden to ${fmtPctClean(STATE.spendReturnPct,0)} of ${STATE.spendMode==="drawPct"?"the mandatory ABP drawdown":"positive investment earnings"}.</div>`
       : `<div class="note" style="margin-bottom:8px">Units convert automatically at that band age. <span class="kbd">$ pa</span> = fixed dollars · <span class="kbd">% return</span> = % of positive investment earnings (CAN exceed the mandatory draw) · <span class="kbd">% draw</span> = % of the mandatory ABP draw (never exceeds it; remainder goes to Pool C).</div>`;
   container.innerHTML=STATE.gapBands.map((b,i)=>`
@@ -4019,7 +4135,7 @@ function renderBandRows(){
   makeChart("band-mini-chart",{type:"bar",data:{labels:ages,datasets:[{label:"Band value",data:ages.map(a=>gapAtAge(a,STATE.gapBands)),backgroundColor:tc.acc+"99",borderWidth:0}]},
     options:{maintainAspectRatio:false,responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>formatBandValue(bandAtAge(Number(c.label),STATE.gapBands))}}},scales:{y:{ticks:{callback:bandAxisTick}}}}});
 }
-function onBandChange(){updateLabels();renderBandRows();rerenderAll();saveState();}
+function onBandChange(){STATE.totalSpendTarget=null;updateLabels();renderBandRows();rerenderAll();saveState();}
 
 function wireBandEditor(){
   const add=document.getElementById("btn-add-band");
@@ -4049,7 +4165,7 @@ function wireSliders(){
   bind("sl_runs",v=>STATE.runs=parseInt(v));
   bind("sl_targetage",v=>STATE.targetAge=parseInt(v));
   bind("sl_gapgrowth",v=>STATE.gapGrowth=parseFloat(v)/100);
-  bind("sl_spendreturn",v=>STATE.spendReturnPct=parseFloat(v)/100);
+  bind("sl_spendreturn",v=>{STATE.spendReturnPct=parseFloat(v)/100;STATE.totalSpendTarget=null;});
   bind("sl_oo",v=>STATE.oneOff=parseInt(v));
   bind("sl_poolcdrag",v=>STATE.poolCDrag=parseFloat(v)/100);
   const rw=()=>{updateLabels();rerenderAll();saveState();};
@@ -4068,7 +4184,7 @@ function wireSliders(){
   bind("sl_cpiage",v=>STATE.cpiAge=parseFloat(v));
   bind("sl_cpidrag",v=>STATE.cpiDrag=parseFloat(v));
   const spendMode=document.getElementById("sel_spendmode");
-  if(spendMode)spendMode.addEventListener("change",()=>{STATE.spendMode=spendMode.value;updateLabels();rerenderAll();saveState();});
+  if(spendMode)spendMode.addEventListener("change",()=>{STATE.spendMode=spendMode.value;STATE.totalSpendTarget=null;updateLabels();renderBandRows();rerenderAll();saveState();});
   // Scenario comp sliders
   ["sc_sl_ret","sc_sl_gap","sc_sl_vol"].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
@@ -4104,9 +4220,20 @@ function wireNav(){
 
 /* ========== PROFILE ========== */
 function wireProfile(){
+  document.querySelectorAll("[data-pss-election]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const current=getProfile();
+      const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
+      selectPssElection(btn.dataset.pssElection,{spendTarget:currentSpend});
+      applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
+    });
+  });
   document.querySelectorAll("[data-profile]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       STATE.profile=btn.dataset.profile;
+      const selectedProfile=getProfile();
+      STATE.wash.maxWashes=selectedProfile.washMax??STATE.wash.maxWashes;
+      STATE.wash.enabled=Number(selectedProfile.washSourceGross??selectedProfile.lumpSum??0)>0;
       document.querySelectorAll("[data-profile]").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       const cf=document.getElementById("customForm");
@@ -4119,13 +4246,13 @@ function wireProfile(){
     cf_lump:"lumpSum",cf_hostplus:"hostplus",cf_tbc:"tbc",cf_gap:"defaultGap"};
   Object.entries(cfFields).forEach(([id,prop])=>{
     const el=document.getElementById(id);if(!el)return;
-    el.addEventListener("input",()=>{PROFILES.custom[prop]=parseFloat(el.value)||0;
+    el.addEventListener("input",()=>{PROFILES.custom[prop]=parseFloat(el.value)||0;PROFILES.custom.name="Custom";PROFILES.custom.pssElection=null;STATE.totalSpendTarget=null;
       if(STATE.profile==="custom"){updateLabels();rerenderAll();saveState();}});
   });
   ["cf_floor","cf_target","cf_strong"].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const prop=id.replace("cf_","");
-    el.addEventListener("input",()=>{PROFILES.custom[prop]=parseFloat(el.value)||0;
+    el.addEventListener("input",()=>{PROFILES.custom[prop]=parseFloat(el.value)||0;PROFILES.custom.name="Custom";PROFILES.custom.pssElection=null;STATE.totalSpendTarget=null;
       if(STATE.profile==="custom"){updateLabels();rerenderAll();saveState();}});
   });
 }
@@ -4144,7 +4271,7 @@ function wireTheme(){
   if(printBtn)printBtn.addEventListener("click",printSelectedPack);
   const resetBtn=document.getElementById("btn-reset");
   if(resetBtn)resetBtn.addEventListener("click",()=>{
-    if(confirm("Reset all settings to defaults?")){localStorage.removeItem(LS_KEY);location.reload();}
+    if(confirm("Reset all settings to defaults?")){[LS_KEY,LS_FALLBACK_KEY,LS_OLDER_FALLBACK_KEY].forEach(key=>localStorage.removeItem(key));location.reload();}
   });
   const csvBtn=document.getElementById("btn-csv");
   if(csvBtn)csvBtn.addEventListener("click",exportCSV);
@@ -4163,12 +4290,12 @@ function wireTheme(){
 function exportCSV(){
   const p=getProfile();
   const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,gapBands:STATE.gapBands});
-  const cols=["age","total","poolA","poolB","poolC","investmentReturn","mandDraw","realExit","extraDraw","surplus","toPoolC","gap","pension"];
-  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A Extra Draw","Surplus","To Pool C","Lifestyle Gap (target spend)","Pension","Total Spend","Retained Earnings","Total Income"].join(",");
+  const cols=["age","total","poolA","poolB","poolC","investmentReturn","mandDraw","realExit","extraDraw","surplus","pensionSurplus","toPoolC","gap","targetSpend","pension","pensionSpent"];
+  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A Extra Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income"].join(",");
   const rows=sim.rows.map(r=>{
     const base=cols.map(c=>Math.round(r[c]||0));
     const spend=(r.realExit||0)+(r.extraDraw||0);
-    base.push(Math.round(spend),Math.round((r.investmentReturn||0)-spend),Math.round((r.pension||0)+spend));
+    base.push(Math.round((r.pensionSpent??r.pension??0)+spend),Math.round((r.investmentReturn||0)+(r.pensionSurplus||0)-spend),Math.round((r.pensionSpent??r.pension??0)+spend));
     return base.join(",");
   });
   const csv=[header,...rows].join("\n");
@@ -4179,27 +4306,29 @@ function exportCSV(){
 }
 
 /* ========== STATE PERSISTENCE ========== */
-const LS_KEY="v23_state";
-const LS_FALLBACK_KEY="v21c1_state";
+const LS_KEY="v23_2_state";
+const LS_FALLBACK_KEY="v23_state";
+const LS_OLDER_FALLBACK_KEY="v21c1_state";
 function saveState(){
   try{localStorage.setItem(LS_KEY,JSON.stringify({
-    profile:STATE.profile,targetAge:STATE.targetAge,
+    profile:STATE.profile,pssElection:STATE.pssElection,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,
     likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,simulationSeed:STATE.simulationSeed,liquidityMonths:STATE.liquidityMonths,
     gapBands:STATE.gapBands,gapGrowth:STATE.gapGrowth,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
     cpi:STATE.cpi,cpiDur:STATE.cpiDur,cpiAge:STATE.cpiAge,cpiDrag:STATE.cpiDrag,
-    theme:STATE.theme,slotNames:STATE.slotNames,notes:STATE.notes
+    theme:STATE.theme,slotNames:STATE.slotNames,notes:STATE.notes,wash:STATE.wash
   }));}catch(e){}
 }
 function loadState(){
   try{
-    const s=JSON.parse(localStorage.getItem(LS_KEY)||localStorage.getItem(LS_FALLBACK_KEY)||"null");
+    const s=JSON.parse(localStorage.getItem(LS_KEY)||localStorage.getItem(LS_FALLBACK_KEY)||localStorage.getItem(LS_OLDER_FALLBACK_KEY)||"null");
     if(!s)return;
     if(typeof s.gapGrowth==="number"&&s.gapGrowth>0.2)s.gapGrowth=s.gapGrowth/100;
     if(typeof s.poolCDrag==="number"&&s.poolCDrag>0.05)s.poolCDrag=s.poolCDrag/100;
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
-    ap("profile",s.profile);ap("targetAge",s.targetAge);
+    if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(s.pssElection,{spendTarget:s.totalSpendTarget});
+    ap("profile",s.profile);ap("pssElection",s.pssElection);ap("totalSpendTarget",s.totalSpendTarget);ap("targetAge",s.targetAge);
     ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);ap("simulationSeed",s.simulationSeed);ap("liquidityMonths",s.liquidityMonths);
     if(Array.isArray(s.gapBands)&&s.gapBands.length){
       const clean=normaliseGapBands(s.gapBands);
@@ -4210,7 +4339,7 @@ function loadState(){
     ap("gapGrowth",s.gapGrowth);ap("oneOff",s.oneOff);ap("poolCDrag",s.poolCDrag);
     ap("spendMode",s.spendMode);ap("spendReturnPct",s.spendReturnPct);
     ap("cpi",s.cpi);ap("cpiDur",s.cpiDur);ap("cpiAge",s.cpiAge);ap("cpiDrag",s.cpiDrag);
-    ap("theme",s.theme);if(s.slotNames)STATE.slotNames=s.slotNames;if(s.notes)STATE.notes=s.notes;
+    ap("theme",s.theme);if(s.wash)STATE.wash={...STATE.wash,...s.wash,schedule:{...(s.wash.schedule||{})}};if(s.slotNames)STATE.slotNames=s.slotNames;if(s.notes)STATE.notes=s.notes;
   }catch(e){}
 }
 
@@ -4271,7 +4400,7 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Presentation answer","One-sentence verdict suitable for reading out: does the plan clear the bands, and with how much margin."],
 ["Executive scenario table","Conservative 4%, reference 5%, and active-return rows with capital, margins and status at the target age."],
 ["Active capital @target / reference range","The active card follows the selected likely-return control. The separate 4–5% range is a labelled comparison reference."],
-["Day 1 values note","Confirms that opening balances follow the active profile: the governed Rail A V5.0 baseline or the newer July Rail B shared scenario."],
+["Day 1 values note","Confirms that opening balances follow the active profile: the governed Rail A control or the selected 1 Sep 2026 Rail B PSS election."],
 ["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
 ["NCC blocked","A planning warning only. It cannot determine real non-concessional contribution eligibility because the model does not hold the actual prior-30-June TSB or provider timing evidence."]]},
 decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting evidence cards — built to be printed and filed with the annual review.",h:["Use Print → Brief pack for a filing copy.","Each evidence card cites the page that proves it — follow them for depth.","If the recommendation ever changes between reviews, log why in the Decision log."],f:[
@@ -4281,7 +4410,7 @@ decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting
 ["Actions","The short list of standing actions (contributions, review cadence, wash timing) currently open."],
 ["Base case @target / 4% downside @target","The headline capital outcomes the brief is built on: your likely path and the conservative stress path, both at the target age."],
 ["Floor / Target / Strong","The three capital bands from the profile ($1.2M / $1.5M / $1.75M). Every probability and guardrail on the tool is measured against these."]]},
-overview:{t:"Overview",w:"The locked Day-1 architecture: TBC allocation with the cap-kiss sequence, the three-scenario trajectory, and the mandatory ABP draw schedule.",h:["These are locked figures — change them only via the Custom profile, and only deliberately.","The allocation grid shows the order money moves on Day 1; the draw table shows the statutory minimums thereafter."],f:[
+overview:{t:"Overview",w:"The active Day-1 architecture: selected PSS election, TBC allocation, three-scenario trajectory and mandatory ABP draw schedule.",h:["Rail A is the historical control; the four Rail B buttons load exact 1 September source sets.","The allocation grid shows the order money moves on Day 1; the draw table shows the statutory minimums thereafter."],f:[
 ["Combined capital @60","PSS commuted lump sum + projected Hostplus balance — the total rollover pool."],
 ["Gross / Net PSS pension","Formula pension (FAS × ABM ÷ PCF, 60% retained). Net = after the over-60 tax offset treatment. Gross is only used to compute the special value."],
 ["Pension special value (SV)","Gross pension × 16 — the amount the DB pension consumes of the transfer balance cap. Fixed at commencement, never re-indexed."],
@@ -4378,13 +4507,13 @@ f:[
 ["Why bring-forward is NOT available to you","NCC capacity depends on your total super balance at the prior 30 June. The Optimiser deliberately holds your TSB at ~$2,095,000 (the $5,000 buffer under the $2.1M cap). That sits in the $1.97M–$2.10M band = $130,000, one-year cap. Bring-forward ($260k / $390k) needs a TSB below $1.97M, which you never have. That is exactly why the master doc sets the wash at $130,000/yr."],
 ["Component method — the execution control","<b>Separate interests:</b> the clean NCC amount is kept apart, so each commutation from the original interest uses that interest's opening component proportion. This is the strategy model.<br><b>Merged interest:</b> clean money is blended into the same interest and later washes become less effective. This is a warning comparator only. Confirm Hostplus supports the required structure before acting."],
 ["Annual wash amount","Default $130,000 = the 1-year NCC cap from 1 July 2026, which is also your maximum given the TSB band."],
-["Start age / Maximum washes / planning cutoff","Defaults: start 61, maximum 7, planning cutoff 75. The model normally reaches the $10,000 target after six cycles. Recheck the precise legal timing and eligibility before each contribution."],
+["Start age / Maximum washes / planning cutoff","Start and cutoff remain planning controls. The maximum is also capped mechanically by the active original PSS lump: Rail A 5, Rail B 60/40 6, 65/35 5, 70/30 4, and 100% pension 0. Recheck legal timing and eligibility before each contribution."],
 ["Stop when remaining DBT ≤","The auto-stop. Washing halts once the projected liability falls to this figure ($10,000 in the master doc), so you never wash pointlessly."],
 ["Year-by-year schedule (editable)","Type an amount into any year to override the annual default; leave blank to use the default; type 0 to skip that year. This is your hand-built schedule — useful if cash flow is lumpy or you want to pause in a weak market. 'Clear all overrides' resets to the flat annual amount."],
 ["Status column","Why a planning year washed or did not: before start age, max washes reached, DBT target met, or the planning cutoff. Verify real eligibility before any contribution."],
 ["NCC capacity","The annual cap determined from the prior 30 June TSB. The simulator caps the attempted wash to that amount. A withdraw-and-recontribute cycle does not consume extra distance to the transfer balance cap."],
 ["Residual taxable share (%) — right axis","Residual modelled taxable dollars divided by the live super balance. It is a wash-only planning indicator, not a provider statement of the account's current component proportion."]]},
-estate:{t:"Estate & DBT analysis",w:"Death-benefits-tax exposure on super paid to a non-dependant: a deliberately severe ceiling versus the active rail's wash-only taxable-dollar schedule, plus illustrative Pool C CGT.",h:["The active engine uses the master-locked 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed convention on both rails.","Refresh actual components annually; estate-at-death and later beneficiary disposals are distinct tax events."],f:[
+estate:{t:"Estate & DBT analysis",w:"Death-benefits-tax exposure on super paid to a non-dependant: a deliberately severe ceiling versus the active PSS source's wash-only taxable-dollar schedule, plus illustrative Pool C CGT.",h:["Rail A and every Rail B election use their own PSS iEstimator components; Hostplus components remain unresolved and are excluded from the modelled mid-case component claim.","Refresh actual components annually; estate-at-death and later beneficiary disposals are distinct tax events."],f:[
 ["Before any death tax","Gross capital — the ceiling on the estate."],
 ["Worst-case line","Floor on estate value: assumes 100% of super taxable at 17% and full Pool C balance taxed at 23.5% CGT. Deliberately pessimistic."],
 ["Modelled wash case","DBT at 17% on residual taxable dollars from the active wash schedule; Pool C CGT remains an illustrative 15% effective rate on an assumed 50% unrealised gain."],
@@ -4516,7 +4645,7 @@ triggers:{t:"Action triggers",w:"Pre-agreed thresholds that convert drift into a
 audit:{t:"Assumption audit",w:"Every live assumption with its source, default and current value — the integrity page.",h:["After any settings import or major change, verify this page reads sensibly before trusting outputs.","Source register maps each figure to its canonical document."],f:[
 ["Assumption register","Name, current value, default, and source for every model input."],
 ["Source file register","The canonical documents (iEstimator, master brief, statements) each figure traces to."],
-["DBT parameters","Death-benefits tax 17%; master-locked opening taxable assumption is 70.97% for both rails."],
+["DBT parameters","Death-benefits tax 17%; opening PSS taxable dollars come directly from the active iEstimator. Hostplus components remain unresolved."],
 ["Parameter / Value / Notes","Every live assumption in one table, read straight from the current sliders — the page to screenshot before making changes so you can prove what the run assumed."],
 ["Pool A / B / C (Day 1)","The active profile opening. Rail A and shared Rail B remain distinct and must not reuse one another’s Pool A or Pool C values."],
 ["Pool C tax drag","Displayed to 2 decimals. Your canonical AMIT drag is 0.35%/yr — earlier builds rounded the display to 0.4% and, worse, wrote 0.4% back into the model if you touched the slider. Fixed."],
@@ -4532,8 +4661,8 @@ checklist:{t:"Annual review checklist",w:"The full review procedure as a persist
 ["Checklist sections","Statement gathering → recalibration → delta review → triggers → decision log → export/backup."],
 ["Progress bar","Completion across all items this cycle."]]},
 decisions:{t:"Decision log",w:"Settled decisions with dates and evidence — the do-not-relitigate register — plus version history of the dashboard itself.",h:["If a question is answered here, it is closed. Log any new decision with its evidence.","Version history records what changed in each dashboard build."],f:[
-["Decision register","Each settled decision (60/40 commutation, Hostplus allocation, buffers) with date, evidence and status."],
-["Primary decision","Keep 60/40 — do not re-litigate unless PSS source data or legislation changes."],
+["Decision register","Records the active PSS election comparison, Hostplus assumptions, buffers and eventual decision evidence."],
+["PSS election decision","The four 1 Sep 2026 Rail B options remain selectable what-ifs. 60/40 is the default comparison; use this register to record the eventual election and evidence."],
 ["Version history","Dashboard build lineage; current entry should be V23."],
 ["Decision notes","Free-text log, saved locally, included in settings export."],
 ["Current version / Pool split (Day 1) / TBC anchor","The immutable record: which build produced a result, the locked Day-1 allocation, and the $2.1M transfer-balance-cap planning anchor."]]}
@@ -4541,7 +4670,7 @@ decisions:{t:"Decision log",w:"Settled decisions with dates and evidence — the
 
 /* ---------- global control panel reference ---------- */
 const CONTROLS = [
-["Profile — Michael (default) / Custom","Michael carries the locked figures (pension, lump, TBC, bands). Custom opens editable fields for deliberate what-ifs; it never overwrites the default."],
+["Profile and PSS election","Michael preserves the Rail A control. The four Rail B election buttons load exact September source values. Custom fields remain available for deliberate non-source what-ifs."],
 ["Retirement age","Pension start age. Locked plan: 60 (Dec 2033). Changing it moves every downstream date."],
 ["Gross PSS pension (pa)","Formula pension before tax treatment; used only to compute the special value (× 16)."],
 ["Net PSS pension (pa)","The spendable floor after the over-60 offset — the number all spending sits on top of."],
@@ -4574,7 +4703,7 @@ const GLOSSARY = [
 ["ABP minimum draw","Current annual ABP rate band used for planning. The provider calculates the legal financial-year minimum, including any first-year pro-rating; unspent withdrawals can route to Pool C."],
 ["DBT — Death benefits tax","17% (including Medicare levy) on the taxable-taxed component of super paid to a non-dependant. The engine uses the active rail's modelled opening component share."],
 ["NCC wash","Withdraw from Pool A tax-free, re-contribute as a non-concessional contribution: converts taxable component to tax-free, eliminating DBT over ~6–7 cycles from 61."],
-["Taxable / tax-free components","Super's internal tax split. The public engine holds the master-locked 70.97% taxable-taxed / 29.03% tax-free planning convention for both rails; confirm account components and provider execution before acting."],
+["Taxable / tax-free components","Super's internal tax split. Rail A and each Rail B option use the exact split from their own PSS iEstimator; Hostplus is kept unresolved rather than borrowing the PSS ratio. Confirm provider execution before acting."],
 ["Sequence risk","Same average return, bad years first — the classic retiree hazard. Contained here because the residual draw is ~2.7%."],
 ["P10 … P90","Monte Carlo percentiles: P10 = 10% of paths end lower (downside decile); P50 = median; P90 = upside decile."],
 ["Guardrails","Pre-agreed spend adjustments triggered by portfolio zone — decided in calm, executed mechanically."],
@@ -4905,6 +5034,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     if(params.get("shared")!=="1")return null;
     return{
       rail:params.get("rail")==="A"?"A":"B",
+      pssElection:PSS_ELECTIONS[params.get("pss")]?params.get("pss"):"60-40",
       spend:Number(params.get("spend"))||110000,
       realReturn:Number(params.get("return"))||.05,
       targetAge:Number(params.get("age"))||75,
@@ -4919,13 +5049,14 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     let saved=null;
     try{saved=JSON.parse(localStorage.getItem("robinson-retirement-shared-scenario")||"null");}catch(e){}
     const query=sharedFromQuery();
-    const base=query||saved||{rail:"A",spend:90000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27",liquidityMonths:12,simulationSeed:20260814};
+    const base=query||saved||{rail:"A",pssElection:"60-40",spend:90000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27",liquidityMonths:12,simulationSeed:20260814};
     const profile=getProfile();
     const rail=isRailBProfile(profile)?"B":"A";
     const fixedGap=STATE.spendMode==="fixed"&&Array.isArray(STATE.gapBands)?gapAtAge(60,STATE.gapBands):null;
     return{
       rail,
-      spend:Math.max(0,Math.round(Number(profile.netPension||0)+Number(fixedGap??Math.max(0,base.spend-Number(profile.netPension||0))))),
+      pssElection:isRailBProfile(profile)?(profile.pssElection||STATE.pssElection||"60-40"):(base.pssElection||"60-40"),
+      spend:Math.max(0,Math.round(STATE.totalSpendTarget??(Number(profile.netPension||0)+Number(fixedGap??Math.max(0,base.spend-Number(profile.netPension||0)))))),
       realReturn:Number(STATE.likely||base.realReturn||.05),
       targetAge:Number(STATE.targetAge||base.targetAge||75),
       homeValue:Number(base.homeValue||500000),
@@ -4937,7 +5068,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
   function navigationUrl(path){
     const scenario=navigationScenario();
-    const params=new URLSearchParams({shared:"1",rail:scenario.rail,spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear,reserveMonths:String(scenario.liquidityMonths),seed:String(scenario.simulationSeed)});
+    const params=new URLSearchParams({shared:"1",rail:scenario.rail,pss:scenario.pssElection||"60-40",spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear,reserveMonths:String(scenario.liquidityMonths),seed:String(scenario.simulationSeed)});
     return `${path}?${params.toString()}`;
   }
   window.v23NavigationUrl=navigationUrl;
@@ -4952,37 +5083,29 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   function applySharedScenario(shared){
     if(!shared)return;
     const isRailB=shared.rail==="B";
-    const netPension=isRailB?76302.72:76041.68;
+    let profile;
     if(isRailB){
-      Object.assign(PROFILES.custom,{
-        name:"Rail B shared",retireAge:60,grossPension:82550.89,netPension:netPension,
-        lumpSum:605373.22,hostplus:317447.66,tbc:2100000,
-        floor:500,target:1000,strong:1500,defaultGap:Math.max(0,shared.spend-netPension),
-        defaultGapBands:[{age:60,amount:Math.max(0,shared.spend-netPension),unit:"dollar"}],
-        poolA_day1:774185.76,poolB_day1:0,poolC_day1:148635.12,tsbBuffer:5000,
-        dbSpecialValue:1320814.24,washTaxableShare:0.709677,
-        washEvidence:"Master-locked 60/40 engine convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. The July PSS lump agrees; confirm provider execution and account components before acting.",
-        washAge:61,washCapThrough:74,locked:false
-      });
-      STATE.profile="custom";
-      STATE.wash.enabled=true;
+      profile=selectPssElection(shared.pssElection||"60-40",{spendTarget:shared.spend});
     }else{
       STATE.profile="michael";
+      STATE.totalSpendTarget=Math.max(0,shared.spend);
+      profile=PROFILES.michael;
       STATE.wash.enabled=true;
+      STATE.wash.maxWashes=profile.washMax;
     }
     STATE.likely=Math.min(.075,Math.max(.02,shared.realReturn));
     STATE.targetAge=Math.min(95,Math.max(70,Math.round(shared.targetAge)));
     STATE.liquidityMonths=Math.min(24,Math.max(0,Math.round(shared.liquidityMonths||12)));
     STATE.simulationSeed=Math.min(2147483647,Math.max(1,Math.round(shared.simulationSeed||20260814)));
     STATE.spendMode="fixed";
-    STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-netPension)),unit:"dollar"}];
-    try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:2,updatedAt:new Date().toISOString(),...shared}));}catch(e){}
+    STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-profile.netPension)),unit:"dollar"}];
+    try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:5,updatedAt:new Date().toISOString(),...shared,pssElection:isRailB?profile.pssElection:(shared.pssElection||"60-40")}));}catch(e){}
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     document.querySelectorAll(".v23-overlay.open").forEach(overlay=>overlay.classList.remove("open"));
     const main=document.querySelector("main");
     if(main&&!document.getElementById("v23-shared-banner")){
       const banner=document.createElement("div");banner.id="v23-shared-banner";
-      banner.innerHTML=`<span><b>Shared retirement scenario loaded</b><br>Rail ${shared.rail} · ${money(shared.spend)} spending · ${percent(shared.realReturn)} real return · target age ${shared.targetAge} · ${STATE.liquidityMonths}-month reserve policy</span><a id="v23-shared-command-link" href="./">Back to Command Centre</a>`;
+      banner.innerHTML=`<span><b>Shared retirement scenario loaded</b><br>Rail ${shared.rail}${isRailB?` · ${PSS_ELECTIONS[profile.pssElection].label} PSS election`:``} · ${money(shared.spend)} total spending · ${percent(shared.realReturn)} real return · target age ${shared.targetAge} · ${STATE.liquidityMonths}-month reserve policy</span><a id="v23-shared-command-link" href="./">Back to Command Centre</a>`;
       main.insertBefore(banner,main.firstChild);
     }
     updateNavigation();
@@ -5101,7 +5224,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       const targetAge=Number(STATE.targetAge);const keyAges=[profile.retireAge,65,70,targetAge,80,85,90,95];
       const scenarios=Object.entries(SCENARIOS).map(([key,scenario])=>{
         const sim=runModel({profile,abpReturn:scenario.abp,accumReturn:scenario.accum});
-        return{key,name:scenario.name,returnA:scenario.abp,returnB:scenario.accum,rows:sim.rows.filter(row=>keyAges.includes(row.age)).map(row=>({age:row.age,poolA:row.abp,poolB:row.acc,poolC:row.poolC,total:row.total,lifestyleGap:row.gap,actualPortfolioExit:row.realExit,mandatoryDraw:row.mandDraw,extraPoolADraw:row.extraDraw}))};
+        return{key,name:scenario.name,returnA:scenario.abp,returnB:scenario.accum,rows:sim.rows.filter(row=>keyAges.includes(row.age)).map(row=>({age:row.age,poolA:row.abp,poolB:row.acc,poolC:row.poolC,total:row.total,targetTotalSpend:row.targetSpend,lifestyleGap:row.gap,pssPensionAvailable:row.pension,pssPensionConsumed:row.pensionSpent,pssPensionSurplusToPoolC:row.pensionSurplus,actualPortfolioExit:row.realExit,mandatoryDraw:row.mandDraw,extraPoolADraw:row.extraDraw}))};
       });
       const likely=runModel({profile,abpReturn:STATE.likely,accumReturn:STATE.likely*.85});
       const target=likely.rows.find(row=>row.age===targetAge)||likely.rows[likely.rows.length-1];
@@ -5119,8 +5242,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     const pageTables=Array.from(page?.querySelectorAll("table")||[]).slice(0,12).map((table,index)=>({index,text:cleanText(table.innerText,12000)}));
     const globalRoot=document.querySelector(".control-bar");
     return{
-      metadata:{modelVersion:"V23",baselineDate:"2026-07-18",currency:"AUD",valueBasis:"Real dollars unless labelled otherwise",surface:"V23 detailed workbench",activePageId:activePageId(),activePageTitle:activeTitle(),capturedAt:now()},
-      activeScenario:{rail,railName:profile.name||rail,annualNetSpending:Number(profile.netPension||0)+Number(outputs.likelyStart?.realExit||0),realReturn:Number(state.likely||0),targetAge:Number(state.targetAge||75),annualPortfolioDraw:Number(outputs.likelyStart?.realExit||0),modelledInvestmentCapitalAtTarget:Number(outputs.likelyTarget?.total||0),sharedCommandCentreScenario:shared},
+      metadata:{modelVersion:APP_VERSION,baselineDate:"2026-09-01",currency:"AUD",valueBasis:"Real dollars unless labelled otherwise",surface:"V23 detailed workbench",activePageId:activePageId(),activePageTitle:activeTitle(),capturedAt:now()},
+      activeScenario:{rail,railName:profile.name||rail,pssElection:profile.pssElection||null,totalSpendTarget:state.totalSpendTarget,annualNetSpending:Number(outputs.likelyStart?.fundedTotalSpend??((outputs.likelyStart?.pensionSpent??profile.netPension??0)+Number(outputs.likelyStart?.realExit||0))),pssPensionSurplusToPoolC:Number(outputs.likelyStart?.pensionSurplus||0),realReturn:Number(state.likely||0),targetAge:Number(state.targetAge||75),annualPortfolioDraw:Number(outputs.likelyStart?.realExit||0),modelledInvestmentCapitalAtTarget:Number(outputs.likelyTarget?.total||0),sharedCommandCentreScenario:shared},
       v23State:state,
       activeProfile:profile,
       activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:controlSnapshot(page,100),charts:chartSnapshots(page)},

@@ -1,170 +1,125 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Baseline: 18 July 2026 · integrated release: 14 August 2026
+Current release: 1 September 2026 PSS election model
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
-- Full V23 deep model: ./deep-model.html
+- Retirement Atlas: ./atlas.html
+- Full V23 workbench: ./deep-model.html
 - HTML model reference: ./model-reference.html
 
 PURPOSE AND BOUNDARIES
-This document describes the inputs, formulas, scenario engines, governance controls and source lineage used by the Robinson Retirement Command Centre and linked V23 model. It contains no JavaScript and is intended to be readable by people, accessibility tools, search engines and AI retrieval systems.
+This document describes the source inputs, formulas, scenario engines, controls and provenance used by the three public interfaces. It contains no JavaScript and is intended for people, accessibility tools, search engines and AI retrieval.
 
-Decision-support only. This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules and obtain professional advice before acting.
+Decision-support only. This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules, obtain a corrected CSC statement and seek professional advice before acting.
 
 CLASSIFICATIONS
-- EXACT: documented or directly calculated input.
-- ESTIMATED: external pricing or replacement value.
-- MODELLED: scenario-dependent output.
+- EXACT: documented source value or direct arithmetic from it.
+- ESTIMATED: external price, tax comparison or replacement value.
+- MODELLED: scenario-dependent projection.
 - SPECULATIVE: unknowable future state.
 
-DUAL-RAIL BASELINE AT AGE 60
-The rails remain separate. Rail A is the conservative V5 workbook/V23 control baseline. Rail B is the July spending-frontier update.
+RAILS AND PSS ELECTIONS
+Rail A remains the March 2026 / V5 historical control. Rail B is the current 1 September 2026 source family. Rail B defaults to 60/40, while 65/35, 70/30 and 100% pension are selectable what-if elections. They are never blended.
 
-Input                                  Rail A          Rail B
-Gross indexed PSS pension              $78,382.04      $82,550.89 p.a.
-Net PSS pension used by model           $76,041.68      $76,302.72 p.a.
-PSS lump sum                            $574,801.66     $605,373.22
-Hostplus upper planning anchor          $317,447.66     $317,447.66
-Total investment capital                $892,249.32     $922,820.88
-DB special value                        $1,254,112.64   $1,320,814.24
-Pool A retirement pension account       $840,887.36     $774,185.76
-Pool C external ETF                     $51,361.96      $148,635.12
-Final average salary                    $143,700.42     $151,343.31
+Rail B election        Gross pension   Net pension    PSS lump       Tax-free       Taxable-taxed  Pool A          Pool C          Max PSS wash cycles
+60% / 40%              $91,776.03      $86,240.18     $673,024.21    $160,278.23    $512,745.98    $626,583.52    $363,888.35    6
+65% / 35%              $99,424.03      $93,888.34     $588,896.19    $140,243.46    $448,652.73    $504,215.52    $402,128.33    5
+70% / 30%              $107,072.03     $101,536.24    $504,768.16    $120,208.67    $384,559.49    $381,847.52    $440,368.30    4
+100% pension           $152,960.05     $143,104.26    $0             $0              $0              $0              $317,447.66    0
 
-SHARED CONTROLS
-- General transfer balance cap planning value: $2,100,000.
-- Planning buffer below the cap: $5,000; illustrative TSB target about $2.095m.
-- Home baseline: $500,000, adjustable.
-- Pool C drag: 0.35% real per year.
-- Retirement scenarios use real dollars and real returns unless explicitly labelled otherwise. Select a rate net of product fees; Pool C also applies a separate 0.35% annual modelled distribution drag.
-- Pre-retirement sensitivity figures are separately labelled nominal.
+Common 1 September iEstimator assumptions: retirement at 60; projected CPI-reduced FAS $168,256.05; contribution rate 10%; fund earnings 8.2%; salary growth 5%; CPI 2.5%. Those are provider projection assumptions before retirement. The sites' adjustable real-return control is a separate post-retirement assumption.
 
-RETIREMENT FRONTIER
-The Command Centre derives its frontier by re-running the operational annual planning ledger below for each selected spending, return and target-age combination. It does not use a separate terminal monthly-draw formula. It adds the selected home value only for a clearly labelled gross-estate view. Fixed 4% and 6.5% paths are explicitly labelled comparisons.
+Rail A control: gross pension $78,382.04; net pension $76,041.68; PSS lump $574,801.66; tax-free component $141,581.47; taxable-taxed component $433,220.20; untaxed $0; Hostplus $317,447.66; Pool A $840,887.36; Pool C $51,361.96.
 
-OPERATIONAL ANNUAL LEDGER
+TRANSFER BALANCE AND OPENING POOLS
+- General transfer balance cap planning anchor: $2,100,000.
+- Planning buffer: $5,000 where positive cap space exists.
+- Hostplus upper planning anchor: $317,447.66 for all elections.
+- DB special value = gross indexed PSS pension x 16.
+- Pool A = min(PSS lump + Hostplus, max(0, TBC - DB special value - planning buffer)).
+- Pool C = PSS lump + Hostplus - Pool A.
+- Pool B opens at $0 and is a wash/recontribution transit account, not a permanent growth pool.
+- The 100% pension special value is $2,447,360.80, which is $347,360.80 above the current $2.1m planning anchor. The sites show this explicitly. The estimate's net pension is used for planning, but actual defined-benefit cap/tax treatment must be confirmed with CSC and an adviser.
+
+POST-RETIREMENT OPERATIONAL LEDGER
 mandatoryDraw = openingPoolA x ageBasedMinimumRate
-lifestyleGap = max(0, spending - netPssPension)
+lifestyleGap = max(0, targetTotalSpending - netPssPension)
 actualDraw = min(openingPoolA, max(mandatoryDraw, lifestyleGap))
-netIncome = netPssPension + actualDraw
-fundedSpend = min(spending, netIncome)
-shortfall = max(0, spending - netIncome)
-reinvestment = max(0, netIncome - spending)
+netIncomeAvailable = netPssPension + actualDraw
+fundedSpend = min(targetTotalSpending, netIncomeAvailable)
+shortfall = max(0, targetTotalSpending - netIncomeAvailable)
+reinvestment = max(0, netIncomeAvailable - targetTotalSpending)
 poolCDrag = openingPoolC x 0.0035
 closingPoolA = max(0, openingPoolA x (1 + realReturn) - actualDraw)
 closingPoolC = max(0, openingPoolC x (1 + realReturn) - poolCDrag + reinvestment)
 
-The ledger's birthday-year planning rows apply the rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. This prevents an age threshold being stepped up early. It is not a fund payment instruction: the provider calculates the actual financial-year minimum, including the first-year pro-rating when an ABP commences after 1 July. Pool C is an invested ETF reserve, not cash and not an automatic source of a displayed spending shortfall.
+This treatment matters for 100% pension. At net spending targets of $90k, $100k, $110k or $130k, voluntary portfolio draw is $0 and the PSS surplus is respectively $53,104.26, $43,104.26, $33,104.26 or $13,104.26 a year before other events. The surplus is invested in Pool C; it is not silently classified as spending.
 
-V23 DETERMINISTIC GOVERNOR
-1. Apply the age-based mandatory draw from Pool A.
-2. Use pension plus the required draw to meet the selected spending rule.
-3. Draw extra from Pool A only if the spending gap exceeds the mandatory draw.
-4. Route surplus to available super headroom when permitted, otherwise to Pool C.
-5. Keep Pool B as a transit account for wash/recontribution modelling.
+V23 has two spending contexts:
+1. A Command Centre / Atlas shared target is total net spending. V23 derives either the portfolio gap or the PSS surplus.
+2. Manual V23 age bands are gap-above-PSS controls. Editing a band clears the imported total target. Each band maps to its own lifestyle phase, and the display subdivides a phase whenever its funding routine changes.
 
-MONTE CARLO AND RISK
-Integrated Command Centre:
-- 600 reproducible seeded paths from age 60 through age 95.
-- Returns sampled from a normal distribution using the selected real mean and 12% volatility.
-- Sampled annual returns are drawn from a capped normal distribution and clamped between -55% and +45%.
-- Each year: capital = max(0, capital x (1 + sampledReturn) - annualDraw).
-- Reports P10, P25, P50, P75 and P90 balance paths plus a model success frequency at the selected floor.
-- This is a simplified stress-test frequency, not a forecast probability. Samples use fixed seeds for reproducibility and exclude fees, legislation, statutory payment timing, market regimes, account routing and personal spending shocks.
+The birthday-year planning rows apply the ABP minimum rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. The provider calculates actual financial-year minima and first-year pro-rating.
 
-V23 stochastic lab:
-- Exposes run count, expected real return, volatility, target age and guardrail levels.
-- Reports sampled success frequencies of clearing the selected floor, target and strong-estate levels; these are not forecast probabilities.
-- Sampling noise remains; at 500 runs V23 notes that results can move by roughly 1-3 percentage points between samples.
-
-Sequence-risk isolation:
-- Reorders the same annual returns into worst-first, smooth and best-first paths.
-- Holding the arithmetic average constant isolates the effect of return order while withdrawals occur.
-
-Stress controls:
-- The one-off shock path applies the selected shock return at the chosen age and the mean return in other years.
-- The V23 CPI-lag stress models a temporary real PSS-pension dip and a capital real-return drag, with investments topping up the pension shortfall.
+RETURNS AND RISK
+- Retirement projections use real dollars and the selected post-retirement real return.
+- Pool C also applies a separate 0.35% annual modelled distribution drag.
+- Pre-retirement Hostplus sensitivities are separately labelled nominal.
+- Command Centre Monte Carlo uses 600 reproducible seeded paths and 12% volatility.
+- V23 exposes run count, mean return, volatility, target age and guardrails.
+- Percentiles and sampled success frequencies are stress tests, not forecasts.
+- Build validation requires every zero-volatility stochastic path and its median to equal the deterministic annual ledger for every Rail B election, multiple spending targets and both displayed tax years.
 
 NCC WASH AND DEATH-BENEFIT TAX
-Master-locked planning component convention for both rails:
-- Tax-free 29.03%.
-- Taxable-taxed 70.97%.
-- Untaxed 0%.
-- Illustrative adult non-tax-dependant death-benefit-tax rate 17%.
+The engine no longer applies one common component ratio to both rails. It uses the active PSS source only:
+- Rail A March source: 24.63% tax-free, 75.37% taxable-taxed, 0% untaxed.
+- Rail B 60/40: 23.81% tax-free, 76.19% taxable-taxed, 0% untaxed.
+- Rail B 65/35: the exact $140,243.46 / $448,652.73 source components.
+- Rail B 70/30: the exact $120,208.67 / $384,559.49 source components.
+- Rail B 100%: no lump components and no PSS wash source.
 
-Master-locked separate-interest engine:
-taxableRemoved = washAmount x 0.709677
+For a separate-interest planning cycle:
+washAmount = min(selectedAnnualAmount, remainingOriginalPssLump, modelledNccCapacity, availableSuper)
+taxableRemoved = washAmount x activePssTaxableShare
 taxableAfter = max(0, taxableBefore - taxableRemoved)
-deathBenefitTax = taxableComponent x 0.17
+deathBenefitTax = taxableAfter x 0.17
 
-At the master-locked 70.97% taxable share, a $130,000 wash removes about $92,258 taxable and reduces modelled DBT by about $15,684 on both rails. Six separate-interest cycles reduce the modelled liability to the $10,000 target or below.
-
-Alternative analytic comparators:
-- The active cross-site engine reproduces the master-locked $15,683.86 tax reduction per full wash.
-- Corrected proportioning and merged-interest analysis must remain separately labelled and are not the cross-site decision-support engine.
-
-Full-conversion master-document comparison:
-- Treats the full $130,000 as taxable converted, implying $22,100 at 17%.
-- Kept as an explicit comparison and never silently mixed with proportioning.
-
-Modelled sequence:
-1. Before the relevant 30 June snapshot, confirm the actual TSB, current cap, contribution eligibility, legal timing and implementation advice.
-2. Commute the selected amount from Pool A under the chosen component method.
-3. Contribute the eligible NCC amount to Pool B.
-4. Recommence or consolidate according to provider and advice requirements.
-5. Preserve the intended $5,000 planning buffer and apply the surplus-routing governor.
-
-The integrated Command Centre has a simplified 0-7 wash-cycle illustration. V23 shows a birthday-model planning proxy only; it cannot establish actual prior-30-June TSB eligibility or provider timing. Neither is an instruction to transact.
+The maximum cycles are source-limited: Rail A 5; Rail B 60/40 6; 65/35 5; 70/30 4; 100% pension 0. A final cycle is partial when required. Hostplus tax components remain unresolved and are not silently assigned a PSS ratio. Before any real contribution, confirm prior-30-June TSB, current caps, legal timing, contribution eligibility, component treatment and provider execution.
 
 TAX AND SALARY EQUIVALENCE
-The dashboard calculates resident individual income tax plus a 2% Medicare levy, then uses binary search to find the gross salary that produces a selected net income. The baseline function uses a $18,200 tax-free threshold; bracket points at $45,000, $135,000 and $190,000; rates of 30%, 37% and 45% above those points; and a lower bracket rate of 15% for 2026-27 or 14% for 2027-28.
+The dashboard applies the displayed resident income-tax schedule plus a 2% Medicare levy, then uses binary search for the gross salary that produces the selected net income. It excludes offsets, Medicare variations or surcharge, HELP, deductions and household effects. It is a comparison, not a tax-return estimate.
 
-The comparator excludes offsets, Medicare levy variations, Medicare levy surcharge, HELP, deductions and household-specific effects. It is not a tax-return estimate.
-
-SPENDING AND ESTATE
-V23 spending modes:
-1. Age-band spending. Each input maps to its own phase, and the V23 display creates a separate sub-phase if its funding routine changes.
-2. A percentage of positive investment earnings. A negative return produces no earnings-based spending gap; strong earnings can require an extra Pool A draw.
-3. A percentage of the mandatory draw. This cannot exceed the mandatory draw; surplus is routed by the governor.
-
-Simplified frontier gross estate = projected investments + selected home value.
-V23 separately tracks account components, external assets and illustrative death-benefit tax.
+SOURCE STATUS AND SALARY CONTROL
+- CSC employment history / payroll evidence supports a corrected 21 Dec 2025 birthday super salary of $138,394.
+- The new iEstimators start from the actual current salary shown on the corrected payslip, $143,099, and apply CSC's prospective projection assumptions.
+- Statement 2026.pdf carries the pre-correction super salary and is pending correction/reissue. It remains evidence, not current Rail B estimate authority.
+- Do not replace the September election values with the disputed statement.
 
 GOVERNANCE CONTROLS
-- Do not mix Rail A and Rail B silently.
-- Do not present combined Pool A components as exact; the 70.97% taxable-taxed engine share is a master-locked planning convention for both rails.
-- Keep gross pension, net pension, net spending and gross salary equivalence distinct.
-- Keep real retirement projections and nominal pre-age-60 sensitivities distinct.
-- Keep corrected proportioning, workbook reconciliation and full-conversion wash methods separately labelled.
-- Keep a spending target separate from funded spending. Do not silently draw Pool C to remove a funding shortfall.
-- Treat the $317,447.66 Hostplus amount as an upper planning anchor. The governed Hostplus workbook reconciles to $289,620.63 at 8.0% nominal with $24,522 opening balance, $650/pf salary sacrifice and $1,200/pf Phase 3 total; use an updated statement before changing the anchor.
-- The 2026 PSS statement is pending payroll/CSC correction and reissue. It is evidence to monitor, not authority to replace the locked iEstimator inputs.
-- Review PSS estimates, balances, tax rates, Medicare, draw rates, contribution caps, TBC/TSB rules and provider processes annually.
-
-MACHINE-ANALYSIS CONTRACT
-An automated analysis should:
-- distinguish documented inputs from modelled outputs;
-- identify the rail and NCC wash method being discussed;
-- quote the formula or assumption that drives each conclusion;
-- never treat a simulated percentile as a forecast;
-- never convert this documentation into personal financial advice.
+- Carry rail, PSS election, spending, return, target age, home, tax year, reserve months and simulation seed through every shared link and saved scenario.
+- Do not mix Rail A with any Rail B election.
+- Do not borrow PSS component ratios for Hostplus.
+- Keep gross pension, net pension, total spending, portfolio gap, PSS surplus and gross salary equivalent distinct.
+- Keep provider pre-retirement assumptions separate from site post-retirement real returns.
+- Keep a spending target separate from funded spending; Pool C is not automatically drawn to hide a shortfall.
+- Treat the Hostplus amount as an upper planning anchor and refresh it from statements.
+- Review estimates, balances, tax, Medicare, draw rates, caps, TBC/TSB and provider processes annually.
 
 SOURCE REGISTER
-Personal source PDFs and workbooks are not republished. Governed source roles:
-- PSS_Defined_Benefit_Calculator_V8_Baseline_2026-07-18.xlsx: PSS DB calculation control.
-- Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx: Rail A workbook and cash-flow control.
-- PSS_iEstimator_60-40_2026-07-02.pdf: 60/40 PSS option and component input.
-- PSS_iEstimator_100_2026-07-02.pdf: 100% pension comparison.
-- PSS_Annual_Statement_2025_2025-12-20.pdf: annual PSS statement reference.
-- Statement 2026.pdf: current PSS statement, pending payroll/CSC correction and reissue; do not use for revised retirement inputs yet.
-- Robinson_Retirement_Master_2026-07-18.md: master narrative and operating assumptions.
-- Robinson_Retirement_Spending_Estate_Frontier_Analysis_2026-07-18.md: Rail B spending and estate frontier.
-- Robinson_PSSDB_VR_Deep_Research_2026-07-18.md: PSS/VR research and valuation context.
-- Robinson_NCC_Wash_Drawdown_Research_2026-07-18.md: NCC wash, drawdown and sequencing research.
-- Australian_Salary_Net_Gross_Analysis_2026-07-18.md: salary net/gross comparison assumptions.
-- Robinson_Global_Position_Deep_Analysis_2026-07-18.md: broader position and benchmark context.
-- Robinson_Source_Folder_Recheck_2026-07-18.md: source reconciliation and freshness control.
-- Retirement_Analysis_AU_US_UK_2026-05-31.pdf: international comparison context.
+Personal PDFs and workbooks are not republished. Current source roles:
+- i-Estimator-1-9-2026_60-40.pdf: current Rail B 60/40 pension, lump and component source.
+- i-Estimator-1-9-2026_65-35.pdf: current Rail B 65/35 option.
+- i-Estimator-1-9-2026_70-30.pdf: current Rail B 70/30 option.
+- i-Estimator-1-9-2026_100percent.pdf: current Rail B 100% pension option.
+- Paystub_2026_08_26.pdf: corrected current salary and backpay evidence.
+- Statement 2026.pdf: disputed annual statement pending reissue.
+- PSS_iEstimator_60-40_2026-03-23.pdf: Rail A historical control and direct components.
+- PSS_Annual_Statement_2025_2025-12-20.pdf: previous annual statement reference.
+- Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx: Rail A workbook/cashflow control.
+- Robinson_Retirement_Master_2026-07-18.md: governed narrative, revised by the 1 Sep 2026 release note.
+
+MACHINE-ANALYSIS CONTRACT
+An automated analysis must state the rail and PSS election, distinguish sourced inputs from modelled outputs, name the return assumption, identify total spending versus portfolio gap or pension surplus, cite the wash source/method, never call a simulated percentile a forecast, and never convert this documentation into personal financial advice.
 
 END OF STATIC MODEL REFERENCE

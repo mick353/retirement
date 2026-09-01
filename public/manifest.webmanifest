@@ -1,7 +1,7 @@
 {
   "name": "Robinson Retirement Command Centre",
   "short_name": "Retirement",
-  "description": "Dual-rail retirement planning, scenario comparison, risk and annual-review command centre.",
+  "description": "Source-backed PSS election, retirement spending, risk, tax and annual-review command centre.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

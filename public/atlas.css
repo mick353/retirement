@@ -132,6 +132,13 @@ h1 span { color: var(--blue); }
 .rail-switch b { color: var(--text); font-size: 12px; }
 .rail-switch small { margin-top: 2px; font-size: 9px; line-height: 1.3; }
 .rail-switch button.active { border-color: var(--blue); background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 17%, var(--panel)), color-mix(in srgb, var(--green) 7%, var(--panel))); box-shadow: inset 3px 0 0 var(--blue); }
+.election-control { margin: 14px 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--green) 30%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--green) 5%, var(--panel-2)); }
+.election-control > span { display: block; margin-bottom: 8px; color: var(--green); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.election-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.election-tabs button { min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--muted); cursor: pointer; text-align: left; }
+.election-tabs b, .election-tabs small { display: block; }.election-tabs b { color: var(--text); font-size: 10px; }.election-tabs small { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.election-tabs button.active { border-color: var(--green); background: color-mix(in srgb, var(--green) 13%, var(--panel)); box-shadow: inset 3px 0 0 var(--green); }
+.election-control > small { display: block; margin-top: 8px; color: var(--muted); font-size: 8px; line-height: 1.45; }
 .scenario-card > p { margin: 13px 0 17px; color: var(--muted); font-size: 11px; }
 .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
 .control-grid label > span, .wash-control > span { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }

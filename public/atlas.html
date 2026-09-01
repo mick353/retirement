@@ -41,7 +41,7 @@
   <main id="main">
     <section class="hero section" id="overview">
       <div class="hero-copy">
-        <div class="eyebrow"><span class="status-dot"></span>Integrated decision map · baseline 18 July 2026</div>
+        <div class="eyebrow"><span class="status-dot"></span>Integrated decision map · September 2026 PSS election release</div>
         <h1>The pension secures the floor.<br><span>The capital preserves choice.</span></h1>
         <p class="lede">This is the explanation layer for a flat annual-spending comparison. The core question is how much active-retirement spending to exchange for later investment capital, estate value and flexibility—without weakening the indexed PSS foundation. Set changing age bands in V23.</p>
         <div class="hero-actions">
@@ -59,13 +59,24 @@
       <aside class="scenario-card" aria-label="Active retirement scenario">
         <div class="scenario-head">
           <div><span>Active analytical rail</span><b id="railTitle">Rail B — spending frontier</b></div>
-          <span class="badge exact" id="railSourceBadge">July iEstimator</span>
+          <span class="badge exact" id="railSourceBadge">September iEstimator</span>
         </div>
         <div class="rail-switch" role="tablist" aria-label="Choose modelling rail">
           <button id="railB" role="tab" aria-selected="true" class="active" type="button"><b>Rail B</b><small>Current spending / lifestyle lens</small></button>
           <button id="railA" role="tab" aria-selected="false" type="button"><b>Rail A</b><small>Conservative wealth benchmark</small></button>
         </div>
-        <p id="railPurpose">Uses the newer 2 July iEstimator to test spending power against a property-inclusive estate floor.</p>
+        <p id="railPurpose">Uses the selected 1 September CSC estimate to test spending power, TBC allocation, drawdown, tax and estate outcomes.</p>
+
+        <div class="election-control" id="electionControl" role="group" aria-label="Choose PSS retirement election">
+          <span>PSS election · Rail B</span>
+          <div class="election-tabs">
+            <button type="button" data-pss-election="60-40" class="active" aria-pressed="true"><b>60/40</b><small>$86k net · $673k lump</small></button>
+            <button type="button" data-pss-election="65-35" aria-pressed="false"><b>65/35</b><small>$94k net · $589k lump</small></button>
+            <button type="button" data-pss-election="70-30" aria-pressed="false"><b>70/30</b><small>$102k net · $505k lump</small></button>
+            <button type="button" data-pss-election="100" aria-pressed="false"><b>100%</b><small>$143k net · no lump</small></button>
+          </div>
+          <small id="electionContext">Provider projection: 8.2% fund earnings · 5% salary growth · 2.5% CPI. Site return below is a separate post-retirement real return.</small>
+        </div>
 
         <div class="control-grid">
           <label>
@@ -98,8 +109,8 @@
     </section>
 
     <section class="metric-strip" aria-label="Core scenario results">
-      <article class="metric violet"><span>Indexed net PSS floor</span><strong id="metricPension">$76,303</strong><small id="metricPensionPf">[MODELLED] $2,934.72 per fortnight · for life</small></article>
-      <article class="metric blue"><span>Flexible capital at 60</span><strong id="metricCapital60">$922,821</strong><small id="metricCapitalSource">[MODELLED] PSS lump + Hostplus projection</small></article>
+      <article class="metric violet"><span>Indexed net PSS floor</span><strong id="metricPension">$86,240</strong><small id="metricPensionPf">[CSC ESTIMATE] $3,316.93 per fortnight · for life</small></article>
+      <article class="metric blue"><span>Flexible capital at 60</span><strong id="metricCapital60">$990,472</strong><small id="metricCapitalSource">[MODELLED] PSS lump + Hostplus projection</small></article>
       <article class="metric green"><span id="metricCapitalLabel">Investments at 75</span><strong id="metricCapital">$1,174,679</strong><small id="metricCapitalSub">[MODELLED] 5.0% real · reconciled annual ledger</small></article>
       <article class="metric amber"><span id="metricEstateLabel">Gross estate at 75</span><strong id="metricEstate">$1,674,679</strong><small id="metricEstateSub">[MODELLED] Includes $500,000 assumed home</small></article>
     </section>
@@ -115,11 +126,11 @@
         <article class="panel">
           <div class="panel-head"><div><h3>Age-60 capital conservation</h3><p>Every dollar entering the investment architecture reconciles.</p></div><span class="badge modelled">Modelled opening</span></div>
           <div class="capital-flow">
-            <div class="flow-source"><span>40% PSS lump</span><b id="flowLump">$605,373</b></div>
+            <div class="flow-source"><span id="flowLumpLabel">40% PSS lump</span><b id="flowLump">$673,024</b></div>
             <div class="flow-plus">+</div>
             <div class="flow-source"><span>Hostplus at 60</span><b id="flowHostplus">$317,448</b></div>
             <div class="flow-equals">=</div>
-            <div class="flow-total"><span>Flexible capital</span><b id="flowCapital">$922,821</b></div>
+            <div class="flow-total"><span>Flexible capital</span><b id="flowCapital">$990,472</b></div>
           </div>
           <div class="allocation" aria-label="Pool allocation">
             <div class="allocation-bar"><i id="poolABar"></i><i id="poolCBar"></i></div>
@@ -156,7 +167,7 @@
         <label class="chart-age-control" for="incomeAgeSelect"><span>Keyboard age inspection</span><select id="incomeAgeSelect" aria-label="Inspect cashflow at age"></select></label>
         <div class="selected-year" aria-live="polite">
           <div><span>Selected year · age span</span><b id="selectedAge">60→61</b></div>
-          <div><span>Net PSS pension</span><b id="selectedPension">$76,303</b></div>
+          <div><span>Net PSS pension</span><b id="selectedPension">$86,240</b></div>
           <div><span>ABP draw</span><b id="selectedDraw">$33,697</b></div>
           <div><span>Target spend</span><b id="selectedSpend">$110,000</b></div>
           <div><span>Funded spend</span><b id="selectedFundedSpend">$110,000</b></div>
@@ -314,17 +325,17 @@
       <div class="section-heading">
         <div class="eyebrow">06 · Tax and estate protection</div>
         <h2>Tax efficiency is a governed implementation problem—not a chart decoration.</h2>
-        <p>The NCC wash remains a specialist strategy with eligibility, component and execution controls. Both rails use the master-locked 70.97% taxable-taxed, 0% untaxed separate-interest convention; provider execution and annual account-component checks remain required.</p>
+        <p>The NCC wash remains a specialist strategy with eligibility, component and execution controls. Each source uses its own direct CSC lump components; washing is capped by the remaining original PSS lump and never assigns those components to Hostplus.</p>
       </div>
       <div class="two-column tax-grid">
         <article class="panel">
-          <div class="panel-head"><div><h3>NCC wash control</h3><p id="washStatus">Both rails use the master-locked separate-interest convention, subject to provider confirmation and annual component refresh.</p></div><span class="badge modelled" id="washBadge">Modelled wash convention</span></div>
+          <div class="panel-head"><div><h3>NCC wash control</h3><p id="washStatus">Source-limited separate-interest convention, subject to provider confirmation and annual eligibility checks.</p></div><span class="badge modelled" id="washBadge">Direct component source</span></div>
           <label class="wash-control"><span>Illustrative completed wash cycles <b id="washCyclesOut">6</b></span><input id="washCycles" type="range" min="0" max="7" step="1" value="6"></label>
           <div class="wash-track" aria-hidden="true"><i id="washTrack"></i></div>
           <div class="wash-stats">
             <div><span>Annual NCC cap used</span><b>$130,000</b><small>2026–27 current-law anchor; recheck annually</small></div>
-            <div><span>Taxable amount converted per master-locked wash</span><b>$92,258</b><small>70.97% taxable-taxed proportion</small></div>
-            <div><span>DBT reduction per master-locked wash</span><b>$15,683.86</b><small>17% taxed-element planning rate</small></div>
+            <div><span>Taxable amount converted per full wash</span><b id="washTaxablePerCycle">$99,041</b><small id="washTaxablePerCycleSub">Direct active-source proportion</small></div>
+            <div><span>DBT reduction per full wash</span><b id="washDbtPerCycle">$16,836.97</b><small>17% taxed-element planning rate</small></div>
             <div><span id="washSavedLabel">Modelled DBT remaining</span><b id="washSaved">$0</b><small id="washSavedSub">Six-cycle default; live script recalculates</small></div>
           </div>
           <div class="warning-note"><b>Execution control</b><span>Clean NCC money must remain a separate super interest and commutations must come from the original taxable interest. Merging interests re-blends components and weakens later washes.</span></div>
@@ -374,7 +385,7 @@
       <div class="governance-register panel">
         <div class="panel-head"><div><h3>Alignment register</h3><p>Current controls applied to this Atlas release.</p></div><span class="badge exact">Aligned</span></div>
         <div class="register-grid">
-          <div><b>Default rail</b><span>Rail B · July spending-frontier source</span></div>
+          <div><b>Default rail</b><span>Rail B · September 60/40 source; 65/35, 70/30 and 100% selectable</span></div>
           <div><b>Age timing</b><span>Age 60 = opening position; age 61 = end of the age 60→61 first retirement year</span></div>
           <div><b>Return basis</b><span>Real return only inside retirement scenarios</span></div>
           <div><b>Return application</b><span>Pool A uses the stated real rate; Pool C has a 0.35% annual modelled distribution drag; choose a rate net of fees</span></div>

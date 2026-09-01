@@ -28,6 +28,12 @@ for (const required of ["visualCanvas", "visualAgeRange", "visualModeTabs", "vis
   assert(htmlIds.has(required), `Missing visual-studio control: ${required}`);
 }
 
+const electionKeys = [...html.matchAll(/data-pss-election="([^"]+)"/g)].map((match) => match[1]);
+assert(JSON.stringify(electionKeys) === JSON.stringify(["60-40", "65-35", "70-30", "100"]), `Atlas election controls drifted: ${electionKeys.join(", ")}`);
+assert(htmlIds.has("electionControl") && htmlIds.has("electionContext"), "Atlas election context is missing");
+assert(script.includes("state.pssElection"), "Atlas visuals are not wired to the active PSS election");
+assert(script.includes("lumpTaxableTaxed"), "Atlas tax visual lacks source-backed election components");
+
 assert(script.includes("These are scenario slices, not probabilities"), "Horizon probability boundary is missing");
 assert(script.includes("annual cash flows and capital stocks on separate visual scales"), "Financial River unit boundary is missing");
 assert(script.includes("PSS floor remains an annual-income halo"), "Legacy Orbit income/capital boundary is missing");

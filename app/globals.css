@@ -103,6 +103,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .rail-switch button b { color: var(--text); font-size: 14px; }
 .rail-switch button span { margin-top: 2px; font-size: 11px; }
 .rail-switch button.active { border-color: var(--blue); background: linear-gradient(135deg, rgba(111,140,255,.21), rgba(71,214,160,.08)); box-shadow: inset 3px 0 0 var(--blue); }
+.election-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+.election-switch button { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--muted); cursor: pointer; text-align: left; }
+.election-switch button b, .election-switch button span { display: block; }
+.election-switch button b { color: var(--text); font-size: 10px; }
+.election-switch button span { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.election-switch button.active { border-color: var(--green); background: linear-gradient(135deg, rgba(71,214,160,.15), rgba(111,140,255,.08)); box-shadow: inset 3px 0 0 var(--green); }
+.control-help { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; line-height: 1.45; }
 .rail-note { margin-top: 15px; }
 .rail-note p { color: var(--muted); font-size: 11px; line-height: 1.45; }
 
@@ -496,6 +503,17 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .rail-card-head { display: flex; justify-content: space-between; }
 .rail-card-head button { border: 0; background: transparent; color: var(--blue); cursor: pointer; }
 .rail-compare h3 { margin: 12px 0; }
+.pss-election-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pss-election-grid article { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+.pss-election-grid article.selected { border-color: var(--green); box-shadow: inset 0 0 0 1px rgba(71,214,160,.3), 0 15px 38px rgba(0,0,0,.12); }
+.pss-election-grid h3 { margin: 12px 0 5px; font-size: 17px; }
+.pss-election-grid article > p { min-height: 36px; color: var(--muted); font-size: 10px; }
+.pss-election-grid dl { display: grid; gap: 6px; margin: 13px 0 0; }
+.pss-election-grid dl div { display: flex; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 9px; }
+.pss-election-grid dt { color: var(--muted); }.pss-election-grid dd { margin: 0; color: var(--text); font-weight: 800; text-align: right; }
+.option-warning { margin-top: 10px; padding: 9px; border: 1px solid rgba(243,169,80,.35); border-radius: 9px; background: rgba(243,169,80,.08); color: var(--amber); font-size: 9px; line-height: 1.45; }
+.rail-a-control { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.rail-a-control h3 { margin: 8px 0 3px; }.rail-a-control p { margin: 0; color: var(--muted); font-size: 10px; }
 dl { margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 dl div { padding: 9px; border-radius: 9px; background: var(--panel-2); }
 dt { color: var(--muted); font-size: 9px; }
@@ -731,7 +749,9 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .horizon-controls { grid-template-columns: 1fr; margin-inline: 0; }
   .horizon-milestones { justify-content: flex-start; }
   .horizon-bottom-grid, .horizon-outcomes { grid-template-columns: 1fr; }
-  .metrics.four, .metrics.three, .objective-grid, .classification-grid, .rail-compare, .benchmark-hero, .source-list, .control-register, .official-links, .split-grid, .wash-result, .sensitivity-layout { grid-template-columns: 1fr; }
+  .metrics.four, .metrics.three, .objective-grid, .classification-grid, .rail-compare, .pss-election-grid, .benchmark-hero, .source-list, .control-register, .official-links, .split-grid, .wash-result, .sensitivity-layout { grid-template-columns: 1fr; }
+  .election-switch { grid-template-columns: 1fr; }
+  .rail-a-control { align-items: stretch; flex-direction: column; }
   .decision-banner { grid-template-columns: 1fr; }
   .comparison-stat { border-left: 0; border-top: 1px solid var(--line); padding: 12px 0 0; }
   .profile-strip { display: flex; overflow-x: auto; padding-bottom: 4px; }

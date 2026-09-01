@@ -8,6 +8,39 @@
   const GROSS_ESTATE_FLOOR = 1_000_000;
   const WASH_AMOUNT = 130_000;
 
+  const PSS_ELECTIONS = {
+    "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 168_256.05, grossPension: 91_776.03, netPension: 86_240.18, netPensionPf: 3_316.93, lumpSum: 673_024.21, lumpTaxFree: 160_278.23, lumpTaxableTaxed: 512_745.98, lumpTaxableUntaxed: 0 },
+    "65-35": { key: "65-35", label: "65% pension / 35% lump", pensionPercent: 65, lumpPercent: 35, fas: 168_256.05, grossPension: 99_424.03, netPension: 93_888.34, netPensionPf: 3_611.09, lumpSum: 588_896.19, lumpTaxFree: 140_243.46, lumpTaxableTaxed: 448_652.73, lumpTaxableUntaxed: 0 },
+    "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, fas: 168_256.05, grossPension: 107_072.03, netPension: 101_536.24, netPensionPf: 3_905.24, lumpSum: 504_768.16, lumpTaxFree: 120_208.67, lumpTaxableTaxed: 384_559.49, lumpTaxableUntaxed: 0 },
+    "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, fas: 168_256.05, grossPension: 152_960.05, netPension: 143_104.26, netPensionPf: 5_504.01, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0 },
+  };
+
+  function railBForElection(electionKey) {
+    const election = PSS_ELECTIONS[electionKey] || PSS_ELECTIONS["60-40"];
+    const hostplus = 317_447.66;
+    const capital = election.lumpSum + hostplus;
+    const dbSpecialValue = election.grossPension * 16;
+    const tbcHeadroom = Math.max(0, TBC - dbSpecialValue);
+    const poolA = Math.min(capital, Math.max(0, tbcHeadroom - TSB_BUFFER));
+    const poolC = capital - poolA;
+    const washTaxableShare = election.lumpSum > 0 ? election.lumpTaxableTaxed / election.lumpSum : 0;
+    return {
+      key: "B", electionKey: election.key, electionLabel: election.label,
+      title: `Rail B — ${election.label}`, short: `Spending frontier · ${election.label}`,
+      source: `1 Sep 2026 CSC iEstimator · ${election.label}`,
+      purpose: "Tests the selected September CSC election against spending, TBC, drawdown, tax and estate objectives.",
+      fas: election.fas, grossPension: election.grossPension, netPension: election.netPension,
+      lumpSum: election.lumpSum, hostplus, capital, dbSpecialValue, poolA, poolC,
+      pensionPercent: election.pensionPercent, lumpPercent: election.lumpPercent,
+      lumpTaxFree: election.lumpTaxFree, lumpTaxableTaxed: election.lumpTaxableTaxed, lumpTaxableUntaxed: election.lumpTaxableUntaxed,
+      tbcHeadroom, tbcExcess: Math.max(0, dbSpecialValue - TBC), washTaxableShare,
+      washEvidence: election.lumpSum > 0
+        ? `Direct 1 September 2026 CSC split: ${(washTaxableShare * 100).toFixed(2)}% taxable-taxed, ${((election.lumpTaxFree / election.lumpSum) * 100).toFixed(2)}% tax-free and 0% untaxed. Washing is limited to the original PSS lump; Hostplus components remain unresolved.`
+        : "The 100% pension election has no PSS lump and no PSS source available for NCC washing.",
+      taxStatus: election.lumpSum > 0 ? "Direct CSC component evidence" : "No PSS lump wash",
+    };
+  }
+
   const RAILS = {
     A: {
       key: "A",
@@ -24,34 +57,33 @@
       dbSpecialValue: 1_254_112.64,
       poolA: 840_887.36,
       poolC: 51_361.96,
-      lumpTaxFree: null,
-      lumpTaxableTaxed: null,
-      washTaxableShare: 0.709677,
-      washEvidence: "Master-locked planning convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. This convention is held across rails pending a deliberate master revision; confirm provider execution and account components before acting.",
-      taxStatus: "Modelled Rail A wash profile",
+      electionKey: "rail-a", electionLabel: "March 2026 60/40 control", pensionPercent: 60, lumpPercent: 40,
+      lumpTaxFree: 141_581.47,
+      lumpTaxableTaxed: 433_220.20,
+      lumpTaxableUntaxed: 0,
+      tbcHeadroom: 845_887.36,
+      tbcExcess: 0,
+      washTaxableShare: 433_220.20 / 574_801.66,
+      washEvidence: "Direct March 2026 CSC split: 75.37% taxable-taxed, 24.63% tax-free and 0% untaxed. Washing is limited to the original PSS lump; Hostplus components remain unresolved.",
+      taxStatus: "Direct March CSC component evidence",
     },
-    B: {
-      key: "B",
-      title: "Rail B — spending frontier",
-      short: "Spending frontier / lifestyle optionality",
-      source: "2 July 2026 iEstimator · frontier report",
-      purpose: "Uses the newer 2 July iEstimator to test spending power against a property-inclusive estate floor.",
-      fas: 151_343.31,
-      grossPension: 82_550.89,
-      netPension: 76_302.72,
-      lumpSum: 605_373.22,
-      hostplus: 317_447.66,
-      capital: 922_820.88,
-      dbSpecialValue: 1_320_814.24,
-      poolA: 774_185.76,
-      poolC: 148_635.12,
-      lumpTaxFree: 175_753.71,
-      lumpTaxableTaxed: 429_619.52,
-      washTaxableShare: 0.709677,
-      washEvidence: "Master-locked 60/40 engine convention: 70.97% taxable-taxed, 29.03% tax-free and 0% untaxed. The July PSS lump agrees; confirm provider execution and account components before acting.",
-      taxStatus: "Modelled Rail B wash profile",
-    },
+    B: railBForElection("60-40"),
   };
+
+  function washOutcome(rail, cycles, annualAmount = WASH_AMOUNT) {
+    let dirty = rail.lumpSum;
+    let taxable = rail.lumpTaxableTaxed;
+    let washed = 0;
+    const applied = [];
+    for (let index = 0; index < Math.max(0, cycles) && dirty > 0; index += 1) {
+      const amount = Math.min(annualAmount, dirty);
+      dirty -= amount;
+      taxable = Math.max(0, taxable - amount * rail.washTaxableShare);
+      washed += amount;
+      applied.push(amount);
+    }
+    return { taxableStart: rail.lumpTaxableTaxed, taxableRemaining: taxable, washed, applied, maxCycles: rail.lumpSum > 0 ? Math.ceil(rail.lumpSum / annualAmount) : 0 };
+  }
 
   const $ = (id) => document.getElementById(id);
   const money0 = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 });
@@ -62,8 +94,10 @@
 
   const params = new URLSearchParams(location.search);
   const parsedReturn = Number(params.get("return"));
+  const parsedElection = Object.hasOwn(PSS_ELECTIONS, params.get("pss")) ? params.get("pss") : "60-40";
   const state = {
     rail: params.get("rail") === "A" ? "A" : "B",
+    pssElection: parsedElection,
     spend: clamp(Number(params.get("spend")) || 110_000, 76_000, 150_000),
     realReturn: clamp(Number.isFinite(parsedReturn) && parsedReturn > 0 ? parsedReturn : 0.05, 0.02, 0.075),
     targetAge: clamp(Number(params.get("age")) || 75, 70, 95),
@@ -163,13 +197,14 @@
   }
 
   function currentRail() {
-    return RAILS[state.rail];
+    return state.rail === "A" ? RAILS.A : railBForElection(state.pssElection);
   }
 
   function scenarioQuery() {
     const query = new URLSearchParams({
       shared: "1",
       rail: state.rail,
+      pss: state.pssElection,
       spend: String(Math.round(state.spend)),
       return: String(Number(state.realReturn.toFixed(4))),
       age: String(state.targetAge),
@@ -183,7 +218,7 @@
   }
 
   function persistScenario() {
-    const payload = { version: 4, updatedAt: new Date().toISOString(), rail: state.rail, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
+    const payload = { version: 5, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
     const v23 = `./deep-model.html?${scenarioQuery()}`;
@@ -435,7 +470,8 @@
     });
 
     if (state.compareRail) {
-      const other = operationalLedger(RAILS[state.rail === "A" ? "B" : "A"], state.spend, state.realReturn).map((row) => row.ending);
+      const otherRail = state.rail === "A" ? railBForElection(state.pssElection) : RAILS.A;
+      const other = operationalLedger(otherRail, state.spend, state.realReturn).map((row) => row.ending);
       traceLine(context, other, x, (value, index) => y(value, index, 0));
       context.setLineDash([7, 6]); context.strokeStyle = palette.amber; context.lineWidth = 2; context.globalAlpha = .9; context.stroke(); context.setLineDash([]); context.globalAlpha = 1;
     }
@@ -496,7 +532,7 @@
     traceLine(context, ledger.map((row) => row.poolC), x, capitalY); context.strokeStyle = palette.violet; context.lineWidth = 2; context.stroke();
     context.fillStyle = palette.muted; context.font = "800 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText("CAPITAL STOCK · SEPARATE SCALE", pad.l, capitalTop - 12);
     if (state.compareRail) {
-      const other = operationalLedger(RAILS[state.rail === "A" ? "B" : "A"], state.spend, state.realReturn);
+      const other = operationalLedger(state.rail === "A" ? railBForElection(state.pssElection) : RAILS.A, state.spend, state.realReturn);
       traceLine(context, other.map((row) => row.ending), x, capitalY); context.setLineDash([6, 5]); context.strokeStyle = palette.amber; context.lineWidth = 2; context.stroke(); context.setLineDash([]);
     }
 
@@ -855,7 +891,7 @@
 
   function renderMetrics(rail, targetRow) {
     $("metricPension").textContent = money0.format(rail.netPension);
-    $("metricPensionPf").textContent = `[MODELLED] ${money2.format(rail.netPension / 26)} per fortnight · for life`;
+    $("metricPensionPf").textContent = `[CSC ESTIMATE] ${money2.format(rail.netPension / 26)} per fortnight · ${rail.electionLabel}`;
     $("metricCapital60").textContent = money0.format(rail.capital);
     $("metricCapitalSource").textContent = `[MODELLED] ${money0.format(rail.lumpSum)} PSS lump + ${money0.format(rail.hostplus)} Hostplus`;
     $("metricCapitalLabel").textContent = `Investments at ${state.targetAge}`;
@@ -867,6 +903,7 @@
   }
 
   function renderArchitecture(rail) {
+    $("flowLumpLabel").textContent = `${rail.lumpPercent}% PSS lump`;
     $("flowLump").textContent = money0.format(rail.lumpSum);
     $("flowHostplus").textContent = money0.format(rail.hostplus);
     $("flowCapital").textContent = money0.format(rail.capital);
@@ -876,10 +913,12 @@
     $("poolCBar").style.width = `${rail.poolC / rail.capital * 100}%`;
     $("dbSpecial").textContent = money0.format(rail.dbSpecialValue);
     $("tbcPoolA").textContent = money0.format(rail.poolA);
-    $("tbcDbBar").style.width = `${rail.dbSpecialValue / TBC * 100}%`;
+    $("tbcDbBar").style.width = `${Math.min(100, rail.dbSpecialValue / TBC * 100)}%`;
     $("tbcAbpBar").style.width = `${rail.poolA / TBC * 100}%`;
     $("tbcBufferBar").style.width = `${TSB_BUFFER / TBC * 100}%`;
-    $("tbcTotal").textContent = `${money0.format(rail.dbSpecialValue + rail.poolA)} total super-balance structure`;
+    $("tbcTotal").textContent = rail.tbcExcess > 0
+      ? `${money0.format(rail.dbSpecialValue)} DB special value · ${money0.format(rail.tbcExcess)} above the ${money0.format(TBC)} planning anchor`
+      : `${money0.format(rail.dbSpecialValue + rail.poolA)} total super-balance structure`;
   }
 
   function renderTradeTable(rail, points) {
@@ -924,7 +963,7 @@
       ["4 · Age-75 wealth", money0.format(at75.ending), at75.ending >= 1_200_000 ? "Benchmark strong" : at75.ending >= 750_000 ? "Substantial" : "Lifestyle cost", `Investment-only capital; the home and pension replacement value are excluded.`],
       ["5 · Age-85 wealth", money0.format(at85.ending), at85.ending >= 750_000 ? "Substantial" : at85.ending >= 300_000 ? "Moderate" : "Guardrail", `Uses the same constant real spending and return assumptions through age 85.`],
       ["6 · Estate outcome", money0.format(targetEstate), estateMargin >= 500_000 ? "Strong margin" : estateMargin >= 0 ? "Floor retained" : "Below floor", `${estateMargin >= 0 ? money0.format(estateMargin) + " above" : money0.format(Math.abs(estateMargin)) + " below"} the $1.0m property-inclusive floor.`],
-      ["7 · Tax efficiency", money0.format(drag), "Modelled wash", `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; Rail ${rail.key} also uses the master-locked ${pct(rail.washTaxableShare, 2)} separate-interest wash convention. Provider execution remains to be confirmed.`],
+      ["7 · Tax efficiency", money0.format(drag), rail.lumpSum > 0 ? "Source-limited wash" : "No PSS lump wash", `Cumulative Pool C distribution drag [MODELLED] through age ${state.targetAge}; ${rail.washEvidence}`],
       ["8 · Optionality", money0.format(target.ending), target.ending >= 750_000 ? "Flexible capital" : target.ending >= 300_000 ? "Meaningful" : "Narrowing", `Investment capital remains separate from the mortgage-free home and lifelong PSS floor. Pool C is invested, not cash; the active reserve target is ${state.liquidityMonths} months of the starting gap.`],
     ];
     $("objectiveGrid").innerHTML = objectives.map(([label, value, verdict, detail]) => `<article class="objective-card"><div><span>${label}</span><em>${verdict}</em></div><strong>${value}</strong><small>${detail}</small></article>`).join("");
@@ -937,23 +976,32 @@
 
   function renderTax(rail, ledger) {
     const cumulativeDrag = ledger.filter((row) => row.age <= state.targetAge).reduce((sum, row) => sum + row.externalTaxDrag, 0);
+    const wash = washOutcome(rail, state.washCycles);
+    const effectiveCycles = wash.applied.length;
     $("poolCDragTotal").textContent = `${money0.format(cumulativeDrag)} cumulative modelled drag through age ${state.targetAge}; actual tax depends on distributions, gains and implementation.`;
-    $("washCyclesOut").textContent = state.washCycles;
-    $("washCycles").value = state.washCycles;
-    $("washTrack").style.width = `${state.washCycles / 7 * 100}%`;
-    const taxableStart = rail.poolA * rail.washTaxableShare;
+    $("washCyclesOut").textContent = effectiveCycles;
+    $("washCycles").max = wash.maxCycles;
+    $("washCycles").disabled = wash.maxCycles === 0;
+    $("washCycles").value = Math.min(state.washCycles, wash.maxCycles);
+    $("washTrack").style.width = `${wash.maxCycles > 0 ? effectiveCycles / wash.maxCycles * 100 : 0}%`;
+    const taxableStart = wash.taxableStart;
     const modelledDbtStart = taxableStart * .17;
-    const taxableRemoved = Math.min(taxableStart, state.washCycles * WASH_AMOUNT * rail.washTaxableShare);
-    const remainingDbt = (taxableStart - taxableRemoved) * .17;
-    $("washStatus").textContent = `Rail ${rail.key} uses the master-locked separate-interest convention: up to seven $130,000 cycles from age 61, with six currently required to reach the $10,000 DBT target.`;
+    const remainingDbt = wash.taxableRemaining * .17;
+    $("washStatus").textContent = rail.lumpSum > 0
+      ? `${rail.electionLabel}: ${wash.maxCycles} source-limited cycle${wash.maxCycles === 1 ? "" : "s"} can recycle the ${money0.format(rail.lumpSum)} PSS lump; the final cycle is partial when required.`
+      : `${rail.electionLabel}: no PSS lump exists, so the PSS wash schedule is unavailable.`;
     $("washBadge").className = "badge modelled";
-    $("washBadge").textContent = `Modelled Rail ${rail.key} convention`;
+    $("washBadge").textContent = rail.lumpSum > 0 ? `Direct components · Rail ${rail.key}` : "No PSS wash source";
     $("washSavedLabel").textContent = "Modelled DBT remaining";
     $("washSaved").textContent = money2.format(remainingDbt);
-    $("washSavedSub").textContent = `${money2.format(modelledDbtStart - remainingDbt)} modelled reduction after ${state.washCycles} cycle${state.washCycles === 1 ? "" : "s"}`;
+    $("washSavedSub").textContent = `${money2.format(modelledDbtStart - remainingDbt)} modelled reduction after ${effectiveCycles} cycle${effectiveCycles === 1 ? "" : "s"} · ${money0.format(wash.washed)} recycled`;
+    const fullWash = Math.min(WASH_AMOUNT, rail.lumpSum);
+    $("washTaxablePerCycle").textContent = money0.format(fullWash * rail.washTaxableShare);
+    $("washTaxablePerCycleSub").textContent = rail.lumpSum > 0 ? `${pct(rail.washTaxableShare, 2)} direct active-source proportion` : "No PSS lump under this election";
+    $("washDbtPerCycle").textContent = money2.format(fullWash * rail.washTaxableShare * .17);
     $("taxEvidence").innerHTML = `
-      <div class="evidence-row"><div><b>Master-locked Pool A taxable-share convention</b><span class="badge modelled">MODELLED</span></div><p>${pct(rail.washTaxableShare, 2)} taxable-taxed, 29.03% tax-free and 0% untaxed; ${money0.format(taxableStart)} starting taxable component. ${rail.washEvidence}</p></div>
-      ${rail.key === "B" ? `<div class="evidence-row"><div><b>July PSS lump components</b><span class="badge exact">EXACT</span></div><p>${money2.format(rail.lumpTaxFree)} tax-free and ${money2.format(rail.lumpTaxableTaxed)} taxable-taxed; taxable-untaxed is $0.</p></div>` : ""}
+      <div class="evidence-row"><div><b>Direct PSS lump component source</b><span class="badge exact">EXACT</span></div><p>${pct(rail.washTaxableShare, 2)} taxable-taxed, ${rail.lumpSum > 0 ? pct(rail.lumpTaxFree / rail.lumpSum, 2) : "0.00%"} tax-free and 0% untaxed; ${money0.format(taxableStart)} starting taxable component. ${rail.washEvidence}</p></div>
+      <div class="evidence-row"><div><b>${rail.electionLabel} components</b><span class="badge exact">EXACT</span></div><p>${money2.format(rail.lumpTaxFree)} tax-free and ${money2.format(rail.lumpTaxableTaxed)} taxable-taxed; taxable-untaxed is ${money2.format(rail.lumpTaxableUntaxed)}.</p></div>
       <div class="evidence-row"><div><b>Illustrative DBT before washes</b><span class="badge modelled">MODELLED</span></div><p>${money2.format(modelledDbtStart)} at the 17% taxed-element planning rate for adult non-dependants.</p></div>
       <div class="evidence-row"><div><b>Provider execution check</b><span class="badge speculative">UNKNOWN</span></div><p>Confirm Hostplus can preserve the re-contributed NCC money as a separate pension interest; refresh actual components before every cycle.</p></div>`;
   }
@@ -985,13 +1033,21 @@
 
   function renderControls(rail) {
     $("railTitle").textContent = rail.title;
-    $("railSourceBadge").textContent = state.rail === "B" ? "July iEstimator" : "March/V5 control";
+    $("railSourceBadge").textContent = state.rail === "B" ? `Sep iEstimator · ${rail.electionKey}` : "March/V5 control";
     $("railSourceBadge").className = `badge ${state.rail === "B" ? "exact" : "modelled"}`;
     $("railPurpose").textContent = rail.purpose;
     $("railA").classList.toggle("active", state.rail === "A");
     $("railB").classList.toggle("active", state.rail === "B");
     $("railA").setAttribute("aria-selected", state.rail === "A");
     $("railB").setAttribute("aria-selected", state.rail === "B");
+    document.querySelectorAll("[data-pss-election]").forEach((button) => {
+      const active = state.rail === "B" && button.dataset.pssElection === state.pssElection;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    $("electionContext").textContent = state.rail === "B"
+      ? `${rail.electionLabel} · ${money2.format(rail.netPension / 26)} net/pf · ${money0.format(rail.lumpSum)} lump. Provider projection: 8.2% earnings, 5% salary growth, 2.5% CPI; the ${pct(state.realReturn)} site return is separate and post-retirement.`
+      : "Rail A is the March/V5 historical control. Choose a September election above to return to Rail B.";
     $("spend").value = state.spend;
     $("return").value = state.realReturn * 100;
     $("targetAge").value = state.targetAge;
@@ -1048,8 +1104,14 @@
     renderAll();
   }
 
-  $("railA").addEventListener("click", () => { state.rail = "A"; state.washCycles = 6; renderAll(); });
-  $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = 6; renderAll(); });
+  $("railA").addEventListener("click", () => { state.rail = "A"; state.washCycles = washOutcome(RAILS.A, 99).maxCycles; renderAll(); });
+  $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = washOutcome(railBForElection(state.pssElection), 99).maxCycles; renderAll(); });
+  document.querySelectorAll("[data-pss-election]").forEach((button) => button.addEventListener("click", () => {
+    state.pssElection = button.dataset.pssElection;
+    state.rail = "B";
+    state.washCycles = washOutcome(railBForElection(state.pssElection), 99).maxCycles;
+    renderAll();
+  }));
   $("spend").addEventListener("input", (event) => { state.spend = Number(event.target.value); renderAll(); });
   $("return").addEventListener("input", (event) => { state.realReturn = Number(event.target.value) / 100; renderAll(); });
   $("targetAge").addEventListener("input", (event) => { state.targetAge = Number(event.target.value); state.selectedCapitalAge = state.targetAge; state.inspectionAge = state.targetAge; renderAll(); });
@@ -1104,7 +1166,7 @@
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
     stopVisualPlay();
-    Object.assign(state, { rail: "B", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, visualMode: "horizon", visualPerspective: true, compareRail: false });
+    Object.assign(state, { rail: "B", pssElection: "60-40", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, visualMode: "horizon", visualPerspective: true, compareRail: false });
     renderAll();
     showToast("Rail B central baseline restored.");
   });
@@ -1145,7 +1207,7 @@
     }
     if ((event.key === "r" || event.key === "R") && !/input|textarea|select/i.test(document.activeElement.tagName)) {
       state.rail = state.rail === "A" ? "B" : "A";
-      state.washCycles = 6;
+      state.washCycles = washOutcome(currentRail(), 99).maxCycles;
       renderAll();
     }
   });
@@ -1157,6 +1219,6 @@
   $("themeToggle").textContent = initialTheme === "dark" ? "Light" : "Dark";
   $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Year ${age - 60} · age ${age - 1}→${age}</option>`).join("");
   $("capitalAgeSelect").innerHTML = Array.from({ length: 36 }, (_, index) => 60 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
-  state.washCycles = 6;
+  state.washCycles = washOutcome(currentRail(), 99).maxCycles;
   renderAll();
 })();
