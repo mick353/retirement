@@ -86,6 +86,16 @@
 - Mobile regression at a 390-pixel viewport records a 375-pixel document/body width and a 357-pixel plan-authority strip; the 862-pixel action toolbar remains intentionally contained inside its 351-pixel horizontal scroller.
 - The build now blocks regressions in PSS-election age-band preservation, exact-control synchronisation, sticky-ledger synchronisation, flat-spend opt-in and all 33 unique V23 destinations.
 
+## V23.6 lifestyle-funding clarity regression
+
+- The former funded-gap-versus-minimum percentage is removed from the primary table.
+- Target funded is calculated from funded gap / planned gap and capped at 100%.
+- Mandatory used is calculated from compulsory payment spent / compulsory payment and capped at 100%.
+- Gap / portfolio earnings remains visible but explicitly states whether capital is also being consumed.
+- Zero-denominator comparisons display N/A rather than a misleading 0%.
+- The active PSS election, CSC projection basis and post-retirement real return appear beside the phase results.
+- Partial funding and the first shortfall age are explained in plain English.
+
 ## Residual note
 
 - P3 — the production Horizon deliberately uses a restrained number of deterministic return slices rather than reproducing every decorative ribbon in the concept. This keeps the graph readable and avoids suggesting a probability distribution.

@@ -27,6 +27,7 @@ The Command Centre, Atlas and V23 share the rail, PSS election, PSS provider pro
 - Annual review checklist and review snapshot
 - Corrected V23 model with advanced controls, export, print packs and mobile workbench
 - V23.5 control-integrity safeguards: exact number fields and sticky assumptions stay synchronised, manually authored age bands survive PSS election/basis changes, and shared flat scenarios require an explicit choice before replacing a saved detailed plan
+- V23.6 plain-English lifestyle funding: every phase now shows the planned gap, amount actually funded, target-funding percentage, compulsory ABP payment used, and whether the funded gap stays within portfolio earnings; the active PSS election, CSC basis and post-retirement return are repeated beside the results
 - Simplified V23 everyday navigation with all specialist analysis retained behind an Advanced analysis disclosure
 - Responsive navigation, installable PWA manifest and offline app shell
 - Retractable Gemini retirement adviser using the active scenario and detailed V23 model reference

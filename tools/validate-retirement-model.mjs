@@ -212,9 +212,17 @@ assert.match(v23Source, /range\.setAttribute\("aria-label"/, "V23 enhanced range
 assert.match(v23Source, /syncV23PrecisionControls/, "V23 synchronises exact-number fields after programmatic control changes");
 assert.match(v23Source, /syncV23AssumptionLedger/, "V23 synchronises the sticky assumptions ledger without a polling delay");
 assert.match(v23Source, /Saved V23 age bands retained/, "Shared flat scenarios disclose when a saved V23 plan is protected");
+close(v23("safePercent(4377,36000,{cap:true})"), 12.1583333333, "V23 target funding percentage uses funded gap divided by planned gap");
+close(v23("safePercent(9066,9066,{cap:true})"), 100, "V23 mandatory-use percentage reads 100% when the compulsory payment is fully consumed");
+assert.equal(v23("safePercent(0,0,{cap:true})"), null, "V23 zero-denominator comparisons return N/A rather than a misleading 0%");
+assert.equal(v23("safePercent(52000,46783) > 100"), true, "V23 gap-versus-earnings comparison identifies capital consumption");
+assert.match(v23Source, /"Target funded","Avg shortfall","Mandatory used","Gap ÷ portfolio earnings"/, "V23 lifestyle table leads with decision-useful funding measures");
+assert.doesNotMatch(v23Source, /"Spend % of mand\. draw"/, "V23 removes the easily misread funded-gap-versus-minimum heading");
+assert.match(v23Source, /“Target funded” shows how much of your planned gap was actually delivered/, "V23 explains funding percentages in plain English");
+assert.match(v23Source, /CSC basis \$\{basis\.shortLabel\}/, "V23 repeats the selected CSC provider basis beside the phase results");
 const v23NavSource = v23Source.match(/<nav class="side" id="side-nav">([\s\S]*?)<\/nav>/)?.[1] || "";
 const v23PageIds = [...v23NavSource.matchAll(/data-page="([^"]+)"/g)].map((match) => match[1]);
 assert.equal(v23PageIds.length, 33, "V23 retains all 33 navigable analysis pages");
 assert.equal(new Set(v23PageIds).size, v23PageIds.length, "V23 navigation contains no duplicated destinations");
 assert.match(v23NavSource, /<details class="nav-advanced"/, "V23 uses progressive disclosure for specialist analysis");
-console.log("Retirement dual-basis registry, age-band preservation, control synchronisation, navigation disclosure, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");
+console.log("Retirement dual-basis registry, age-band preservation, control synchronisation, plain-English funding measures, navigation disclosure, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");

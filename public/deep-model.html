@@ -475,6 +475,15 @@ hr.sep{border:0;border-top:1px solid var(--border);margin:14px 0}
 .status-pill.good{border-color:rgba(47,212,146,.5);background:rgba(47,212,146,.1);color:var(--good)}
 .status-pill.warn{border-color:rgba(245,166,35,.5);background:rgba(245,166,35,.1);color:var(--acc3)}
 .status-pill.bad{border-color:rgba(255,77,106,.5);background:rgba(255,77,106,.1);color:var(--bad)}
+.phase-reading{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;margin:12px 0 14px}
+.phase-reading .status-strip{margin:0}
+.phase-reading .note{margin:0}
+.metric-result{display:inline-block;font-weight:800;white-space:nowrap}
+.metric-result small{display:block;margin-top:2px;color:var(--soft);font:600 9px/1.2 'DM Sans',sans-serif;letter-spacing:0;text-transform:none;white-space:normal}
+.metric-result.good{color:var(--good)}
+.metric-result.warn{color:var(--acc3)}
+.metric-result.bad{color:var(--bad)}
+.metric-result.muted{color:var(--muted)}
 
 /* ── EXEC HERO + DECISIONS ── */
 .exec-hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:14px}
@@ -908,7 +917,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.5 · protected spending-plan and control-integrity release · 1 Sep 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.6 · plain-English funding and drawdown release · 2 Sep 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1264,7 +1273,11 @@ main{min-width:0;}
       </div>
       <div class="panel">
         <h2>Lifestyle phases &amp; ramped-draw strategy</h2>
-        <div class="muted smaller">Each row is an automatic cashflow sub-phase inside one age-band input. A band splits whenever its funding routine changes, so an extra Pool A draw, mandatory surplus to Pool C, exact coverage and an unfunded target never appear in the same row. Age 60 is the opening-balance snapshot; later rows are annual planning periods. Your fund calculates the legal ABP minimum by financial year, including the first-year pro-rating.</div>
+        <div class="muted smaller">Each row is an automatic cashflow sub-phase inside one age-band input. A band splits whenever its funding result changes, so fully funded years, partial funding, a shortfall or surplus routing never get blended into one misleading average.</div>
+        <div class="phase-reading">
+          <div class="status-strip" id="in_phase_context"></div>
+          <div class="note good" id="in_phase_guide"></div>
+        </div>
         <table id="in_tbl"></table>
       </div>
     </section>
@@ -1676,7 +1689,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.5";
+const APP_VERSION = "v23.6";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -2763,6 +2776,28 @@ function renderTrajectory(){
 function tbcAlloc_waterfall(p){const a=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);return a.poolA+a.poolB;}
 
 /* ========== INCOME ========== */
+function safePercent(numerator,denominator,{cap=false}={}){
+  const n=Number(numerator),d=Number(denominator);
+  if(!Number.isFinite(n)||!Number.isFinite(d)||d<=0)return null;
+  const pct=Math.max(0,n/d*100);
+  return cap?Math.min(100,pct):pct;
+}
+function phaseMetricCell(pct,type){
+  if(pct===null)return`<span class="metric-result muted">N/A<small>Nothing to compare</small></span>`;
+  if(type==="funding"){
+    const cls=pct>=99.95?"good":pct>0?"warn":"bad";
+    const note=pct>=99.95?"Fully funded":pct>0?"Partly funded":"Not funded";
+    return`<span class="metric-result ${cls}">${pct.toFixed(1)}%<small>${note}</small></span>`;
+  }
+  if(type==="mandatory"){
+    const cls=pct>=99.95?"warn":pct>0?"good":"muted";
+    const note=pct>=99.95?"All used":pct>0?"Partly used":"None used";
+    return`<span class="metric-result ${cls}">${pct.toFixed(1)}%<small>${note}</small></span>`;
+  }
+  const cls=pct>100.05?"bad":pct>0?"good":"muted";
+  const note=pct>100.05?"Capital also used":pct>0?"Within earnings":"No funded gap";
+  return`<span class="metric-result ${cls}">${pct.toFixed(1)}%<small>${note}</small></span>`;
+}
 function renderIncome(){
   const p=getProfile();const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const tc=getThemeColors();
@@ -2807,16 +2842,19 @@ function renderIncome(){
     const avgShortfall=segs.reduce((s,r)=>s+(r.spendingShortfall||0),0)/n;
     const avgRetained=avgEarn-avgSpend+avgPssSurplus;
     const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))+(r.pensionSurplus||0)),0);
-    const spendVsMand=avgMand>0?(avgSpend/avgMand*100):0;
-    const spendVsEarn=avgEarn>0?(avgSpend/avgEarn*100):0;
+    const targetFundedPct=safePercent(avgSpend,avgTargetGap,{cap:true});
+    const mandatoryUsedPct=safePercent(avgDrawn,avgMand,{cap:true});
+    const gapVsEarningsPct=safePercent(avgSpend,avgEarn);
     const totalAnnual=avgPensionSpent+avgSpend;
     const grossEquivalent=grossSalaryEquivalent(totalAnnual);
     cumSpend+=totalAnnual*segs.length;
-    const mandCell=spendVsMand>100.5?`<span style="color:var(--warn,#ffb454)">${spendVsMand.toFixed(1)}%</span>`:`${spendVsMand.toFixed(1)}%`;
-    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",mandCell,spendVsEarn.toFixed(1)+"%",fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),fmtFull(avgPssSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
+    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),phaseMetricCell(targetFundedPct,"funding"),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",phaseMetricCell(mandatoryUsedPct,"mandatory"),phaseMetricCell(gapVsEarningsPct,"earnings"),fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),fmtFull(avgPssSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
   });
   const lifetimeAnnualIncome=T.inc/Math.max(1,operatingRows.length);
-  rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.targetGap/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,T.shortfall>0?`<b>${fmtFull(T.shortfall)}</b>`:"—",`<b>${(T.mand>0?T.spend/T.mand*100:0).toFixed(1)}%</b>`,`<b>${(T.earn>0?T.spend/T.earn*100:0).toFixed(1)}%</b>`,
+  const lifetimeTargetFunded=safePercent(T.spend,T.targetGap,{cap:true});
+  const lifetimeMandatoryUsed=safePercent(T.drawn,T.mand,{cap:true});
+  const lifetimeGapVsEarnings=safePercent(T.spend,T.earn);
+  rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.targetGap/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${phaseMetricCell(lifetimeTargetFunded,"funding")}</b>`,T.shortfall>0?`<b>${fmtFull(T.shortfall)}</b>`:"—",`<b>${phaseMetricCell(lifetimeMandatoryUsed,"mandatory")}</b>`,`<b>${phaseMetricCell(lifetimeGapVsEarnings,"earnings")}</b>`,
     `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.surp)}</b>`,`<b>${fmtFull(T.pssSurp)}</b>`,
     `<b>${sgn(T.ret)}</b>`,`<b>${sgn(T.ret)}</b>`,`<b>${fmtFull(T.inc)}</b>`,`<b>${fmtFull(grossSalaryEquivalent(lifetimeAnnualIncome))}/yr avg</b>`,"—",`<b>${fmtFull(T.inc)}</b>`]);
   makeChart("in_chart2",{type:"line",data:{labels:operatingAges,datasets:[
@@ -2828,10 +2866,29 @@ function renderIncome(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg target gap","Avg funded gap","Avg shortfall","Spend % of mand. draw","Spend % of earnings","Avg earnings","Avg mandatory","Avg spent from mandatory","Avg voluntary Pool A draw","Avg mandatory surplus→C","Avg PSS surplus→C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
+  const basis=isRailBProfile(p)?PSS_PROJECTION_BASES[normaliseProjectionBasis(STATE.pssProjectionBasis)]:null;
+  const election=basis?.elections?.[STATE.pssElection];
+  const firstShortfall=operatingRows.find(r=>(r.spendingShortfall||0)>.01);
+  const phaseContext=document.getElementById("in_phase_context");
+  if(phaseContext)phaseContext.innerHTML=[
+    `<span class="status-pill">${isRailBProfile(p)?`${election?.label||STATE.pssElection} PSS pension / lump option`:"Rail A historical benchmark"}</span>`,
+    basis?`<span class="status-pill">CSC basis ${basis.shortLabel}</span>`:"",
+    `<span class="status-pill">${fmtPctClean(STATE.likely)} real return after retirement</span>`,
+    `<span class="status-pill ${T.shortfall>0?"bad":"good"}">${T.shortfall>0?`${fmtFull(T.shortfall)} lifetime gap shortfall`:"Every planned gap funded"}</span>`
+  ].join("");
+  const phaseGuide=document.getElementById("in_phase_guide");
+  if(phaseGuide){
+    const fundingText=lifetimeTargetFunded===null
+      ? "This selection does not require an investment-funded gap."
+      : T.shortfall>0
+        ? `<b>Plain-English result:</b> the investments fund ${lifetimeTargetFunded.toFixed(1)}% of your planned gap across retirement. Pool A can no longer meet the full gap from age ${firstShortfall?.age??"the first shortfall year"}; your PSS pension continues, but the unfunded gap is not silently counted as spending.`
+        : `<b>Plain-English result:</b> the investments fund 100% of every planned gap in this schedule.`;
+    phaseGuide.innerHTML=`${fundingText}<br><b>How to read the percentages:</b> “Target funded” shows how much of your planned gap was actually delivered. “Mandatory used” shows how much of the compulsory ABP payment you spent. “Gap ÷ earnings” tests whether the funded gap stayed within portfolio growth; above 100% means some capital was consumed. N/A means there was no amount to compare.`;
+  }
+  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg planned gap","Avg funded gap","Target funded","Avg shortfall","Mandatory used","Gap ÷ portfolio earnings","Avg portfolio earnings","Avg compulsory ABP payment","Spent from compulsory payment","Extra Pool A withdrawal","Unspent compulsory payment → C","PSS excess → C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
   const inTblNote=document.getElementById("in_tbl");
   if(inTblNote&&!document.getElementById("in_tbl_note")){const nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";
-    nz.innerHTML=`Exact dollars (no $k rounding). Each row stays within one active age-band input, then automatically splits whenever the funding routine changes: PSS surplus to Pool C, extra Pool A draw, mandatory surplus, exact coverage, or a funding shortfall. An imported Command Centre target is total net spending; V23 derives the portfolio gap, or sends pension above that target to Pool C. Manual editing clears that imported total and restores native gap-above-PSS bands. Pool C is never automatically drawn. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Statutory ABP payments are calculated by the provider by financial year, including the first-year pro-rating.`;
+    nz.innerHTML=`Exact dollars (no $k rounding). “Planned gap” is the amount above your PSS pension requested by the active age band; “funded gap” is what Pool A can actually supply. Each row stays within one band and one funding result, so a full gap and a shortfall are never averaged together. Pool C is never automatically drawn. An imported Command Centre target is total net spending; V23 derives the portfolio gap, or sends pension above that target to Pool C. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Your provider calculates the legal ABP minimum by financial year, including first-year pro-rating.`;
     inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
 }
 
@@ -3681,6 +3738,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.6","Sep 2026","Replaced the easily misread funded-gap-versus-minimum ratios in the lifestyle table with Target funded, Mandatory used and Gap ÷ portfolio earnings. Added plain-English funding conclusions and repeated the active PSS option, CSC provider basis and post-retirement real return beside the results."],
     ["v23.4","Sep 2026","Activated the direct 6% fund / 5% salary / 3% CPI CSC estimates for 60/40, 65/35 and 70/30, including the separate $162,380.20 FAS and source-specific tax components. The unavailable 100% option remains gated; shared-state schema advanced to v7."],
     ["v23.3","Sep 2026","Added a governed PSS projection-basis layer across V23, shared links, local persistence, audit and AI context. The current 8.2% / 5% / 2.5% source set remains active; the 6% / 5% / 3% sensitivity is visible but source-gated so pension, lump and tax components can never be inferred or mixed silently."],
     ["v23.2","Sep 2026","Four source-backed Rail B PSS elections added across the complete model. Imported spending is treated as total net spending: when PSS exceeds the target, the excess routes to Pool C. PSS washes use each iEstimator's actual original-lump components and stop at the source limit; 100% pension has no PSS wash."],
@@ -4564,10 +4622,12 @@ income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor p
 ["PSS net pension (CPI-flat)","The floor: constant in real terms because CPI indexation exactly offsets inflation."],
 ["Lifetime usable to 95","Cumulative real income available across the whole horizon."],
 ["Income composition chart","Stacked bands: PSS pension + Pool A consumed draw + Pool A extra draw. The extra band appears only when the gap exceeds the mandatory minimum (large bands, or override ≳58% at Day-1 values)."],
-["Spend % of mand. draw","Total lifestyle spending (drawn + any voluntary extra) as a share of the compulsory ABP minimum. In '% of mandatory drawdown' mode this column reads back your slider exactly. It turns amber ABOVE 100% — that means you are withdrawing more than the law requires and eating capital early. It can never exceed 100% in the new drawdown mode."],
-["Spend % of earnings","The SAME spending measured against the other denominator: that year's investment earnings. Both columns sit side by side so the two rules are directly comparable — e.g. at Day-1 values, 50% of earnings = 86% of the mandatory draw."],
-["Avg earnings","Average annual investment return generated by Pool A + Pool C in that phase (before anything is spent). This is the pot the '% of earnings' rule divides."],
-["Avg mandatory","Average planning draw based on current ABP rate bands (4%→14%). The provider determines the legal financial-year minimum, including first-year pro-rating."],
+["Target funded","The share of your planned lifestyle gap that Pool A actually supplies in that phase. 100% = fully funded; 12% = only 12 cents of each planned gap dollar is delivered; 0% = the PSS pension continues but none of the additional gap is funded."],
+["Mandatory used","The share of the compulsory ABP payment that you actually spend. It is capped at 100%; any spending above the compulsory payment appears separately as Extra Pool A withdrawal. N/A means there was no compulsory payment to compare."],
+["Gap ÷ portfolio earnings","The funded lifestyle gap divided by investment earnings from Pool A + Pool C. At or below 100% means the gap fits inside current portfolio growth; above 100% means the plan also consumes capital. This is a comparison, not a spending control."],
+["Avg portfolio earnings","Average annual investment return generated by Pool A + Pool C in that phase, before spending. Pool C remains a growth and estate pool unless you deliberately change that policy."],
+["Avg compulsory ABP payment","Average minimum payment calculated from the Pool A balance and the applicable statutory age rate. It can become very small after Pool A has been heavily drawn down. Your provider determines the legal financial-year amount, including first-year pro-rating."],
+["Avg planned gap / funded gap / shortfall","Planned gap is the amount requested above the PSS pension by your age band. Funded gap is what Pool A can actually deliver. Shortfall is the difference; it is never silently counted as income or spending."],
 ["Band input","The exact age-band setting that created this lifestyle phase. Editing or adding a 'From age' band creates one matching row; it is never averaged into a preset calendar bucket."],
 ["Avg lifestyle gap","The average annual amount actually spent above the PSS pension in that one band: amount spent from the mandatory draw plus any voluntary Pool A draw."],
 ["Avg spent from mandatory","The portion of the lifestyle gap funded from the compulsory ABP minimum draw."],
@@ -4582,7 +4642,7 @@ income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor p
 ["Investment earnings (Pool A + Pool C)","Second chart, green area: the total return the portfolio generated that year, before any spending. This is the pot the '% of earnings' rule divides."],
 ["Lifestyle spending (gap)","Second chart, amber line: everything you actually spent above the pension (drawn from the mandatory minimum + any voluntary extra). Where it rises ABOVE the green area you are consuming capital, not just growth."],
 ["Retained earnings (compounds)","Second chart, dashed line: earnings minus spending. Positive = growth left invested to compound. Below the zero line = net capital erosion."],
-["LIFETIME 60–95 row","Bold totals row: the 36-year sums, not averages. Lifetime spend vs lifetime mandatory draw, lifetime earnings, and total retained. At a $28,500 band you spend 52.4% of everything the ABP is forced to pay out and only 22.1% of lifetime earnings — the rest compounds."],
+["LIFETIME 60–95 row","Bold whole-plan result. Dollar columns show either the stated per-year average or the lifetime total; Target funded, Mandatory used and Gap ÷ portfolio earnings use lifetime totals so short phases do not distort the result."],
 ["Exact dollars","This table now shows exact figures, not $k. The old rounding made 'Avg mandatory $34k − Avg drawn $29k = $6k surplus' look like it did not add up; the truth was $34,156 − $28,500 = $5,656."]]},
 guardrails:{t:"Guardrail spending",w:"Spending-band editor with pre-agreed raise/cut rails: rules decided now for lifting or trimming discretionary spend later, based on where capital sits against the bands.",h:["Edit bands directly or apply a preset, then read the zone chart.","Rails exist to remove in-the-moment judgement — if a rail fires at review, follow it."],f:[
 ["Current target-age zone","Which band (below floor / floor–target / target–strong / above strong) the projection currently lands in."],
