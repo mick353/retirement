@@ -15,8 +15,19 @@
     "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, fas: 168_256.05, grossPension: 152_960.05, netPension: 143_104.26, netPensionPf: 5_504.01, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0 },
   };
 
-  function railBForElection(electionKey) {
-    const election = PSS_ELECTIONS[electionKey] || PSS_ELECTIONS["60-40"];
+  const PSS_PROJECTION_BASES = {
+    "source-825": { key: "source-825", label: "Current CSC source basis", shortLabel: "8.2 / 5 / 2.5", fundEarnings: .082, salaryGrowth: .05, cpi: .025, realFundEarnings: 1.082 / 1.025 - 1, realSalaryGrowth: 1.05 / 1.025 - 1, sourceStatus: "source-backed", sourceDate: "1 September 2026", elections: PSS_ELECTIONS },
+    "prudent-630": { key: "prudent-630", label: "Prudent sensitivity basis", shortLabel: "6 / 5 / 3", fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, sourceStatus: "awaiting-source", sourceDate: null, elections: null },
+  };
+
+  function normaliseProjectionBasis(value) {
+    const key = value === "prudent-630" ? "prudent-630" : "source-825";
+    return PSS_PROJECTION_BASES[key].elections ? key : "source-825";
+  }
+
+  function railBForElection(electionKey, basisKey = "source-825") {
+    const basis = PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)];
+    const election = basis.elections[electionKey] || basis.elections["60-40"];
     const hostplus = 317_447.66;
     const capital = election.lumpSum + hostplus;
     const dbSpecialValue = election.grossPension * 16;
@@ -28,7 +39,7 @@
       key: "B", electionKey: election.key, electionLabel: election.label,
       title: `Rail B — ${election.label}`, short: `Spending frontier · ${election.label}`,
       source: `1 Sep 2026 CSC iEstimator · ${election.label}`,
-      purpose: "Tests the selected September CSC election against spending, TBC, drawdown, tax and estate objectives.",
+      purpose: `Tests the selected ${basis.label.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
       fas: election.fas, grossPension: election.grossPension, netPension: election.netPension,
       lumpSum: election.lumpSum, hostplus, capital, dbSpecialValue, poolA, poolC,
       pensionPercent: election.pensionPercent, lumpPercent: election.lumpPercent,
@@ -98,6 +109,7 @@
   const state = {
     rail: params.get("rail") === "A" ? "A" : "B",
     pssElection: parsedElection,
+    pssProjectionBasis: normaliseProjectionBasis(params.get("basis")),
     spend: clamp(Number(params.get("spend")) || 110_000, 76_000, 150_000),
     realReturn: clamp(Number.isFinite(parsedReturn) && parsedReturn > 0 ? parsedReturn : 0.05, 0.02, 0.075),
     targetAge: clamp(Number(params.get("age")) || 75, 70, 95),
@@ -197,7 +209,7 @@
   }
 
   function currentRail() {
-    return state.rail === "A" ? RAILS.A : railBForElection(state.pssElection);
+    return state.rail === "A" ? RAILS.A : railBForElection(state.pssElection, state.pssProjectionBasis);
   }
 
   function scenarioQuery() {
@@ -205,6 +217,7 @@
       shared: "1",
       rail: state.rail,
       pss: state.pssElection,
+      basis: state.pssProjectionBasis,
       spend: String(Math.round(state.spend)),
       return: String(Number(state.realReturn.toFixed(4))),
       age: String(state.targetAge),
@@ -218,7 +231,7 @@
   }
 
   function persistScenario() {
-    const payload = { version: 5, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
+    const payload = { version: 6, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, pssProjectionBasis: state.pssProjectionBasis, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
     const v23 = `./deep-model.html?${scenarioQuery()}`;
@@ -470,7 +483,7 @@
     });
 
     if (state.compareRail) {
-      const otherRail = state.rail === "A" ? railBForElection(state.pssElection) : RAILS.A;
+      const otherRail = state.rail === "A" ? railBForElection(state.pssElection, state.pssProjectionBasis) : RAILS.A;
       const other = operationalLedger(otherRail, state.spend, state.realReturn).map((row) => row.ending);
       traceLine(context, other, x, (value, index) => y(value, index, 0));
       context.setLineDash([7, 6]); context.strokeStyle = palette.amber; context.lineWidth = 2; context.globalAlpha = .9; context.stroke(); context.setLineDash([]); context.globalAlpha = 1;
@@ -532,7 +545,7 @@
     traceLine(context, ledger.map((row) => row.poolC), x, capitalY); context.strokeStyle = palette.violet; context.lineWidth = 2; context.stroke();
     context.fillStyle = palette.muted; context.font = "800 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText("CAPITAL STOCK · SEPARATE SCALE", pad.l, capitalTop - 12);
     if (state.compareRail) {
-      const other = operationalLedger(state.rail === "A" ? railBForElection(state.pssElection) : RAILS.A, state.spend, state.realReturn);
+      const other = operationalLedger(state.rail === "A" ? railBForElection(state.pssElection, state.pssProjectionBasis) : RAILS.A, state.spend, state.realReturn);
       traceLine(context, other.map((row) => row.ending), x, capitalY); context.setLineDash([6, 5]); context.strokeStyle = palette.amber; context.lineWidth = 2; context.stroke(); context.setLineDash([]);
     }
 
@@ -1032,8 +1045,9 @@
   }
 
   function renderControls(rail) {
+    const basis = PSS_PROJECTION_BASES[state.pssProjectionBasis];
     $("railTitle").textContent = rail.title;
-    $("railSourceBadge").textContent = state.rail === "B" ? `Sep iEstimator · ${rail.electionKey}` : "March/V5 control";
+    $("railSourceBadge").textContent = state.rail === "B" ? `${basis.shortLabel} · ${rail.electionKey}` : "March/V5 control";
     $("railSourceBadge").className = `badge ${state.rail === "B" ? "exact" : "modelled"}`;
     $("railPurpose").textContent = rail.purpose;
     $("railA").classList.toggle("active", state.rail === "A");
@@ -1046,8 +1060,11 @@
       button.setAttribute("aria-pressed", String(active));
     });
     $("electionContext").textContent = state.rail === "B"
-      ? `${rail.electionLabel} · ${money2.format(rail.netPension / 26)} net/pf · ${money0.format(rail.lumpSum)} lump. Provider projection: 8.2% earnings, 5% salary growth, 2.5% CPI; the ${pct(state.realReturn)} site return is separate and post-retirement.`
+      ? `${rail.electionLabel} · ${money2.format(rail.netPension / 26)} net/pf · ${money0.format(rail.lumpSum)} lump. Provider basis: ${pct(basis.fundEarnings)} earnings, ${pct(basis.salaryGrowth)} salary growth, ${pct(basis.cpi)} CPI before retirement; the ${pct(state.realReturn)} site return is separate and post-retirement.`
       : "Rail A is the March/V5 historical control. Choose a September election above to return to Rail B.";
+    $("basisCurrent").classList.toggle("active", state.pssProjectionBasis === "source-825");
+    $("basisCurrent").setAttribute("aria-pressed", String(state.pssProjectionBasis === "source-825"));
+    $("basisBoundary").innerHTML = `<span><b>CSC before retirement</b>${basis.shortLabel}% · ${pct(basis.realFundEarnings, 2)} real fund equivalent</span><i>→</i><span><b>Retirement-day opening</b>PSS pension, lump and tax components</span><i>→</i><span><b>Site after retirement</b>${pct(state.realReturn)} real · all projections update</span>`;
     $("spend").value = state.spend;
     $("return").value = state.realReturn * 100;
     $("targetAge").value = state.targetAge;
@@ -1105,11 +1122,12 @@
   }
 
   $("railA").addEventListener("click", () => { state.rail = "A"; state.washCycles = washOutcome(RAILS.A, 99).maxCycles; renderAll(); });
-  $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = washOutcome(railBForElection(state.pssElection), 99).maxCycles; renderAll(); });
+  $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = washOutcome(railBForElection(state.pssElection, state.pssProjectionBasis), 99).maxCycles; renderAll(); });
+  $("basisCurrent").addEventListener("click", () => { state.pssProjectionBasis = "source-825"; state.rail = "B"; renderAll(); });
   document.querySelectorAll("[data-pss-election]").forEach((button) => button.addEventListener("click", () => {
     state.pssElection = button.dataset.pssElection;
     state.rail = "B";
-    state.washCycles = washOutcome(railBForElection(state.pssElection), 99).maxCycles;
+    state.washCycles = washOutcome(railBForElection(state.pssElection, state.pssProjectionBasis), 99).maxCycles;
     renderAll();
   }));
   $("spend").addEventListener("input", (event) => { state.spend = Number(event.target.value); renderAll(); });
@@ -1166,7 +1184,7 @@
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
     stopVisualPlay();
-    Object.assign(state, { rail: "B", pssElection: "60-40", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, visualMode: "horizon", visualPerspective: true, compareRail: false });
+    Object.assign(state, { rail: "B", pssElection: "60-40", pssProjectionBasis: "source-825", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, visualMode: "horizon", visualPerspective: true, compareRail: false });
     renderAll();
     showToast("Rail B central baseline restored.");
   });

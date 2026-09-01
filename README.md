@@ -9,11 +9,12 @@ A responsive, interactive retirement planning command centre built from the Robi
 - Deep V23 workbench: <https://mick353.github.io/retirement/deep-model.html>
 - Retirement Atlas: <https://mick353.github.io/retirement/atlas.html>
 
-The Command Centre, Atlas and V23 share the rail, PSS election, total spending target, real return, target age, home, tax year, reserve policy and simulation seed. GitHub Pages and ChatGPT Sites are parallel published surfaces; ChatGPT Sites is the usual-use surface and GitHub is the public mirror/backup.
+The Command Centre, Atlas and V23 share the rail, PSS election, PSS provider projection basis, total spending target, real return, target age, home, tax year, reserve policy and simulation seed. GitHub Pages and ChatGPT Sites are parallel published surfaces; ChatGPT Sites is the usual-use surface and GitHub is the public mirror/backup.
 
 ## What is included
 
 - Integrated command centre with Rail A plus four source-backed Rail B PSS elections: 60/40, 65/35, 70/30 and 100% pension
+- Governed provider-basis layer: the current 8.2% fund / 5% salary / 2.5% CPI source set is active; the intended 6% / 5% / 3% sensitivity is visible but disabled until matching CSC PDFs provide exact pension, lump and tax-component outputs
 - Retirement Atlas strategy map with reciprocal links to the Command Centre and V23
 - Adjustable scenario lab and side-by-side saved-scenario comparison
 - Spending and estate frontier analysis
@@ -54,7 +55,7 @@ The workflow in `.github/workflows/pages.yml` builds and deploys the site after 
 
 This repository is public and the website contains personal retirement assumptions and modelled financial figures. The source PDFs, spreadsheets and research files are intentionally not committed. Only the integrated website and its calculation logic are included.
 
-The site stores saved scenarios, the selected PSS election and annual-review preferences only in the current browser using local storage. It has no account system or server-side database.
+The site stores saved scenarios, the selected PSS election and provider basis, and annual-review preferences only in the current browser using local storage. It has no account system or server-side database.
 
 When a user sends an adviser message, the current retirement scenario, the detailed model reference and that chat history are sent to the protected ChatGPT Site endpoint and then to Google Gemini. The Gemini credential remains server-side and is not stored in this public repository or exposed to the browser.
 

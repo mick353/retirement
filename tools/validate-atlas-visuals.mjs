@@ -31,7 +31,10 @@ for (const required of ["visualCanvas", "visualAgeRange", "visualModeTabs", "vis
 const electionKeys = [...html.matchAll(/data-pss-election="([^"]+)"/g)].map((match) => match[1]);
 assert(JSON.stringify(electionKeys) === JSON.stringify(["60-40", "65-35", "70-30", "100"]), `Atlas election controls drifted: ${electionKeys.join(", ")}`);
 assert(htmlIds.has("electionControl") && htmlIds.has("electionContext"), "Atlas election context is missing");
+assert(htmlIds.has("basisCurrent") && htmlIds.has("basisPrudent") && htmlIds.has("basisBoundary"), "Atlas projection-basis controls are missing");
+assert(/id="basisPrudent"[^>]*disabled/.test(html), "Unsourced prudent Atlas basis must remain disabled");
 assert(script.includes("state.pssElection"), "Atlas visuals are not wired to the active PSS election");
+assert(script.includes("state.pssProjectionBasis"), "Atlas is not wired to the active PSS projection basis");
 assert(script.includes("lumpTaxableTaxed"), "Atlas tax visual lacks source-backed election components");
 
 assert(script.includes("These are scenario slices, not probabilities"), "Horizon probability boundary is missing");

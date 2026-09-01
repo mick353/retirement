@@ -63,6 +63,8 @@
 - Command Centre 2D/3D switching works; keyboard ArrowRight moved age 75 to 76 and the milestone restored age 75.
 - Changing the URL return from 7.0% to 7.5% updates both public surfaces. Under the September 60/40 source, the reconciled age-75 result is $2,253,745; Atlas displays 7.5% in the metric, active visual basis and ledger inspector.
 - Election regression covers 60/40, 65/35, 70/30 and 100% across Command Centre, Atlas and V23. The 100% case was checked at $90k, $100k, $110k and $130k spending: voluntary portfolio draw remains $0 and the exact PSS surplus routes to Pool C.
+- Projection-basis regression covers the shared URL, local-state schema and all three interfaces. The active 8.2% / 5% / 2.5% source set exposes 5.56% real fund and 2.44% real salary equivalents; the intended 6% / 5% / 3% set exposes 2.91% and 1.94% equivalents but remains disabled because matching CSC outputs are absent.
+- The source gate is build-blocking: the prudent basis must contain no election registry, normalises back to the current verified basis, and is labelled as unavailable rather than silently borrowing pension, lump or tax components.
 - Wash regression verifies direct PSS components and source-limited maxima of 6, 5, 4 and 0 cycles for the four Rail B elections, plus 5 for Rail A.
 - At 390 × 844, Atlas has no page-level horizontal overflow. The six mode buttons scroll inside their own toolbar, while the focused canvas remains within the viewport.
 - TypeScript, governed-model invariants, visual DOM bindings and the production build all pass.

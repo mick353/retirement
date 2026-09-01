@@ -24,7 +24,7 @@ function runCommonJs(source, require) {
 const core = runCommonJs(compile(coreSource), () => { throw new Error("retirement-core has no external runtime dependencies"); });
 const reactStub = { useEffect: () => undefined, useMemo: (factory) => factory(), useRef: () => ({ current: null }), useState: (value) => [value, () => undefined] };
 const dashboard = runCommonJs(
-  compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_ELECTION_ORDER, railBForElection, washOutcome, operationalLedger, monteCarloFan };`),
+  compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, normaliseProjectionBasis, railBForElection, washOutcome, operationalLedger, monteCarloFan };`),
   (name) => {
     if (name === "react") return reactStub;
     if (name === "react/jsx-runtime") return { Fragment: Symbol("Fragment"), jsx: () => null, jsxs: () => null };
@@ -38,7 +38,7 @@ const atlasPrefix = atlasSource.match(/\n  (const TBC = [\s\S]*?function washOut
 assert.ok(atlasPrefix, "Could not locate the Atlas model registry");
 const atlasContext = { Math, Number, String, Array, Object };
 vm.createContext(atlasContext);
-vm.runInContext(`${atlasPrefix}\nthis.MODEL={RAILS,PSS_ELECTIONS,railBForElection,washOutcome};`, atlasContext);
+vm.runInContext(`${atlasPrefix}\nthis.MODEL={RAILS,PSS_ELECTIONS,PSS_PROJECTION_BASES,normaliseProjectionBasis,railBForElection,washOutcome};`, atlasContext);
 const atlas = atlasContext.MODEL;
 
 function makeChartStub() {}
@@ -63,8 +63,33 @@ const expectedElections = {
   "100": { grossPension: 152_960.05, netPension: 143_104.26, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, poolA: 0, poolC: 317_447.66, dbSpecialValue: 2_447_360.80, maxCycles: 0 },
 };
 assert.deepEqual(Array.from(dashboard.PSS_ELECTION_ORDER), ["60-40", "65-35", "70-30", "100"], "Command Centre election order");
-
 const close = (actual, expected, message) => assert.ok(Math.abs(Number(actual) - expected) < 0.011, `${message}: expected ${expected}, got ${actual}`);
+
+const expectedBases = {
+  "source-825": { fundEarnings: .082, salaryGrowth: .05, cpi: .025, realFundEarnings: 1.082 / 1.025 - 1, realSalaryGrowth: 1.05 / 1.025 - 1, status: "source-backed", available: true },
+  "prudent-630": { fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, status: "awaiting-source", available: false },
+};
+
+for (const [key, expected] of Object.entries(expectedBases)) {
+  const surfaces = [
+    ["Command Centre", dashboard.PSS_PROJECTION_BASES[key]],
+    ["Atlas", atlas.PSS_PROJECTION_BASES[key]],
+    ["V23", v23(`PSS_PROJECTION_BASES[${JSON.stringify(key)}]`)],
+  ];
+  for (const [surface, basis] of surfaces) {
+    close(basis.fundEarnings, expected.fundEarnings, `${surface} ${key} fund earnings`);
+    close(basis.salaryGrowth, expected.salaryGrowth, `${surface} ${key} salary growth`);
+    close(basis.cpi, expected.cpi, `${surface} ${key} CPI`);
+    close(basis.realFundEarnings, expected.realFundEarnings, `${surface} ${key} real fund earnings`);
+    close(basis.realSalaryGrowth, expected.realSalaryGrowth, `${surface} ${key} real salary growth`);
+    assert.equal(basis.sourceStatus, expected.status, `${surface} ${key} source status`);
+    assert.equal(Boolean(basis.elections), expected.available, `${surface} ${key} availability`);
+  }
+}
+assert.equal(dashboard.normaliseProjectionBasis("prudent-630"), "source-825", "Command Centre blocks unsourced prudent basis");
+assert.equal(atlas.normaliseProjectionBasis("prudent-630"), "source-825", "Atlas blocks unsourced prudent basis");
+assert.equal(v23('normaliseProjectionBasis("prudent-630")'), "source-825", "V23 blocks unsourced prudent basis");
+
 for (const [key, expected] of Object.entries(expectedElections)) {
   const commandElection = dashboard.PSS_ELECTIONS[key];
   const atlasElection = atlas.PSS_ELECTIONS[key];
@@ -123,6 +148,13 @@ for (const spend of [90_000, 100_000, 110_000, 130_000]) {
 }
 
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
+assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(v23Source, /pss:scenario\.pssElection/, "V23 shared links carry the PSS election");
-assert.match(v23Source, /version:5/, "V23 stores the current shared-scenario schema");
-console.log("Retirement election registry, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");
+assert.match(v23Source, /basis:normaliseProjectionBasis\(scenario\.pssProjectionBasis\)/, "V23 shared links carry the PSS projection basis");
+assert.match(v23Source, /version:6/, "V23 stores the current shared-scenario schema");
+assert.match(dashboardSource, /basis:\s*scenario\.pssProjectionBasis/, "Command Centre shared links carry the PSS projection basis");
+assert.match(dashboardSource, /<option value="prudent-630" disabled>/, "Command Centre prudent provider basis must remain disabled without sources");
+assert.match(v23Source, /id="pss-basis-prudent" disabled/, "V23 prudent provider basis must remain disabled without sources");
+assert.match(v23Source, /const LS_KEY="v23_3_state"/, "V23 uses the projection-basis state schema");
+assert.match(v23Source, /range\.setAttribute\("aria-label"/, "V23 enhanced range controls retain accessible names");
+console.log("Retirement projection-basis gate, election registry, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");

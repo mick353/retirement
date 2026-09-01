@@ -1,6 +1,6 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Current release: 1 September 2026 PSS election model
+Current release: 1 September 2026 PSS projection-basis model
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -28,7 +28,12 @@ Rail B election        Gross pension   Net pension    PSS lump       Tax-free   
 70% / 30%              $107,072.03     $101,536.24    $504,768.16    $120,208.67    $384,559.49    $381,847.52    $440,368.30    4
 100% pension           $152,960.05     $143,104.26    $0             $0              $0              $0              $317,447.66    0
 
-Common 1 September iEstimator assumptions: retirement at 60; projected CPI-reduced FAS $168,256.05; contribution rate 10%; fund earnings 8.2%; salary growth 5%; CPI 2.5%. Those are provider projection assumptions before retirement. The sites' adjustable real-return control is a separate post-retirement assumption.
+PSS PROVIDER PROJECTION BASES
+Current CSC source basis - ACTIVE: fund earnings 8.2%; salary growth 5%; CPI 2.5%. Equivalent real fund earnings are 5.56% and equivalent real salary growth is 2.44%. The four election rows above come directly from matching CSC PDFs.
+
+Prudent sensitivity basis - SOURCE-GATED: fund earnings 6%; salary growth 5%; CPI 3%. Equivalent real fund earnings are 2.91% and equivalent real salary growth is 1.94%. No matching PDF exists in the active source folder, so pension, lump and tax-component outputs are unavailable rather than inferred.
+
+Common active iEstimator inputs also include retirement at 60, projected CPI-reduced FAS $168,256.05 and a 10% member contribution rate. Provider bases apply before retirement. The sites' adjustable real-return control begins from the verified retirement-day opening and is a separate post-retirement assumption.
 
 Rail A control: gross pension $78,382.04; net pension $76,041.68; PSS lump $574,801.66; tax-free component $141,581.47; taxable-taxed component $433,220.20; untaxed $0; Hostplus $317,447.66; Pool A $840,887.36; Pool C $51,361.96.
 
@@ -97,8 +102,9 @@ SOURCE STATUS AND SALARY CONTROL
 - Do not replace the September election values with the disputed statement.
 
 GOVERNANCE CONTROLS
-- Carry rail, PSS election, spending, return, target age, home, tax year, reserve months and simulation seed through every shared link and saved scenario.
-- Do not mix Rail A with any Rail B election.
+- Carry rail, PSS election, PSS provider projection basis, spending, return, target age, home, tax year, reserve months and simulation seed through every shared link and saved scenario.
+- Do not mix Rail A, a Rail B election or a provider basis silently.
+- Keep the 6% / 5% / 3% sensitivity disabled until matching CSC pension, lump and tax-component PDFs are reconciled; do not interpolate it from the current source set.
 - Do not borrow PSS component ratios for Hostplus.
 - Keep gross pension, net pension, total spending, portfolio gap, PSS surplus and gross salary equivalent distinct.
 - Keep provider pre-retirement assumptions separate from site post-retirement real returns.
@@ -112,6 +118,7 @@ Personal PDFs and workbooks are not republished. Current source roles:
 - i-Estimator-1-9-2026_65-35.pdf: current Rail B 65/35 option.
 - i-Estimator-1-9-2026_70-30.pdf: current Rail B 70/30 option.
 - i-Estimator-1-9-2026_100percent.pdf: current Rail B 100% pension option.
+- 6% / 5% / 3% iEstimator source set: intended sensitivity basis, awaiting matching provider PDFs; no outputs are inferred.
 - Paystub_2026_08_26.pdf: corrected current salary and backpay evidence.
 - Statement 2026.pdf: disputed annual statement pending reissue.
 - PSS_iEstimator_60-40_2026-03-23.pdf: Rail A historical control and direct components.
@@ -120,6 +127,6 @@ Personal PDFs and workbooks are not republished. Current source roles:
 - Robinson_Retirement_Master_2026-07-18.md: governed narrative, revised by the 1 Sep 2026 release note.
 
 MACHINE-ANALYSIS CONTRACT
-An automated analysis must state the rail and PSS election, distinguish sourced inputs from modelled outputs, name the return assumption, identify total spending versus portfolio gap or pension surplus, cite the wash source/method, never call a simulated percentile a forecast, and never convert this documentation into personal financial advice.
+An automated analysis must state the rail, PSS election and provider projection basis; distinguish sourced inputs from modelled outputs; keep the pre-retirement provider basis separate from the post-retirement real return; identify total spending versus portfolio gap or pension surplus; cite the wash source/method; never call a simulated percentile a forecast; and never convert this documentation into personal financial advice.
 
 END OF STATIC MODEL REFERENCE

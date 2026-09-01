@@ -58,7 +58,7 @@
   <body>
     <header>
       <div class="wrap">
-        <p class="eyebrow">Static model documentation · current release 1 September 2026</p>
+        <p class="eyebrow">Static model documentation · PSS projection-basis release · 1 September 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the selectable PSS elections, data rails, formulas, scenario engines, governance controls and source lineage used by the Command Centre, Atlas and V23.</p>
         <div class="actions">
@@ -105,7 +105,13 @@
             </tbody>
           </table>
         </div>
-        <p><strong>Common CSC projection inputs:</strong> $168,256.05 projected CPI-reduced FAS, 10% member contribution, 8.2% fund earnings, 5% salary growth and 2.5% CPI. These are provider assumptions before retirement; the site return is a separate post-retirement real-return control.</p>
+        <h3>Provider projection basis — before retirement</h3>
+        <div class="grid">
+          <div class="card"><b>Current CSC source basis · active</b>8.2% fund earnings, 5% salary growth and 2.5% CPI. Equivalent real rates are 5.56% for fund earnings and 2.44% for salary growth. All four elections above are read directly from matching CSC PDFs.</div>
+          <div class="card"><b>Prudent sensitivity · source-gated</b>6% fund earnings, 5% salary growth and 3% CPI. Equivalent real rates are 2.91% for fund earnings and 1.94% for salary growth. No matching PDF exists in the active source folder, so pension, lump and tax components are unavailable rather than inferred.</div>
+          <div class="card"><b>Post-retirement site return</b>The adjustable real-return control begins from the verified retirement-day opening. It is independent of the CSC provider basis and updates capital, cashflow, risk and estate projections everywhere.</div>
+        </div>
+        <p><strong>Current common CSC inputs:</strong> $168,256.05 projected CPI-reduced FAS and 10% member contribution, in addition to the active 8.2% / 5% / 2.5% basis.</p>
         <p><strong>Rail A control:</strong> $78,382.04 gross pension, $76,041.68 net pension, $574,801.66 PSS lump, $141,581.47 tax-free, $433,220.20 taxable-taxed, $840,887.36 Pool A and $51,361.96 Pool C.</p>
         <h3>Shared planning controls</h3>
         <ul>
@@ -217,7 +223,8 @@ deathBenefitTax = taxableComponent × 0.17</pre>
         <p class="eyebrow">Audit controls</p>
         <h2>Known mismatches and model governance</h2>
         <dl>
-          <dt>Do not mix rails or elections silently.</dt><dd>Each output and shared link carries Rail A or Rail B plus the selected 60/40, 65/35, 70/30 or 100% election.</dd>
+          <dt>Do not mix rails, elections or projection bases silently.</dt><dd>Each output and shared link carries Rail A or Rail B, the selected 60/40, 65/35, 70/30 or 100% election, and the verified provider basis.</dd>
+          <dt>Source-gate incomplete sensitivity sets.</dt><dd>The 6% / 5% / 3% basis is documented but disabled until matching CSC PDFs provide exact pension, lump and tax-component outputs. No output is interpolated from another basis.</dd>
           <dt>Do not invent Hostplus components.</dt><dd>Each PSS source uses its exact own component split. Hostplus remains unresolved rather than borrowing a PSS ratio.</dd>
           <dt>Keep gross, net and salary-equivalent values distinct.</dt><dd>Gross pension, modelled net pension, net spending and gross salary equivalence are separate fields.</dd>
           <dt>Keep real and nominal values distinct.</dt><dd>Retirement projections use real dollars. Pre-age-60 compounding is separately labelled nominal.</dd>
@@ -228,7 +235,7 @@ deathBenefitTax = taxableComponent × 0.17</pre>
           <dt>Review annually.</dt><dd>PSS estimates, balances, tax rates, Medicare, draw rates, contribution caps, TBC/TSB rules and provider processes can change.</dd>
         </dl>
         <h3>Machine-analysis contract</h3>
-        <p>When analysing this model, an automated system should: distinguish documented inputs from modelled outputs; state the rail, PSS election and wash source; identify total spending versus portfolio gap or PSS surplus; name the real-return assumption; never infer that a simulated percentile is a forecast; and never convert this documentation into personal financial advice.</p>
+        <p>When analysing this model, an automated system should: distinguish documented inputs from modelled outputs; state the rail, PSS election, provider projection basis and wash source; keep the pre-retirement provider basis separate from the post-retirement real return; identify total spending versus portfolio gap or PSS surplus; never infer that a simulated percentile is a forecast; and never convert this documentation into personal financial advice.</p>
       </section>
 
       <section id="sources">
@@ -240,6 +247,7 @@ deathBenefitTax = taxableComponent × 0.17</pre>
           <li><code>i-Estimator-1-9-2026_65-35.pdf</code> — current Rail B 65/35 option.</li>
           <li><code>i-Estimator-1-9-2026_70-30.pdf</code> — current Rail B 70/30 option.</li>
           <li><code>i-Estimator-1-9-2026_100percent.pdf</code> — current Rail B 100% pension option.</li>
+          <li><code>6% / 5% / 3% iEstimator source set</code> — intended sensitivity basis, awaiting matching provider PDFs; no model outputs are inferred.</li>
           <li><code>Paystub_2026_08_26.pdf</code> — corrected current salary and backpay evidence.</li>
           <li><code>PSS_iEstimator_60-40_2026-03-23.pdf</code> — Rail A historical control and direct PSS components.</li>
           <li><code>PSS_Defined_Benefit_Calculator_V8_Baseline_2026-07-18.xlsx</code> — historical defined-benefit calculation control.</li>

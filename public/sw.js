@@ -1,6 +1,6 @@
-const CACHE = "robinson-retirement-pages-v18";
+const CACHE = "robinson-retirement-pages-v19";
 const scopedUrl = (path = "") => new URL(path, self.registration.scope).toString();
-const APP_SHELL = [scopedUrl(), scopedUrl("deep-model.html?v=18"), scopedUrl("atlas.html?v=18"), scopedUrl("atlas-prototype.html?v=18"), scopedUrl("atlas.css?v=18"), scopedUrl("atlas.js?v=18"), scopedUrl("model-reference.html?v=18"), scopedUrl("model-reference.txt?v=18"), scopedUrl("vendor/chart.umd.js"), scopedUrl("manifest.webmanifest"), scopedUrl("favicon.svg")];
+const APP_SHELL = [scopedUrl(), scopedUrl("deep-model.html?v=19"), scopedUrl("atlas.html?v=19"), scopedUrl("atlas-prototype.html?v=19"), scopedUrl("atlas.css?v=19"), scopedUrl("atlas.js?v=19"), scopedUrl("model-reference.html?v=19"), scopedUrl("model-reference.txt?v=19"), scopedUrl("vendor/chart.umd.js"), scopedUrl("manifest.webmanifest"), scopedUrl("favicon.svg")];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)).catch(() => undefined));
