@@ -20,20 +20,28 @@ CLASSIFICATIONS
 - SPECULATIVE: unknowable future state.
 
 RAILS AND PSS ELECTIONS
-Rail A remains the March 2026 / V5 historical control. Rail B is the current 1 September 2026 source family. Rail B defaults to 60/40, while 65/35, 70/30 and 100% pension are selectable what-if elections. They are never blended.
+Rail A remains the March 2026 / V5 historical control. Rail B can use either September 2026 CSC provider basis. The current 8.2% / 5% / 2.5% basis has four elections; the prudent 6% / 5% / 3% basis has direct 60/40, 65/35 and 70/30 estimates. They are never blended.
 
+CURRENT CSC BASIS - 8.2% FUND / 5% SALARY / 2.5% CPI
 Rail B election        Gross pension   Net pension    PSS lump       Tax-free       Taxable-taxed  Pool A          Pool C          Max PSS wash cycles
 60% / 40%              $91,776.03      $86,240.18     $673,024.21    $160,278.23    $512,745.98    $626,583.52    $363,888.35    6
 65% / 35%              $99,424.03      $93,888.34     $588,896.19    $140,243.46    $448,652.73    $504,215.52    $402,128.33    5
 70% / 30%              $107,072.03     $101,536.24    $504,768.16    $120,208.67    $384,559.49    $381,847.52    $440,368.30    4
 100% pension           $152,960.05     $143,104.26    $0             $0              $0              $0              $317,447.66    0
 
+PRUDENT CSC BASIS - 6% FUND / 5% SALARY / 3% CPI
+Rail B election        Gross pension   Net pension    PSS lump       Tax-free       Taxable-taxed  Pool A          Pool C          Max PSS wash cycles
+60% / 40%              $88,571.01      $80,672.54     $649,520.78    $177,975.75    $471,545.03    $677,863.84    $289,104.60    5
+65% / 35%              $95,951.93      $88,053.42     $568,330.69    $155,728.77    $412,601.91    $559,769.12    $326,009.23    5
+70% / 30%              $103,332.85     $95,434.30     $487,140.59    $133,481.80    $353,658.78    $441,674.40    $362,913.85    4
+100% pension           UNAVAILABLE - matching 6% / 5% / 3% CSC PDF not supplied; no current-basis value is substituted.
+
 PSS PROVIDER PROJECTION BASES
-Current CSC source basis - ACTIVE: fund earnings 8.2%; salary growth 5%; CPI 2.5%. Equivalent real fund earnings are 5.56% and equivalent real salary growth is 2.44%. The four election rows above come directly from matching CSC PDFs.
+Current CSC source basis - ACTIVE: fund earnings 8.2%; salary growth 5%; CPI 2.5%. Equivalent real fund earnings are 5.56% and equivalent real salary growth is 2.44%. Its four election rows come directly from matching CSC PDFs.
 
-Prudent sensitivity basis - SOURCE-GATED: fund earnings 6%; salary growth 5%; CPI 3%. Equivalent real fund earnings are 2.91% and equivalent real salary growth is 1.94%. No matching PDF exists in the active source folder, so pension, lump and tax-component outputs are unavailable rather than inferred.
+Prudent sensitivity basis - THREE ELECTIONS ACTIVE: fund earnings 6%; salary growth 5%; CPI 3%. Equivalent real fund earnings are 2.91% and equivalent real salary growth is 1.94%. The supplied 60/40, 65/35 and 70/30 PDFs provide exact outputs. Only its missing 100% election remains unavailable.
 
-Common active iEstimator inputs also include retirement at 60, projected CPI-reduced FAS $168,256.05 and a 10% member contribution rate. Provider bases apply before retirement. The sites' adjustable real-return control begins from the verified retirement-day opening and is a separate post-retirement assumption.
+The projected CPI-reduced FAS is $168,256.05 under the current basis and $162,380.20 under the prudent basis; both use a 10% member contribution rate. Provider bases apply before retirement. The sites' adjustable real-return control begins from the verified retirement-day opening and is a separate post-retirement assumption.
 
 Rail A control: gross pension $78,382.04; net pension $76,041.68; PSS lump $574,801.66; tax-free component $141,581.47; taxable-taxed component $433,220.20; untaxed $0; Hostplus $317,447.66; Pool A $840,887.36; Pool C $51,361.96.
 
@@ -104,7 +112,7 @@ SOURCE STATUS AND SALARY CONTROL
 GOVERNANCE CONTROLS
 - Carry rail, PSS election, PSS provider projection basis, spending, return, target age, home, tax year, reserve months and simulation seed through every shared link and saved scenario.
 - Do not mix Rail A, a Rail B election or a provider basis silently.
-- Keep the 6% / 5% / 3% sensitivity disabled until matching CSC pension, lump and tax-component PDFs are reconciled; do not interpolate it from the current source set.
+- Keep the 6% / 5% / 3% 100% pension election disabled until its matching CSC PDF is reconciled; its other three elections are direct source-backed estimates. Do not interpolate across bases.
 - Do not borrow PSS component ratios for Hostplus.
 - Keep gross pension, net pension, total spending, portfolio gap, PSS surplus and gross salary equivalent distinct.
 - Keep provider pre-retirement assumptions separate from site post-retirement real returns.
@@ -118,7 +126,10 @@ Personal PDFs and workbooks are not republished. Current source roles:
 - i-Estimator-1-9-2026_65-35.pdf: current Rail B 65/35 option.
 - i-Estimator-1-9-2026_70-30.pdf: current Rail B 70/30 option.
 - i-Estimator-1-9-2026_100percent.pdf: current Rail B 100% pension option.
-- 6% / 5% / 3% iEstimator source set: intended sensitivity basis, awaiting matching provider PDFs; no outputs are inferred.
+- i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf: prudent Rail B 60/40 option.
+- i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf: prudent Rail B 65/35 option.
+- i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf: prudent Rail B 70/30 option.
+- 6% / 5% / 3% 100% pension iEstimator: not supplied; that single election remains unavailable and no output is inferred.
 - Paystub_2026_08_26.pdf: corrected current salary and backpay evidence.
 - Statement 2026.pdf: disputed annual statement pending reissue.
 - PSS_iEstimator_60-40_2026-03-23.pdf: Rail A historical control and direct components.

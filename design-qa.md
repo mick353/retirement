@@ -44,6 +44,8 @@
 - P2 — the focused Command Centre view lacked enough assumption context. Fixed with starting capital, net spending, real return used, target age, home and indexed PSS floor.
 - P2 — the River could imply one shared scale for annual flow and capital stock. Fixed with separate lanes, explicit scale labels, a selected-age cross-section and method disclosure.
 - P2 — Atlas grid children could expand the page at a 390-pixel viewport. Fixed with zero-minimum panel sizing and constrained table scrolling. Recheck: viewport 390, document width 390, focused canvas 365 pixels.
+- P1 — Frontier marginal-cost bars used an age-75 fixed scale, so a late selected age such as 91 could make the bars exceed 100% and widen the page. Fixed with an active-result relative scale; recheck at age 91: viewport and document widths match on desktop and mobile.
+- P1 — a valid late Frontier target such as age 91 was easy to miss on a phone. Fixed with a prominent sticky target-age context card, explicit “comparison age, not projection end” copy, and a direct return to the Adjust control. The projection still runs through age 95.
 
 ## Required surface review
 
@@ -62,10 +64,12 @@
 - Playback advanced the selected age from 75 to 78 and paused without changing scenario assumptions.
 - Command Centre 2D/3D switching works; keyboard ArrowRight moved age 75 to 76 and the milestone restored age 75.
 - Changing the URL return from 7.0% to 7.5% updates both public surfaces. Under the September 60/40 source, the reconciled age-75 result is $2,253,745; Atlas displays 7.5% in the metric, active visual basis and ledger inspector.
-- Election regression covers 60/40, 65/35, 70/30 and 100% across Command Centre, Atlas and V23. The 100% case was checked at $90k, $100k, $110k and $130k spending: voluntary portfolio draw remains $0 and the exact PSS surplus routes to Pool C.
-- Projection-basis regression covers the shared URL, local-state schema and all three interfaces. The active 8.2% / 5% / 2.5% source set exposes 5.56% real fund and 2.44% real salary equivalents; the intended 6% / 5% / 3% set exposes 2.91% and 1.94% equivalents but remains disabled because matching CSC outputs are absent.
-- The source gate is build-blocking: the prudent basis must contain no election registry, normalises back to the current verified basis, and is labelled as unavailable rather than silently borrowing pension, lump or tax components.
-- Wash regression verifies direct PSS components and source-limited maxima of 6, 5, 4 and 0 cycles for the four Rail B elections, plus 5 for Rail A.
+- Election regression covers all seven valid basis/election combinations across Command Centre, Atlas and V23. The current-basis 100% case was checked at $90k, $100k, $110k and $130k spending: voluntary portfolio draw remains $0 and the exact PSS surplus routes to Pool C.
+- Projection-basis regression covers the shared URL, local-state schema and all three interfaces. The 8.2% / 5% / 2.5% set exposes 5.56% real fund and 2.44% real salary equivalents with four elections. The 6% / 5% / 3% set exposes 2.91% and 1.94% equivalents with direct 60/40, 65/35 and 70/30 estimates and its separate $162,380.20 FAS.
+- The source gate is build-blocking at election level: a prudent-basis 100% request normalises to its verified 60/40 default, the 100% control is disabled, and no current-basis value is borrowed. The 65/35 and 70/30 provider one-cent component residuals are accepted but not rewritten.
+- Wash regression verifies direct PSS components and source-limited maxima of 6, 5, 4 and 0 cycles for the current basis; 5, 5 and 4 for the prudent basis; plus 5 for Rail A.
+- Mobile Frontier regression at age 91 confirms the selected age stays visible, the Adjust handoff retains 91, the projection horizon remains 95, and the page has no horizontal overflow.
+- V23 mobile toolbar regression confirms page-level width remains fixed while the 862-pixel action strip scrolls within its 351-pixel container.
 - At 390 × 844, Atlas has no page-level horizontal overflow. The six mode buttons scroll inside their own toolbar, while the focused canvas remains within the viewport.
 - TypeScript, governed-model invariants, visual DOM bindings and the production build all pass.
 

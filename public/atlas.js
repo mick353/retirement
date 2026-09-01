@@ -14,20 +14,29 @@
     "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, fas: 168_256.05, grossPension: 107_072.03, netPension: 101_536.24, netPensionPf: 3_905.24, lumpSum: 504_768.16, lumpTaxFree: 120_208.67, lumpTaxableTaxed: 384_559.49, lumpTaxableUntaxed: 0 },
     "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, fas: 168_256.05, grossPension: 152_960.05, netPension: 143_104.26, netPensionPf: 5_504.01, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0 },
   };
+  const PSS_PRUDENT_ELECTIONS = {
+    "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 162_380.20, grossPension: 88_571.01, netPension: 80_672.54, netPensionPf: 3_102.79, lumpSum: 649_520.78, lumpTaxFree: 177_975.75, lumpTaxableTaxed: 471_545.03, lumpTaxableUntaxed: 0, source: "i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf" },
+    "65-35": { key: "65-35", label: "65% pension / 35% lump", pensionPercent: 65, lumpPercent: 35, fas: 162_380.20, grossPension: 95_951.93, netPension: 88_053.42, netPensionPf: 3_386.67, lumpSum: 568_330.69, lumpTaxFree: 155_728.77, lumpTaxableTaxed: 412_601.91, lumpTaxableUntaxed: 0, source: "i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf" },
+    "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, fas: 162_380.20, grossPension: 103_332.85, netPension: 95_434.30, netPensionPf: 3_670.55, lumpSum: 487_140.59, lumpTaxFree: 133_481.80, lumpTaxableTaxed: 353_658.78, lumpTaxableUntaxed: 0, source: "i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf" },
+  };
 
   const PSS_PROJECTION_BASES = {
     "source-825": { key: "source-825", label: "Current CSC source basis", shortLabel: "8.2 / 5 / 2.5", fundEarnings: .082, salaryGrowth: .05, cpi: .025, realFundEarnings: 1.082 / 1.025 - 1, realSalaryGrowth: 1.05 / 1.025 - 1, sourceStatus: "source-backed", sourceDate: "1 September 2026", elections: PSS_ELECTIONS },
-    "prudent-630": { key: "prudent-630", label: "Prudent sensitivity basis", shortLabel: "6 / 5 / 3", fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, sourceStatus: "awaiting-source", sourceDate: null, elections: null },
+    "prudent-630": { key: "prudent-630", label: "Prudent sensitivity basis", shortLabel: "6 / 5 / 3", fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, sourceStatus: "partial-source", sourceDate: "1 September 2026", elections: PSS_PRUDENT_ELECTIONS },
   };
 
   function normaliseProjectionBasis(value) {
-    const key = value === "prudent-630" ? "prudent-630" : "source-825";
-    return PSS_PROJECTION_BASES[key].elections ? key : "source-825";
+    return value === "prudent-630" ? "prudent-630" : "source-825";
+  }
+
+  function normaliseElectionForBasis(basisKey, value) {
+    const elections = PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)].elections;
+    return elections[value] ? value : "60-40";
   }
 
   function railBForElection(electionKey, basisKey = "source-825") {
     const basis = PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)];
-    const election = basis.elections[electionKey] || basis.elections["60-40"];
+    const election = basis.elections[normaliseElectionForBasis(basis.key, electionKey)] || basis.elections["60-40"];
     const hostplus = 317_447.66;
     const capital = election.lumpSum + hostplus;
     const dbSpecialValue = election.grossPension * 16;
@@ -38,7 +47,7 @@
     return {
       key: "B", electionKey: election.key, electionLabel: election.label,
       title: `Rail B — ${election.label}`, short: `Spending frontier · ${election.label}`,
-      source: `1 Sep 2026 CSC iEstimator · ${election.label}`,
+      source: election.source || `1 Sep 2026 CSC iEstimator · ${election.label}`,
       purpose: `Tests the selected ${basis.label.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
       fas: election.fas, grossPension: election.grossPension, netPension: election.netPension,
       lumpSum: election.lumpSum, hostplus, capital, dbSpecialValue, poolA, poolC,
@@ -106,10 +115,11 @@
   const params = new URLSearchParams(location.search);
   const parsedReturn = Number(params.get("return"));
   const parsedElection = Object.hasOwn(PSS_ELECTIONS, params.get("pss")) ? params.get("pss") : "60-40";
+  const parsedBasis = normaliseProjectionBasis(params.get("basis"));
   const state = {
     rail: params.get("rail") === "A" ? "A" : "B",
-    pssElection: parsedElection,
-    pssProjectionBasis: normaliseProjectionBasis(params.get("basis")),
+    pssElection: normaliseElectionForBasis(parsedBasis, parsedElection),
+    pssProjectionBasis: parsedBasis,
     spend: clamp(Number(params.get("spend")) || 110_000, 76_000, 150_000),
     realReturn: clamp(Number.isFinite(parsedReturn) && parsedReturn > 0 ? parsedReturn : 0.05, 0.02, 0.075),
     targetAge: clamp(Number(params.get("age")) || 75, 70, 95),
@@ -231,7 +241,7 @@
   }
 
   function persistScenario() {
-    const payload = { version: 6, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, pssProjectionBasis: state.pssProjectionBasis, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
+    const payload = { version: 7, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, pssProjectionBasis: state.pssProjectionBasis, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
     const v23 = `./deep-model.html?${scenarioQuery()}`;
@@ -1055,15 +1065,22 @@
     $("railA").setAttribute("aria-selected", state.rail === "A");
     $("railB").setAttribute("aria-selected", state.rail === "B");
     document.querySelectorAll("[data-pss-election]").forEach((button) => {
+      const option = basis.elections[button.dataset.pssElection];
       const active = state.rail === "B" && button.dataset.pssElection === state.pssElection;
+      button.disabled = !option;
+      button.setAttribute("aria-disabled", String(!option));
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
+      const detail = button.querySelector("small");
+      if (detail) detail.textContent = option ? `${money0.format(option.netPension)} net · ${option.lumpSum > 0 ? money0.format(option.lumpSum) + " lump" : "no lump"}` : "6/5/3 PDF not supplied";
     });
     $("electionContext").textContent = state.rail === "B"
       ? `${rail.electionLabel} · ${money2.format(rail.netPension / 26)} net/pf · ${money0.format(rail.lumpSum)} lump. Provider basis: ${pct(basis.fundEarnings)} earnings, ${pct(basis.salaryGrowth)} salary growth, ${pct(basis.cpi)} CPI before retirement; the ${pct(state.realReturn)} site return is separate and post-retirement.`
       : "Rail A is the March/V5 historical control. Choose a September election above to return to Rail B.";
     $("basisCurrent").classList.toggle("active", state.pssProjectionBasis === "source-825");
     $("basisCurrent").setAttribute("aria-pressed", String(state.pssProjectionBasis === "source-825"));
+    $("basisPrudent").classList.toggle("active", state.pssProjectionBasis === "prudent-630");
+    $("basisPrudent").setAttribute("aria-pressed", String(state.pssProjectionBasis === "prudent-630"));
     $("basisBoundary").innerHTML = `<span><b>CSC before retirement</b>${basis.shortLabel}% · ${pct(basis.realFundEarnings, 2)} real fund equivalent</span><i>→</i><span><b>Retirement-day opening</b>PSS pension, lump and tax components</span><i>→</i><span><b>Site after retirement</b>${pct(state.realReturn)} real · all projections update</span>`;
     $("spend").value = state.spend;
     $("return").value = state.realReturn * 100;
@@ -1123,7 +1140,15 @@
 
   $("railA").addEventListener("click", () => { state.rail = "A"; state.washCycles = washOutcome(RAILS.A, 99).maxCycles; renderAll(); });
   $("railB").addEventListener("click", () => { state.rail = "B"; state.washCycles = washOutcome(railBForElection(state.pssElection, state.pssProjectionBasis), 99).maxCycles; renderAll(); });
-  $("basisCurrent").addEventListener("click", () => { state.pssProjectionBasis = "source-825"; state.rail = "B"; renderAll(); });
+  function selectProjectionBasis(basisKey) {
+    state.pssProjectionBasis = normaliseProjectionBasis(basisKey);
+    state.pssElection = normaliseElectionForBasis(state.pssProjectionBasis, state.pssElection);
+    state.rail = "B";
+    state.washCycles = washOutcome(railBForElection(state.pssElection, state.pssProjectionBasis), 99).maxCycles;
+    renderAll();
+  }
+  $("basisCurrent").addEventListener("click", () => selectProjectionBasis("source-825"));
+  $("basisPrudent").addEventListener("click", () => selectProjectionBasis("prudent-630"));
   document.querySelectorAll("[data-pss-election]").forEach((button) => button.addEventListener("click", () => {
     state.pssElection = button.dataset.pssElection;
     state.rail = "B";

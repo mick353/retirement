@@ -512,6 +512,7 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .pss-election-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .pss-election-grid article { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
 .pss-election-grid article.selected { border-color: var(--green); box-shadow: inset 0 0 0 1px rgba(71,214,160,.3), 0 15px 38px rgba(0,0,0,.12); }
+.pss-election-grid article.unavailable { border-style: dashed; opacity: .74; background: color-mix(in srgb, var(--amber) 4%, var(--panel)); }
 .pss-election-grid h3 { margin: 12px 0 5px; font-size: 17px; }
 .pss-election-grid article > p { min-height: 36px; color: var(--muted); font-size: 10px; }
 .pss-election-grid dl { display: grid; gap: 6px; margin: 13px 0 0; }
@@ -563,6 +564,11 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .profile-strip button b { margin: 5px 0 2px; color: var(--text); font-size: 17px; }
 .profile-strip button small { font-size: 9px; }
 .profile-strip button.active { border-color: var(--blue); background: linear-gradient(145deg, rgba(111,140,255,.18), rgba(71,214,160,.07)); box-shadow: inset 0 -3px 0 var(--blue); }
+.frontier-target-context { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 17px; border: 1px solid color-mix(in srgb, var(--blue) 42%, var(--line)); border-radius: 15px; background: linear-gradient(120deg, color-mix(in srgb, var(--blue) 12%, var(--panel)), color-mix(in srgb, var(--violet) 8%, var(--panel))); }
+.frontier-target-context div { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 5px 10px; }
+.frontier-target-context span { color: var(--blue); font-size: 9px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.frontier-target-context strong { font-size: 22px; }
+.frontier-target-context small { grid-column: 1 / -1; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .tradeoff { display: grid; grid-template-columns: minmax(260px, .7fr) minmax(0, 1.3fr); align-items: center; gap: 30px; }
 .tradeoff h3 { margin-top: 8px; }
 .tradeoff-bars { display: grid; gap: 10px; }
@@ -820,6 +826,8 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .fan-inspector-heading { grid-column: span 3; border-bottom: 1px solid var(--line); }
   .fan-inspector > div:nth-child(4) { border-left: 0; }
   .frontier-readout { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .frontier-target-context { position: sticky; top: 70px; z-index: 8; align-items: stretch; flex-direction: column; gap: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.16); }
+  .frontier-target-context button { width: 100%; }
   .heatmap { grid-template-columns: 70px repeat(5, 118px); }
   .cashflow-map { grid-template-columns: 1fr; }
   .cashflow-map .flow-total { grid-column: auto; }

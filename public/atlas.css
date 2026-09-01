@@ -138,6 +138,7 @@ h1 span { color: var(--blue); }
 .election-tabs button { min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--muted); cursor: pointer; text-align: left; }
 .election-tabs b, .election-tabs small { display: block; }.election-tabs b { color: var(--text); font-size: 10px; }.election-tabs small { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
 .election-tabs button.active { border-color: var(--green); background: color-mix(in srgb, var(--green) 13%, var(--panel)); box-shadow: inset 3px 0 0 var(--green); }
+.election-tabs button:disabled { opacity: .62; border-style: dashed; cursor: not-allowed; }
 .election-control > small { display: block; margin-top: 8px; color: var(--muted); font-size: 8px; line-height: 1.45; }
 .basis-control { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
 .basis-control > span { display: block; margin-bottom: 7px; color: var(--blue); font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }

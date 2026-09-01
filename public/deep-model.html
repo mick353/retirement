@@ -245,6 +245,7 @@ body.print-pack section.page.print-pack-include{display:flex}
 .pss-basis-card{min-width:0;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);text-align:left;cursor:pointer}
 .pss-basis-card.active{border-color:var(--acc2);box-shadow:inset 0 0 0 1px rgba(47,212,146,.3)}
 .pss-basis-card:disabled{opacity:.66;border-style:dashed;cursor:not-allowed}
+.pss-election-options button:disabled{opacity:.58;border-style:dashed;cursor:not-allowed}
 .pss-basis-card span,.pss-basis-card b,.pss-basis-card small{display:block}.pss-basis-card span{color:var(--acc2);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}.pss-basis-card b{margin:5px 0 3px;font-size:11px}.pss-basis-card small{color:var(--muted);font-size:9px}
 .pss-basis-boundary{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}
 .pss-basis-boundary span{color:var(--muted);font-size:9px;line-height:1.4}.pss-basis-boundary b{display:block;color:var(--text)}.pss-basis-boundary i{color:var(--acc2);font-size:15px;font-style:normal}
@@ -890,7 +891,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.3 · PSS projection-basis release · 1 Sep 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.4 · dual PSS projection-basis release · 1 Sep 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -978,7 +979,7 @@ main{min-width:0;}
         </div>
         <div class="pss-basis-options" role="group" aria-label="PSS provider projection basis">
           <button class="pss-basis-card active" type="button" id="pss-basis-current" aria-pressed="true"><span>Current CSC source</span><b>8.2% fund · 5% salary · 2.5% CPI</b><small>Verified four-election source set</small></button>
-          <button class="pss-basis-card" type="button" id="pss-basis-prudent" disabled aria-disabled="true"><span>Prudent sensitivity</span><b>6% fund · 5% salary · 3% CPI</b><small>Source gate · matching PDFs not present</small></button>
+          <button class="pss-basis-card" type="button" id="pss-basis-prudent" aria-pressed="false"><span>Prudent sensitivity</span><b>6% fund · 5% salary · 3% CPI</b><small>Verified 60/40, 65/35 and 70/30</small></button>
         </div>
         <div class="pss-basis-boundary" id="pss-basis-boundary" role="note"></div>
         <div class="pss-election-options" role="group" aria-label="Rail B PSS election">
@@ -988,7 +989,7 @@ main{min-width:0;}
           <button class="pill" type="button" data-pss-election="100">100% pension</button>
         </div>
         <div class="muted smaller" id="pss-election-summary"></div>
-        <div class="muted smaller"><b>Why the prudent option is locked:</b> exact tax-free and taxable-taxed components drive the wash model. They cannot be safely inferred from assumption changes, so V23 will never blend source sets silently.</div>
+        <div class="muted smaller"><b>Source boundary:</b> each basis carries its own FAS, pension, lump and exact tax components. The 6/5/3 basis has no 100% pension PDF, so that one election is disabled rather than borrowed from the other basis.</div>
       </div>
       <div class="custom-form" id="customForm">
         <div class="custom-grid">
@@ -1653,7 +1654,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.3";
+const APP_VERSION = "v23.4";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -1663,14 +1664,20 @@ const PSS_ELECTIONS = Object.freeze({
   "70-30":{key:"70-30",label:"70 / 30",pensionPct:70,lumpPct:30,grossPension:107_072.03,netPension:101_536.24,lumpSum:504_768.16,lumpTaxFree:120_208.67,lumpTaxableTaxed:384_559.49,lumpUntaxed:0,source:"i-Estimator-1-9-2026_70-30.pdf"},
   "100":{key:"100",label:"100% pension",pensionPct:100,lumpPct:0,grossPension:152_960.05,netPension:143_104.26,lumpSum:0,lumpTaxFree:0,lumpTaxableTaxed:0,lumpUntaxed:0,source:"i-Estimator-1-9-2026_100percent.pdf"}
 });
+const PSS_PRUDENT_ELECTIONS = Object.freeze({
+  "60-40":{key:"60-40",label:"60 / 40",pensionPct:60,lumpPct:40,grossPension:88_571.01,netPension:80_672.54,lumpSum:649_520.78,lumpTaxFree:177_975.75,lumpTaxableTaxed:471_545.03,lumpUntaxed:0,fas:162_380.20,source:"i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf"},
+  "65-35":{key:"65-35",label:"65 / 35",pensionPct:65,lumpPct:35,grossPension:95_951.93,netPension:88_053.42,lumpSum:568_330.69,lumpTaxFree:155_728.77,lumpTaxableTaxed:412_601.91,lumpUntaxed:0,fas:162_380.20,source:"i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf"},
+  "70-30":{key:"70-30",label:"70 / 30",pensionPct:70,lumpPct:30,grossPension:103_332.85,netPension:95_434.30,lumpSum:487_140.59,lumpTaxFree:133_481.80,lumpTaxableTaxed:353_658.78,lumpUntaxed:0,fas:162_380.20,source:"i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf"}
+});
 const PSS_PROJECTION_BASES=Object.freeze({
   "source-825":{key:"source-825",label:"Current CSC source basis",shortLabel:"8.2 / 5 / 2.5",fundEarnings:.082,salaryGrowth:.05,cpi:.025,realFundEarnings:1.082/1.025-1,realSalaryGrowth:1.05/1.025-1,sourceStatus:"source-backed",sourceDate:"1 September 2026",elections:PSS_ELECTIONS},
-  "prudent-630":{key:"prudent-630",label:"Prudent sensitivity basis",shortLabel:"6 / 5 / 3",fundEarnings:.06,salaryGrowth:.05,cpi:.03,realFundEarnings:1.06/1.03-1,realSalaryGrowth:1.05/1.03-1,sourceStatus:"awaiting-source",sourceDate:null,elections:null}
+  "prudent-630":{key:"prudent-630",label:"Prudent sensitivity basis",shortLabel:"6 / 5 / 3",fundEarnings:.06,salaryGrowth:.05,cpi:.03,realFundEarnings:1.06/1.03-1,realSalaryGrowth:1.05/1.03-1,sourceStatus:"partial-source",sourceDate:"1 September 2026",elections:PSS_PRUDENT_ELECTIONS}
 });
-function normaliseProjectionBasis(value){const key=value==="prudent-630"?"prudent-630":"source-825";return PSS_PROJECTION_BASES[key].elections?key:"source-825";}
+function normaliseProjectionBasis(value){return value==="prudent-630"?"prudent-630":"source-825";}
+function normaliseElectionForBasis(basisKey,value){const elections=PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)].elections;return elections[value]?value:"60-40";}
 function railBProfileForElection(key="60-40",basisKey="source-825"){
   const basis=PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)];
-  const e=basis.elections[key]||basis.elections["60-40"];
+  const e=basis.elections[normaliseElectionForBasis(basis.key,key)]||basis.elections["60-40"];
   const dbSpecialValue=e.grossPension*16;
   const tbcHeadroom=Math.max(0,TBC_AT_RETIREMENT-dbSpecialValue-TBC_PLANNING_BUFFER);
   const poolA=Math.min(e.lumpSum+HOSTPLUS_AT_60,tbcHeadroom);
@@ -1679,7 +1686,7 @@ function railBProfileForElection(key="60-40",basisKey="source-825"){
   const washMax=e.lumpSum>0?Math.ceil(e.lumpSum/130_000):0;
   return{
     name:`Rail B · ${e.label}`,pssElection:e.key,pssProjectionBasis:basis.key,retireAge:60,
-    grossPension:e.grossPension,netPension:e.netPension,lumpSum:e.lumpSum,hostplus:HOSTPLUS_AT_60,tbc:TBC_AT_RETIREMENT,
+    grossPension:e.grossPension,netPension:e.netPension,lumpSum:e.lumpSum,hostplus:HOSTPLUS_AT_60,tbc:TBC_AT_RETIREMENT,fas:e.fas||168_256.05,
     floor:500,target:1000,strong:1500,defaultGap:Math.max(0,110_000-e.netPension),
     defaultGapBands:[{age:60,amount:Math.max(0,110_000-e.netPension),unit:"dollar"}],
     poolA_day1:poolA,poolB_day1:0,poolC_day1:poolC,tsbBuffer:TBC_PLANNING_BUFFER,
@@ -1987,7 +1994,7 @@ function openingPoolNote(p=getProfile()){
 function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000}={}){
   STATE.pssProjectionBasis=normaliseProjectionBasis(STATE.pssProjectionBasis);
   const basis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
-  const e=basis.elections[key]||basis.elections["60-40"];
+  const e=basis.elections[normaliseElectionForBasis(basis.key,key)]||basis.elections["60-40"];
   PROFILES.custom=railBProfileForElection(e.key,STATE.pssProjectionBasis);
   STATE.profile="custom";
   STATE.pssElection=e.key;
@@ -2498,7 +2505,7 @@ function renderExecutive(){
     return[r.name,fmt$(cap),fmt$(cap-p.floor*1000),fmt$(cap-p.target*1000),`<span class="audit-${st.cls==="good"?"ok":st.cls==="warn"?"watch":"lock"}">${st.label}</span>`];
   }),["Scenario",`Capital @${ta}`,"Floor margin","Target margin","Status"]);
   document.getElementById("exec_policy").innerHTML=[
-    ["PSS election",isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"Selected"):"Rail A control","Compare all four source-backed Rail B elections; Pool C routing, TBC use and the pension-versus-capital trade-off update together."],
+    ["PSS election",isRailBProfile(p)?(PSS_PROJECTION_BASES[STATE.pssProjectionBasis].elections[p.pssElection]?.label||"Selected"):"Rail A control","Compare every source-backed election available in the selected provider basis; Pool C routing, TBC use and the pension-versus-capital trade-off update together."],
     ["TBC mechanics","Use $2.1M anchor","Today's-dollar modelling means future indexation is not double-counted; update only if real policy changes."],
     ["Surplus rule","Externalise to Pool C","TSB held $5k below TBC (Day 1). NCC wash active from age 61 to clean DBT. Surplus Pool A draws continue to externalise into Pool C."],
     ["Spend rule",STATE.spendMode==="returnPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of positive annual investment earnings`:(STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of the mandatory ABP drawdown`:"Age bands ($ / % return / % draw)"),"Controls the annual lifestyle gap above the PSS pension."],
@@ -3469,6 +3476,7 @@ function renderPoolCETF(){
 /* ========== AUDIT ========== */
 function renderAudit(){
   const p=getProfile();const ta=STATE.targetAge;
+  const activeBasis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   document.getElementById("audit_cards").innerHTML=`
     <div class="card good"><div class="label">Model version</div><div class="value">${APP_VERSION}</div><div class="sub">Model run ${new Date().toLocaleDateString("en-AU",{day:"2-digit",month:"short",year:"numeric"})}</div></div>
@@ -3479,7 +3487,7 @@ function renderAudit(){
   const rows=[
     ["Model version",APP_VERSION,"—"],
     ["Profile",p.name,"—"],
-    ["PSS election",isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"selected"):"Rail A historical control",isRailBProfile(p)?PSS_ELECTIONS[p.pssElection]?.source:"March 2026 iEstimator"],
+    ["PSS election",isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"selected"):"Rail A historical control",isRailBProfile(p)?activeBasis.elections[p.pssElection]?.source:"March 2026 iEstimator"],
     ["PSS provider basis",PSS_PROJECTION_BASES[STATE.pssProjectionBasis].label,`${PSS_PROJECTION_BASES[STATE.pssProjectionBasis].shortLabel}% = fund earnings / salary growth / CPI before retirement; ${fmtPct(PSS_PROJECTION_BASES[STATE.pssProjectionBasis].realFundEarnings,2)} real fund equivalent`],
     ["Post-retirement return",fmtPctClean(STATE.likely),"Separate V23 real-return control; begins from the provider-sourced retirement-day opening"],
     ["Total-spend override",STATE.totalSpendTarget===null?"Off — native gap bands":fmtFull(STATE.totalSpendTarget)+" p.a.","Imported total target derives either portfolio gap or PSS surplus"],
@@ -3515,7 +3523,10 @@ function renderAudit(){
     ["i-Estimator-1-9-2026_65-35.pdf","Current Rail B option","65/35 gross/net pension, lump sum and exact components"],
     ["i-Estimator-1-9-2026_70-30.pdf","Current Rail B option","70/30 gross/net pension, lump sum and exact components"],
     ["i-Estimator-1-9-2026_100percent.pdf","Current Rail B option","100% pension; no PSS lump or PSS wash source"],
-    ["6% / 5% / 3% iEstimator source set","Awaiting source","Sensitivity assumptions recorded but no matching PDF is present; outputs and component splits are deliberately not inferred"],
+    ["i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf","Prudent Rail B source","6/5/3 assumptions; 60/40 gross/net pension, $162,380.20 FAS, lump and exact components"],
+    ["i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf","Prudent Rail B source","6/5/3 assumptions; 65/35 gross/net pension, lump and exact components"],
+    ["i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf","Prudent Rail B source","6/5/3 assumptions; 70/30 gross/net pension, lump and exact components"],
+    ["6/5/3 100% pension iEstimator","Awaiting source","No matching PDF supplied; this election is unavailable and no other-basis value is substituted"],
     ["Statement 2026.pdf","Superseded pending reissue","Incorrect super salary; retained as evidence only, not current Rail B estimate authority"],
     ["Paystub_2026_08_26.pdf","Salary evidence","Current actual salary used as the iEstimator starting salary; backpay resolved"],
     ["Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx","Canonical Rail A workbook","V5.0 Integrated Optimiser — NCC wash from age 61, Day 1 balances and Pool C drag 0.35%"],
@@ -3619,22 +3630,24 @@ function toggleCheck(id,val){
 /* ========== DECISIONS ========== */
 function renderDecisions(){
   const p=getProfile();
+  const activeBasis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   document.getElementById("dec_cards").innerHTML=`
-    <div class="decision-card"><div class="k">Active PSS election</div><div class="v">${isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"Selected"):"Rail A control"}</div><div class="s">All four 1 Sep 2026 Rail B elections are live what-if options; 60/40 is the default comparison, not an irreversible decision.</div></div>
+    <div class="decision-card"><div class="k">Active PSS election</div><div class="v">${isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"Selected"):"Rail A control"}</div><div class="s">The 8.2/5/2.5 basis supplies four direct options; the 6/5/3 basis supplies three. Missing options stay unavailable rather than blended.</div></div>
     <div class="decision-card"><div class="k">TBC anchor</div><div class="v">${fmt$(p.tbc)}</div><div class="s">2026-27 indexed planning assumption, all today's dollars.</div></div>
     <div class="decision-card"><div class="k">Pool split (Day 1)</div><div class="v">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="s">${openingPoolNote(p)}</div></div>
     <div class="decision-card"><div class="k">Current version</div><div class="v">${APP_VERSION}</div><div class="s">Feature-rich dashboard after Codex wiring pass.</div></div>
   `;
   renderTable("dec_tbl",[
-    ["Rail B PSS election","Selectable",`Active option: ${isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"selected"):"Rail A control"}. 60/40, 65/35, 70/30 and 100% pension use separate source values.`,"Compare income, liquidity, TBC, wash capacity and estate results before the retirement election."],
-    ["PSS projection basis",PSS_PROJECTION_BASES[STATE.pssProjectionBasis].label,`${PSS_PROJECTION_BASES[STATE.pssProjectionBasis].shortLabel}% means fund earnings / salary growth / CPI before retirement. The site return is separate and starts after retirement.`,"The 6% / 5% / 3% sensitivity remains locked until matching provider PDFs are reconciled."],
+    ["Rail B PSS election","Selectable",`Active option: ${isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"selected"):"Rail A control"}. Every available option uses its own direct source values.`,"Compare income, liquidity, TBC, wash capacity and estate results before the retirement election."],
+    ["PSS projection basis",activeBasis.label,`${activeBasis.shortLabel}% means fund earnings / salary growth / CPI before retirement. The site return is separate and starts after retirement.`,activeBasis.key==="prudent-630"?"60/40, 65/35 and 70/30 verified; 100% awaits its matching PDF.":"All four elections verified."],
     ["$2.1M TBC anchor","Current assumption","Used as 2026-27 real-dollar planning anchor.","Review annually against ATO indexation and personal cap rules."],
     ["Pool C external ETF",openingSourceLabel(p),`Pool C opens at ${fmt$(p.poolC_day1??0)}. NCC wash controls begin at age ${p.washAge??61}; surplus draws continue to externalise.`,"Review ETF drag and tax assumptions annually."],
     ["Dynamic target age","Added in v17C","Shows how results change from age 70-90.","Use for adviser-style sensitivity reviews."],
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.4","Sep 2026","Activated the direct 6% fund / 5% salary / 3% CPI CSC estimates for 60/40, 65/35 and 70/30, including the separate $162,380.20 FAS and source-specific tax components. The unavailable 100% option remains gated; shared-state schema advanced to v7."],
     ["v23.3","Sep 2026","Added a governed PSS projection-basis layer across V23, shared links, local persistence, audit and AI context. The current 8.2% / 5% / 2.5% source set remains active; the 6% / 5% / 3% sensitivity is visible but source-gated so pension, lump and tax components can never be inferred or mixed silently."],
     ["v23.2","Sep 2026","Four source-backed Rail B PSS elections added across the complete model. Imported spending is treated as total net spending: when PSS exceeds the target, the excess routes to Pool C. PSS washes use each iEstimator's actual original-lump components and stop at the source limit; 100% pension has no PSS wash."],
     ["v23","Jul 2026","New spend mode \u2014 Override: % of mandatory drawdown. The gap becomes a percentage of the compulsory ABP minimum draw, so it can never exceed that minimum and no voluntary extra Pool A draw occurs at any setting; the unspent remainder routes to Pool C. A matching % draw age-band unit is added. The existing return-based override is renamed % of investment earnings: the two denominators differ (earnings run about 1.72x the mandatory draw at 6.5%). The income chart gains a max-without-extra-draw ceiling line (PSS + mandatory draw). Extra-draw series and columns relabelled Pool B \u2192 Pool A, because extraDraw is funded from Pool A while Pool B holds $0 throughout the projection. DBT taxable share corrected to 70.97%. Guide system, assumptions ledger and spend-mode affordances added."],
@@ -3819,8 +3832,8 @@ function captureScenarioState(){
 function applyScenarioState(s){
   if(!s)return;
   STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
-  if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(s.pssElection,{spendTarget:s.totalSpendTarget});
-  ["profile","pssElection","pssProjectionBasis","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=k==="pssProjectionBasis"?normaliseProjectionBasis(s[k]):s[k];});
+  if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
+  ["profile","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
   if(Array.isArray(s.gapBands)&&s.gapBands.length){
     const clean=normaliseGapBands(s.gapBands);STATE.gapBands=clean.bands;
     if(clean.duplicateAges.length)alert(`Duplicate start age${clean.duplicateAges.length>1?"s":""} ${clean.duplicateAges.join(", ")} removed from the imported plan; the later value was kept.`);
@@ -4091,15 +4104,23 @@ function updateLabels(){
     const pa=p.poolA_day1??al.poolA;const pb=p.poolB_day1??al.poolB;const pc=p.poolC_day1??0;
     ps.innerHTML=`Pension <strong>$${p.grossPension.toLocaleString()}</strong> | Lump sum <strong>$${p.lumpSum.toLocaleString()}</strong> | Pool A <strong>$${pa.toLocaleString()}</strong> | Pool B <strong>$${pb.toLocaleString()}</strong> | Pool C <strong>$${pc.toLocaleString()}</strong> | TBC <strong>$${p.tbc.toLocaleString()}</strong>`;
   }
-  document.querySelectorAll("[data-pss-election]").forEach(button=>button.classList.toggle("active",isRailBProfile(p)&&button.dataset.pssElection===p.pssElection));
   const basis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
+  document.querySelectorAll("[data-pss-election]").forEach(button=>{
+    const option=basis.elections[button.dataset.pssElection];
+    button.disabled=!option;button.setAttribute("aria-disabled",String(!option));
+    button.classList.toggle("active",isRailBProfile(p)&&button.dataset.pssElection===p.pssElection);
+    const label=button.dataset.pssElection==="100"?"100% pension":button.dataset.pssElection.replace("-"," / ");
+    button.textContent=option?label:`${label} · source required`;
+  });
   const basisCurrent=document.getElementById("pss-basis-current");
   if(basisCurrent){basisCurrent.classList.toggle("active",STATE.pssProjectionBasis==="source-825");basisCurrent.setAttribute("aria-pressed",String(STATE.pssProjectionBasis==="source-825"));}
+  const basisPrudent=document.getElementById("pss-basis-prudent");
+  if(basisPrudent){basisPrudent.classList.toggle("active",STATE.pssProjectionBasis==="prudent-630");basisPrudent.setAttribute("aria-pressed",String(STATE.pssProjectionBasis==="prudent-630"));}
   const basisBoundary=document.getElementById("pss-basis-boundary");
   if(basisBoundary)basisBoundary.innerHTML=`<span><b>CSC before retirement</b>${basis.shortLabel}% · ${fmtPct(basis.realFundEarnings,2)} real fund equivalent</span><i>→</i><span><b>Retirement-day opening</b>PSS pension, lump and tax components</span><i>→</i><span><b>V23 after retirement</b>${fmtPct(STATE.likely)} real · every output updates</span>`;
   const electionSummary=document.getElementById("pss-election-summary");
   if(electionSummary){
-    const e=PSS_ELECTIONS[p.pssElection];
+    const e=basis.elections[p.pssElection];
     electionSummary.innerHTML=isRailBProfile(p)&&e
       ? `<b>${e.label} active · ${basis.shortLabel}% source basis:</b> net PSS ${fmtFull(e.netPension)} p.a. · lump ${fmtFull(e.lumpSum)} · ${p.washMax} source-limited wash cycle${p.washMax===1?"":"s"}${p.tbcExcess>0?` · <span style="color:var(--warn)">${fmtFull(p.tbcExcess)} DB special-value excess over the current $2.1m TBC anchor; confirm provider/tax treatment</span>`:` · ${fmtFull(p.tbcHeadroom)} ABP headroom after the $5k planning buffer`}`
       : `<b>Rail A control active.</b> Choose a Rail B election above to load the corresponding 1 Sep 2026 estimate.`;
@@ -4255,14 +4276,17 @@ function wireNav(){
 
 /* ========== PROFILE ========== */
 function wireProfile(){
-  const basisCurrent=document.getElementById("pss-basis-current");
-  if(basisCurrent)basisCurrent.addEventListener("click",()=>{
-    STATE.pssProjectionBasis="source-825";
+  const selectProjectionBasis=basisKey=>{
+    STATE.pssProjectionBasis=normaliseProjectionBasis(basisKey);
     const current=getProfile();
     const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
-    selectPssElection(STATE.pssElection||"60-40",{spendTarget:currentSpend});
+    selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,STATE.pssElection||"60-40"),{spendTarget:currentSpend});
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
-  });
+  };
+  const basisCurrent=document.getElementById("pss-basis-current");
+  if(basisCurrent)basisCurrent.addEventListener("click",()=>selectProjectionBasis("source-825"));
+  const basisPrudent=document.getElementById("pss-basis-prudent");
+  if(basisPrudent)basisPrudent.addEventListener("click",()=>selectProjectionBasis("prudent-630"));
   document.querySelectorAll("[data-pss-election]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       const current=getProfile();
@@ -4314,7 +4338,7 @@ function wireTheme(){
   if(printBtn)printBtn.addEventListener("click",printSelectedPack);
   const resetBtn=document.getElementById("btn-reset");
   if(resetBtn)resetBtn.addEventListener("click",()=>{
-    if(confirm("Reset all settings to defaults?")){[LS_KEY,LS_FALLBACK_KEY,LS_OLDER_FALLBACK_KEY,LS_LEGACY_FALLBACK_KEY].forEach(key=>localStorage.removeItem(key));location.reload();}
+    if(confirm("Reset all settings to defaults?")){[LS_KEY,LS_FALLBACK_KEY,LS_OLDER_FALLBACK_KEY,LS_LEGACY_FALLBACK_KEY,LS_OLDEST_FALLBACK_KEY].forEach(key=>localStorage.removeItem(key));location.reload();}
   });
   const csvBtn=document.getElementById("btn-csv");
   if(csvBtn)csvBtn.addEventListener("click",exportCSV);
@@ -4349,10 +4373,11 @@ function exportCSV(){
 }
 
 /* ========== STATE PERSISTENCE ========== */
-const LS_KEY="v23_3_state";
-const LS_FALLBACK_KEY="v23_2_state";
-const LS_OLDER_FALLBACK_KEY="v23_state";
-const LS_LEGACY_FALLBACK_KEY="v21c1_state";
+const LS_KEY="v23_4_state";
+const LS_FALLBACK_KEY="v23_3_state";
+const LS_OLDER_FALLBACK_KEY="v23_2_state";
+const LS_LEGACY_FALLBACK_KEY="v23_state";
+const LS_OLDEST_FALLBACK_KEY="v21c1_state";
 function saveState(){
   try{localStorage.setItem(LS_KEY,JSON.stringify({
     profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,
@@ -4366,14 +4391,14 @@ function saveState(){
 }
 function loadState(){
   try{
-    const s=JSON.parse(localStorage.getItem(LS_KEY)||localStorage.getItem(LS_FALLBACK_KEY)||localStorage.getItem(LS_OLDER_FALLBACK_KEY)||localStorage.getItem(LS_LEGACY_FALLBACK_KEY)||"null");
+    const s=JSON.parse(localStorage.getItem(LS_KEY)||localStorage.getItem(LS_FALLBACK_KEY)||localStorage.getItem(LS_OLDER_FALLBACK_KEY)||localStorage.getItem(LS_LEGACY_FALLBACK_KEY)||localStorage.getItem(LS_OLDEST_FALLBACK_KEY)||"null");
     if(!s)return;
     if(typeof s.gapGrowth==="number"&&s.gapGrowth>0.2)s.gapGrowth=s.gapGrowth/100;
     if(typeof s.poolCDrag==="number"&&s.poolCDrag>0.05)s.poolCDrag=s.poolCDrag/100;
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
     STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
-    if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(s.pssElection,{spendTarget:s.totalSpendTarget});
-    ap("profile",s.profile);ap("pssElection",s.pssElection);ap("pssProjectionBasis",normaliseProjectionBasis(s.pssProjectionBasis));ap("totalSpendTarget",s.totalSpendTarget);ap("targetAge",s.targetAge);
+    if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
+    ap("profile",s.profile);ap("totalSpendTarget",s.totalSpendTarget);ap("targetAge",s.targetAge);
     ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);ap("simulationSeed",s.simulationSeed);ap("liquidityMonths",s.liquidityMonths);
     if(Array.isArray(s.gapBands)&&s.gapBands.length){
       const clean=normaliseGapBands(s.gapBands);
@@ -5081,10 +5106,11 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   function sharedFromQuery(){
     const params=new URLSearchParams(location.search);
     if(params.get("shared")!=="1")return null;
+    const pssProjectionBasis=normaliseProjectionBasis(params.get("basis"));
     return{
       rail:params.get("rail")==="A"?"A":"B",
-      pssElection:PSS_ELECTIONS[params.get("pss")]?params.get("pss"):"60-40",
-      pssProjectionBasis:normaliseProjectionBasis(params.get("basis")),
+      pssElection:normaliseElectionForBasis(pssProjectionBasis,PSS_ELECTIONS[params.get("pss")]?params.get("pss"):"60-40"),
+      pssProjectionBasis,
       spend:Number(params.get("spend"))||110000,
       realReturn:Number(params.get("return"))||.05,
       targetAge:Number(params.get("age"))||75,
@@ -5137,7 +5163,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     let profile;
     if(isRailB){
       STATE.pssProjectionBasis=normaliseProjectionBasis(shared.pssProjectionBasis);
-      profile=selectPssElection(shared.pssElection||"60-40",{spendTarget:shared.spend});
+      profile=selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,shared.pssElection||"60-40"),{spendTarget:shared.spend});
     }else{
       STATE.profile="michael";
       STATE.totalSpendTarget=Math.max(0,shared.spend);
@@ -5151,7 +5177,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     STATE.simulationSeed=Math.min(2147483647,Math.max(1,Math.round(shared.simulationSeed||20260814)));
     STATE.spendMode="fixed";
     STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-profile.netPension)),unit:"dollar"}];
-    try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:6,updatedAt:new Date().toISOString(),...shared,pssElection:isRailB?profile.pssElection:(shared.pssElection||"60-40"),pssProjectionBasis:normaliseProjectionBasis(shared.pssProjectionBasis)}));}catch(e){}
+    try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:7,updatedAt:new Date().toISOString(),...shared,pssElection:isRailB?profile.pssElection:(shared.pssElection||"60-40"),pssProjectionBasis:normaliseProjectionBasis(shared.pssProjectionBasis)}));}catch(e){}
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     document.querySelectorAll(".v23-overlay.open").forEach(overlay=>overlay.classList.remove("open"));
     const main=document.querySelector("main");
@@ -5301,7 +5327,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:controlSnapshot(page,100),charts:chartSnapshots(page)},
       globalControls:controlSnapshot(globalRoot,40),
       deterministicOutputs:outputs,
-      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% sensitivity has no source-backed outputs yet and must not be inferred."],
+      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% basis has direct 60/40, 65/35 and 70/30 outputs; its unsupplied 100% election must not be inferred."],
       links:{commandCentre:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./"):"./",document.baseURI).toString(),atlas:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./atlas.html"):"atlas.html",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
     };
   }
