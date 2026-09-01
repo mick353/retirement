@@ -149,6 +149,14 @@ nav.side .group{
   padding-bottom:4px;
   border-bottom:1px solid var(--border);
 }
+.nav-purpose{margin:4px 7px 10px;padding:10px 11px;border:1px solid color-mix(in srgb,var(--acc2) 38%,var(--border));border-radius:11px;background:linear-gradient(135deg,color-mix(in srgb,var(--acc2) 10%,var(--panel2)),color-mix(in srgb,var(--acc) 8%,var(--panel2)));color:var(--muted);font-size:10px;line-height:1.45}
+.nav-purpose b{display:block;margin-bottom:2px;color:var(--text);font-size:11px}
+.nav-advanced{margin-top:12px;border-top:1px solid var(--border);padding-top:6px}
+.nav-advanced>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 3px;padding:10px 9px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);cursor:pointer;font-size:11px;font-weight:800;list-style:none}
+.nav-advanced>summary::-webkit-details-marker{display:none}
+.nav-advanced>summary::after{content:"＋";color:var(--acc);font-size:14px}
+.nav-advanced[open]>summary::after{content:"−"}
+.nav-advanced>summary small{display:block;color:var(--soft);font-size:8.5px;font-weight:600;letter-spacing:.03em}
 nav.side a{
   display:block;padding:7px 12px;
   color:var(--muted);text-decoration:none;
@@ -825,7 +833,14 @@ main{min-width:0;}
 .v23-page-links a:hover{border-color:var(--acc);color:var(--acc)}
 #v23-shared-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--acc2) 42%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--acc2) 8%,var(--panel));color:var(--muted);font-size:12px}
 #v23-shared-banner b{color:var(--text)}
-#v23-shared-banner a{color:var(--acc2);font-weight:700;text-decoration:none;white-space:nowrap}
+#v23-shared-banner .shared-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#v23-shared-banner a,#v23-shared-banner button{color:var(--acc2);font-weight:700;text-decoration:none;white-space:nowrap}
+#v23-shared-banner button{padding:7px 9px;border:1px solid color-mix(in srgb,var(--acc2) 45%,var(--border));border-radius:8px;background:var(--panel2);cursor:pointer;font:700 10.5px inherit}
+.v23-plan-authority{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,.6fr);gap:12px;align-items:center;padding:13px 15px;border:1px solid color-mix(in srgb,var(--acc) 40%,var(--border));border-radius:13px;background:linear-gradient(110deg,color-mix(in srgb,var(--acc) 10%,var(--panel)),color-mix(in srgb,var(--acc2) 7%,var(--panel)))}
+.v23-plan-authority b,.v23-plan-authority span,.v23-plan-authority small{display:block}
+.v23-plan-authority b{color:var(--text);font-size:12.5px}
+.v23-plan-authority span{margin-top:3px;color:var(--muted);font-size:11px;line-height:1.45}
+.v23-plan-authority small{padding-left:12px;border-left:2px solid var(--acc2);color:var(--soft);font-size:10px;line-height:1.5}
 #v23-mobile-compactbar,.v23-mobile-dock{display:none}
 .v23-precision{display:grid;grid-template-columns:36px minmax(0,1fr) 74px 36px;gap:5px;align-items:center;margin-top:6px}
 .v23-precision>input[type=range]{min-width:0;width:100%;margin:0}
@@ -872,6 +887,8 @@ main{min-width:0;}
   .v23-mobile-dock a.active{background:var(--acc);color:#fff}
   .v23-fab{display:none!important}
   #v23-shared-banner{align-items:flex-start;flex-direction:column;font-size:11px}
+  .v23-plan-authority{grid-template-columns:1fr}
+  .v23-plan-authority small{padding:8px 0 0;border-left:0;border-top:1px solid var(--border)}
   .v23-overlay{align-items:flex-end;padding:10px}
   .v23-modal{max-height:88vh;border-radius:18px;padding:17px}
   .v23-modal p,.v23-modal li{font-size:13px}
@@ -891,7 +908,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.4 · dual PSS projection-basis release · 1 Sep 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.5 · protected spending-plan and control-integrity release · 1 Sep 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -917,53 +934,58 @@ main{min-width:0;}
 
 <div class="layout">
   <nav class="side" id="side-nav">
+    <div class="nav-purpose"><b>Start with your plan</b>Everyday views are kept upfront. Specialist diagnostics remain available below when you need them.</div>
     <div class="group">Set your plan</div>
     <a data-page="income" class="spending-control-link" aria-label="Income and draws — primary spending control">Income &amp; draws</a>
 
-    <div class="group">Snapshot</div>
+    <div class="group">Everyday review</div>
     <a data-page="executive" class="active">Executive summary</a>
     <a data-page="decisionbrief">Decision brief</a>
-    <a data-page="overview">Overview</a>
-    <a data-page="pre60">Pre-60 tracker</a>
-    <a data-page="twopool">Three-pool structure (A/B/C)</a>
     <a data-page="trajectory">Capital trajectory</a>
-
-    <div class="group">Mechanics</div>
     <a data-page="guardrails">Guardrail spending</a>
-    <a data-page="reinvest">Drawdown &amp; reinvestment</a>
-    <a data-page="oneoff">One-off capacity</a>
-    <a data-page="bequest">Bequest projection</a>
     <a data-page="estate">Estate &amp; DBT analysis</a>
-    <a data-page="wash">NCC wash &amp; DBT</a>
-
-    <div class="group">Risk &amp; sensitivity</div>
     <a data-page="montecarlo">Monte Carlo fan</a>
-    <a data-page="histogram">Outcome histogram</a>
-    <a data-page="longevity">Longevity risk</a>
-    <a data-page="sequence">Sequence of returns</a>
-    <a data-page="sensitivity">Sensitivity scenarios</a>
-    <a data-page="breakeven">Breakeven returns</a>
-    <a data-page="stress">Stress test</a>
-    <a data-page="probability">Simulation results</a>
-    <a data-page="tornado">Tornado sensitivity</a>
-
-    <div class="group">Scenarios</div>
-    <a data-page="health">Health events</a>
-    <a data-page="cpishock">CPI shock</a>
-    <a data-page="scencomp">Scenario comparison</a>
-    <a data-page="saveslots">Scenario save slots</a>
-    <a data-page="poolcetf">Pool C ETF tool</a>
-
-    <div class="group">Governance</div>
     <a data-page="reviewdelta">What changed?</a>
     <a data-page="triggers">Action triggers</a>
-    <a data-page="audit">Assumption audit</a>
-    <a data-page="recalibrate">Annual recalibration</a>
     <a data-page="checklist">Annual review checklist</a>
-    <a data-page="decisions">Decision log</a>
+
+    <details class="nav-advanced" id="v23-advanced-nav">
+      <summary><span>Advanced analysis<small>23 specialist views · nothing removed</small></span></summary>
+      <div class="group">Structure &amp; mechanics</div>
+      <a data-page="overview">Overview</a>
+      <a data-page="pre60">Pre-60 tracker</a>
+      <a data-page="twopool">Three-pool structure (A/B/C)</a>
+      <a data-page="reinvest">Drawdown &amp; reinvestment</a>
+      <a data-page="oneoff">One-off capacity</a>
+      <a data-page="bequest">Bequest projection</a>
+      <a data-page="wash">NCC wash &amp; DBT</a>
+
+      <div class="group">Risk diagnostics</div>
+      <a data-page="histogram">Outcome histogram</a>
+      <a data-page="longevity">Longevity risk</a>
+      <a data-page="sequence">Sequence of returns</a>
+      <a data-page="sensitivity">Sensitivity scenarios</a>
+      <a data-page="breakeven">Breakeven returns</a>
+      <a data-page="stress">Stress test</a>
+      <a data-page="probability">Simulation results</a>
+      <a data-page="tornado">Tornado sensitivity</a>
+
+      <div class="group">Scenarios</div>
+      <a data-page="health">Health events</a>
+      <a data-page="cpishock">CPI shock</a>
+      <a data-page="scencomp">Scenario comparison</a>
+      <a data-page="saveslots">Scenario save slots</a>
+      <a data-page="poolcetf">Pool C ETF tool</a>
+
+      <div class="group">Governance detail</div>
+      <a data-page="audit">Assumption audit</a>
+      <a data-page="recalibrate">Annual recalibration</a>
+      <a data-page="decisions">Decision log</a>
+    </details>
   </nav>
 
   <main>
+    <div class="v23-plan-authority" id="v23-plan-authority" role="status" aria-live="polite"><div><b>Detailed V23 spending plan</b><span id="v23-plan-authority-copy">Loading the active age-band plan…</span></div><small id="v23-plan-authority-basis">V23 uses the detailed plan. Command Centre and Atlas remain flat-spend comparison lenses.</small></div>
     <!-- PROFILE BAR -->
     <div class="profile-bar">
       <h3>Profile</h3>
@@ -1654,7 +1676,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.4";
+const APP_VERSION = "v23.5";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -1991,7 +2013,13 @@ function openingPoolNote(p=getProfile()){
     ? `Rail B ${PSS_ELECTIONS[p.pssElection]?.label||"selected"} opening from the ${PSS_PROJECTION_BASES[p.pssProjectionBasis||STATE.pssProjectionBasis]?.shortLabel||"source"} basis: Pool B $0; Pool C ${pc}; $5k TBC planning buffer retained where capacity exists.`
     : `Rail A V5.0 opening: Pool B fully commuted; Pool C ${pc}; $5k TBC buffer retained.`;
 }
-function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000}={}){
+function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000,preserveSpendingPlan=false}={}){
+  const existingPlan=preserveSpendingPlan?{
+    totalSpendTarget:STATE.totalSpendTarget,
+    gapBands:STATE.gapBands.map(b=>({...b})),
+    spendMode:STATE.spendMode,
+    spendReturnPct:STATE.spendReturnPct
+  }:null;
   STATE.pssProjectionBasis=normaliseProjectionBasis(STATE.pssProjectionBasis);
   const basis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   const e=basis.elections[normaliseElectionForBasis(basis.key,key)]||basis.elections["60-40"];
@@ -2004,6 +2032,12 @@ function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000}={})
   PROFILES.custom.defaultGapBands=[{age:60,amount:gap,unit:"dollar"}];
   STATE.gapBands=[{age:60,amount:gap,unit:"dollar"}];
   STATE.spendMode="fixed";
+  if(existingPlan){
+    STATE.totalSpendTarget=existingPlan.totalSpendTarget;
+    STATE.gapBands=existingPlan.gapBands;
+    STATE.spendMode=existingPlan.spendMode;
+    STATE.spendReturnPct=existingPlan.spendReturnPct;
+  }
   STATE.wash.enabled=e.lumpSum>0;
   STATE.wash.maxWashes=PROFILES.custom.washMax;
   STATE.wash.schedule={};
@@ -4023,7 +4057,7 @@ function showPage(id){
   document.querySelectorAll("nav.side a").forEach(l=>l.classList.remove("active"));
   const page=document.getElementById(id);
   if(page)page.classList.add("active");
-  document.querySelectorAll(`nav.side a[data-page="${id.replace(/^page-/,"")}"]`).forEach(l=>l.classList.add("active"));
+  document.querySelectorAll(`nav.side a[data-page="${id.replace(/^page-/,"")}"]`).forEach(l=>{l.classList.add("active");const details=l.closest("details");if(details)details.open=true;});
   currentPage=id;
   if(PAGE_RENDERERS[id])PAGE_RENDERERS[id]();
   applyNotesToTextareas();
@@ -4125,6 +4159,17 @@ function updateLabels(){
       ? `<b>${e.label} active · ${basis.shortLabel}% source basis:</b> net PSS ${fmtFull(e.netPension)} p.a. · lump ${fmtFull(e.lumpSum)} · ${p.washMax} source-limited wash cycle${p.washMax===1?"":"s"}${p.tbcExcess>0?` · <span style="color:var(--warn)">${fmtFull(p.tbcExcess)} DB special-value excess over the current $2.1m TBC anchor; confirm provider/tax treatment</span>`:` · ${fmtFull(p.tbcHeadroom)} ABP headroom after the $5k planning buffer`}`
       : `<b>Rail A control active.</b> Choose a Rail B election above to load the corresponding 1 Sep 2026 estimate.`;
   }
+  const planCopy=document.getElementById("v23-plan-authority-copy");
+  const planBasis=document.getElementById("v23-plan-authority-basis");
+  if(planCopy){
+    planCopy.textContent=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined
+      ? `${fmtFull(STATE.totalSpendTarget)} total spending held flat in real dollars; V23 derives the annual PSS gap or surplus.`
+      : (STATE.spendMode==="fixed"
+        ? `Active age bands: ${bandsToString(STATE.gapBands)}. Every V23 calculation and chart uses this schedule.`
+        : `${STATE.spendMode==="returnPct"?"Investment-earnings":"Mandatory-draw"} override active at ${fmtPctClean(STATE.spendReturnPct,0)}; saved age bands are temporarily ignored.`);
+  }
+  if(planBasis)planBasis.textContent=`Active V23 basis: ${fmtPct(STATE.likely)} post-retirement real return · target age ${STATE.targetAge}. Command Centre and Atlas remain flat-spend comparison lenses.`;
+  window.syncV23AssumptionLedger?.();
 }
 
 function applyStateToInputs(){
@@ -4152,6 +4197,8 @@ function applyStateToInputs(){
     const p=getProfile();
     [["cf_retire",p.retireAge],["cf_grossPension",p.grossPension],["cf_netPension",p.netPension],["cf_lump",p.lumpSum],["cf_hostplus",p.hostplus],["cf_tbc",p.tbc],["cf_floor",p.floor],["cf_target",p.target],["cf_strong",p.strong],["cf_gap",p.defaultGap]].forEach(([id,value])=>set(id,value));
   }
+  if(typeof queueMicrotask==="function")queueMicrotask(()=>window.syncV23PrecisionControls?.());
+  else window.syncV23PrecisionControls?.();
 }
 
 /* ========== BAND EDITOR ========== */
@@ -4280,7 +4327,7 @@ function wireProfile(){
     STATE.pssProjectionBasis=normaliseProjectionBasis(basisKey);
     const current=getProfile();
     const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
-    selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,STATE.pssElection||"60-40"),{spendTarget:currentSpend});
+    selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,STATE.pssElection||"60-40"),{spendTarget:currentSpend,preserveSpendingPlan:true});
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
   };
   const basisCurrent=document.getElementById("pss-basis-current");
@@ -4291,7 +4338,7 @@ function wireProfile(){
     btn.addEventListener("click",()=>{
       const current=getProfile();
       const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
-      selectPssElection(btn.dataset.pssElection,{spendTarget:currentSpend});
+      selectPssElection(btn.dataset.pssElection,{spendTarget:currentSpend,preserveSpendingPlan:true});
       applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     });
   });
@@ -4838,6 +4885,7 @@ function syncLedger(){
     if(l)c.querySelector("b").textContent=l.textContent.trim()||"—";
   });
 }
+window.syncV23AssumptionLedger=syncLedger;
 
 /* ---------- modal helpers ---------- */
 function makeOverlay(id){
@@ -5082,6 +5130,17 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   const money=value=>new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",maximumFractionDigits:0}).format(Number(value)||0);
   const percent=value=>`${((Number(value)||0)*100).toFixed(1)}%`;
 
+  function syncPrecisionControls(root=document){
+    root.querySelectorAll("input[type=range][data-v23-precise]").forEach(range=>{
+      const wrap=range.closest(".v23-precision");
+      if(!wrap)return;
+      const exact=wrap.querySelector('input[type="number"]');
+      const buttons=wrap.querySelectorAll("button");
+      if(exact){exact.value=range.value;exact.disabled=range.disabled;}
+      buttons.forEach(button=>{button.disabled=range.disabled;});
+    });
+  }
+
   function enhanceRangeControls(root=document){
     root.querySelectorAll(".slider-block input[type=range]:not([data-v23-precise])").forEach(range=>{
       range.dataset.v23Precise="1";
@@ -5101,7 +5160,9 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       exact.addEventListener("change",()=>commit(Number(exact.value)));
       range.addEventListener("input",()=>{exact.value=range.value;exact.disabled=range.disabled;minus.disabled=range.disabled;plus.disabled=range.disabled;});
     });
+    syncPrecisionControls(root);
   }
+  window.syncV23PrecisionControls=()=>syncPrecisionControls(document);
 
   function sharedFromQuery(){
     const params=new URLSearchParams(location.search);
@@ -5159,11 +5220,18 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
   function applySharedScenario(shared){
     if(!shared)return;
+    let preservedPlan=null;
+    try{
+      const saved=JSON.parse(localStorage.getItem(LS_KEY)||localStorage.getItem(LS_FALLBACK_KEY)||localStorage.getItem(LS_OLDER_FALLBACK_KEY)||localStorage.getItem(LS_LEGACY_FALLBACK_KEY)||localStorage.getItem(LS_OLDEST_FALLBACK_KEY)||"null");
+      if(saved&&saved.totalSpendTarget==null&&Array.isArray(saved.gapBands)&&saved.gapBands.length){
+        preservedPlan={gapBands:normaliseGapBands(saved.gapBands).bands,spendMode:saved.spendMode||"fixed",spendReturnPct:Number(saved.spendReturnPct??STATE.spendReturnPct),gapGrowth:Number(saved.gapGrowth??STATE.gapGrowth)};
+      }
+    }catch(e){}
     const isRailB=shared.rail==="B";
     let profile;
     if(isRailB){
       STATE.pssProjectionBasis=normaliseProjectionBasis(shared.pssProjectionBasis);
-      profile=selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,shared.pssElection||"60-40"),{spendTarget:shared.spend});
+      profile=selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,shared.pssElection||"60-40"),{spendTarget:shared.spend,preserveSpendingPlan:Boolean(preservedPlan)});
     }else{
       STATE.profile="michael";
       STATE.totalSpendTarget=Math.max(0,shared.spend);
@@ -5175,16 +5243,37 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     STATE.targetAge=Math.min(95,Math.max(70,Math.round(shared.targetAge)));
     STATE.liquidityMonths=Math.min(24,Math.max(0,Math.round(shared.liquidityMonths||12)));
     STATE.simulationSeed=Math.min(2147483647,Math.max(1,Math.round(shared.simulationSeed||20260814)));
-    STATE.spendMode="fixed";
-    STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-profile.netPension)),unit:"dollar"}];
+    if(preservedPlan){
+      STATE.totalSpendTarget=null;
+      STATE.gapBands=preservedPlan.gapBands.map(b=>({...b}));
+      STATE.spendMode=preservedPlan.spendMode;
+      STATE.spendReturnPct=preservedPlan.spendReturnPct;
+      STATE.gapGrowth=preservedPlan.gapGrowth;
+    }else{
+      STATE.totalSpendTarget=Math.max(0,shared.spend);
+      STATE.spendMode="fixed";
+      STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-profile.netPension)),unit:"dollar"}];
+    }
     try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:7,updatedAt:new Date().toISOString(),...shared,pssElection:isRailB?profile.pssElection:(shared.pssElection||"60-40"),pssProjectionBasis:normaliseProjectionBasis(shared.pssProjectionBasis)}));}catch(e){}
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     document.querySelectorAll(".v23-overlay.open").forEach(overlay=>overlay.classList.remove("open"));
     const main=document.querySelector("main");
     if(main&&!document.getElementById("v23-shared-banner")){
       const banner=document.createElement("div");banner.id="v23-shared-banner";
-      banner.innerHTML=`<span><b>Shared retirement scenario loaded</b><br>Rail ${shared.rail}${isRailB?` · ${PSS_ELECTIONS[profile.pssElection].label} PSS election · ${PSS_PROJECTION_BASES[STATE.pssProjectionBasis].shortLabel}% provider basis`:``} · ${money(shared.spend)} total spending · ${percent(shared.realReturn)} post-retirement real return · target age ${shared.targetAge} · ${STATE.liquidityMonths}-month reserve policy</span><a id="v23-shared-command-link" href="./">Back to Command Centre</a>`;
+      const spendingStatus=preservedPlan
+        ? `Saved V23 age bands retained; the ${money(shared.spend)} flat comparison was not allowed to overwrite them.`
+        : `${money(shared.spend)} flat total spending loaded.`;
+      banner.innerHTML=`<span><b>Shared retirement assumptions loaded</b><br>Rail ${shared.rail}${isRailB?` · ${PSS_ELECTIONS[profile.pssElection].label} PSS election · ${PSS_PROJECTION_BASES[STATE.pssProjectionBasis].shortLabel}% provider basis`:``} · ${percent(shared.realReturn)} post-retirement real return · target age ${shared.targetAge} · ${STATE.liquidityMonths}-month reserve policy<br><b>${spendingStatus}</b></span><span class="shared-actions">${preservedPlan?`<button type="button" id="v23-apply-shared-flat">Use ${money(shared.spend)} flat spending</button>`:""}<a id="v23-shared-command-link" href="./">Back to Command Centre</a></span>`;
       main.insertBefore(banner,main.firstChild);
+      const applyFlat=document.getElementById("v23-apply-shared-flat");
+      if(applyFlat)applyFlat.addEventListener("click",()=>{
+        STATE.totalSpendTarget=Math.max(0,shared.spend);
+        STATE.spendMode="fixed";
+        STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-profile.netPension)),unit:"dollar"}];
+        applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();updateNavigation();
+        applyFlat.remove();
+        banner.querySelector("span b:last-child").textContent=`${money(shared.spend)} flat total spending is now active.`;
+      });
     }
     updateNavigation();
   }

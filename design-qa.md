@@ -76,6 +76,16 @@
 - At 390 × 844, Atlas has no page-level horizontal overflow. The six mode buttons scroll inside their own toolbar, while the focused canvas remains within the viewport.
 - TypeScript, governed-model invariants, visual DOM bindings and the production build all pass.
 
+## V23.5 control-integrity regression
+
+- Shared scenario query tested at 6.0% real return and target age 80: the active labels, range controls, exact-number fields and sticky assumptions ledger all display 6.0% / 80 immediately.
+- Manual age bands survive a provider-basis change from the current CSC basis to the prudent sensitivity basis without being flattened or relabelled.
+- A subsequently opened shared flat scenario retains the saved V23 age bands by default, explains the protection, and offers an explicit button to replace them with the shared flat total.
+- The explicit flat-spend action was exercised: it produces one derived gap band, updates the authoritative-plan strip and rewrites the reciprocal Command Centre scenario link to the selected flat spend.
+- Everyday navigation exposes the plan, decision, trajectory, guardrail, estate, Monte Carlo and annual-review surfaces. All 23 specialist views remain unique and reachable inside Advanced analysis; opening a specialist page automatically expands that disclosure.
+- Mobile regression at a 390-pixel viewport records a 375-pixel document/body width and a 357-pixel plan-authority strip; the 862-pixel action toolbar remains intentionally contained inside its 351-pixel horizontal scroller.
+- The build now blocks regressions in PSS-election age-band preservation, exact-control synchronisation, sticky-ledger synchronisation, flat-spend opt-in and all 33 unique V23 destinations.
+
 ## Residual note
 
 - P3 — the production Horizon deliberately uses a restrained number of deterministic return slices rather than reproducing every decorative ribbon in the concept. This keeps the graph readable and avoids suggesting a probability distribution.

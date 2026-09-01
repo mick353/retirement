@@ -165,6 +165,30 @@ for (const spend of [90_000, 100_000, 110_000, 130_000]) {
   close(v23Row.pensionToPoolC, hundred.netPension - spend, `V23 100% ${spend} Pool C routing`);
 }
 
+const preservedElectionPlan = JSON.parse(v23(`JSON.stringify((()=>{
+  STATE.totalSpendTarget=null;
+  STATE.gapBands=[{age:60,amount:15600,unit:"dollar"},{age:63,amount:31200,unit:"dollar"},{age:75,amount:53697,unit:"dollar"}];
+  STATE.spendMode="fixed";
+  STATE.spendReturnPct=.5;
+  selectPssElection("70-30",{spendTarget:110000,preserveSpendingPlan:true});
+  return {totalSpendTarget:STATE.totalSpendTarget,gapBands:STATE.gapBands,spendMode:STATE.spendMode};
+})())`));
+assert.equal(preservedElectionPlan.totalSpendTarget, null, "Changing a PSS election preserves the native V23 spending mode");
+assert.deepEqual(preservedElectionPlan.gapBands, [
+  { age: 60, amount: 15600, unit: "dollar" },
+  { age: 63, amount: 31200, unit: "dollar" },
+  { age: 75, amount: 53697, unit: "dollar" },
+], "Changing a PSS election preserves every manual age band");
+
+const explicitFlatPlan = JSON.parse(v23(`JSON.stringify((()=>{
+  STATE.totalSpendTarget=null;
+  STATE.gapBands=[{age:60,amount:15600,unit:"dollar"},{age:63,amount:31200,unit:"dollar"}];
+  selectPssElection("60-40",{spendTarget:110000});
+  return {totalSpendTarget:STATE.totalSpendTarget,gapBands:STATE.gapBands};
+})())`));
+assert.equal(explicitFlatPlan.totalSpendTarget, 110000, "An explicit flat-spend import remains available");
+assert.equal(explicitFlatPlan.gapBands.length, 1, "An explicit flat-spend import creates one derived gap band");
+
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(v23Source, /pss:scenario\.pssElection/, "V23 shared links carry the PSS election");
@@ -185,4 +209,12 @@ assert.match(dashboardSource, /obtain formal CSC VR estimates at 57–59/, "VR p
 assert.match(dashboardSource, /function CollapsiblePanel/, "Command Centre provides progressive disclosure for secondary detail");
 assert.doesNotMatch(dashboardSource, /cost \/ 2_600/, "Frontier no longer uses the age-75-only fixed bar scale");
 assert.match(v23Source, /range\.setAttribute\("aria-label"/, "V23 enhanced range controls retain accessible names");
-console.log("Retirement dual-basis registry, partial-source gate, target-age clarity, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");
+assert.match(v23Source, /syncV23PrecisionControls/, "V23 synchronises exact-number fields after programmatic control changes");
+assert.match(v23Source, /syncV23AssumptionLedger/, "V23 synchronises the sticky assumptions ledger without a polling delay");
+assert.match(v23Source, /Saved V23 age bands retained/, "Shared flat scenarios disclose when a saved V23 plan is protected");
+const v23NavSource = v23Source.match(/<nav class="side" id="side-nav">([\s\S]*?)<\/nav>/)?.[1] || "";
+const v23PageIds = [...v23NavSource.matchAll(/data-page="([^"]+)"/g)].map((match) => match[1]);
+assert.equal(v23PageIds.length, 33, "V23 retains all 33 navigable analysis pages");
+assert.equal(new Set(v23PageIds).size, v23PageIds.length, "V23 navigation contains no duplicated destinations");
+assert.match(v23NavSource, /<details class="nav-advanced"/, "V23 uses progressive disclosure for specialist analysis");
+console.log("Retirement dual-basis registry, age-band preservation, control synchronisation, navigation disclosure, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");
