@@ -22,7 +22,8 @@ The Command Centre, Atlas and V23 share the rail, PSS election, PSS provider pro
 - Monte Carlo fan chart, probability gauge and stress controls
 - PSS defined-benefit, three-pool, TBC and source-limited tax/estate wash views
 - Surplus-aware 100% pension modelling: pension above the selected total spend routes to Pool C rather than being treated as spent
-- Present-to-age-60 action plan and voluntary-redundancy analysis
+- Present-to-age-60 action plan and a clearly isolated March/V5 voluntary-redundancy sensitivity; the VR page does not pretend the September age-60 provider bases are formal age-57–59 estimates
+- Progressive disclosure for secondary PSS, VR and evidence detail while source-basis and election controls remain immediately visible and keyboard operable
 - Annual review checklist and review snapshot
 - Corrected V23 model with advanced controls, export, print packs and mobile workbench
 - Responsive navigation, installable PWA manifest and offline app shell

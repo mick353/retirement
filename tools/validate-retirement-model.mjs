@@ -179,6 +179,10 @@ assert.match(v23Source, /const LS_KEY="v23_4_state"/, "V23 uses the partial-basi
 assert.match(dashboardSource, /Frontier decision point/, "Command Centre exposes the selected Frontier age on mobile");
 assert.match(dashboardSource, /continues to age 95/, "Command Centre distinguishes target age from projection horizon");
 assert.match(dashboardSource, /const marginalScale = Math\.max\(1, \.\.\.marginalCost\)/, "Frontier marginal bars scale to late target ages without overflow");
+assert.match(dashboardSource, /VR sensitivity · March\/V5 research/, "VR top status must not imply that the active September provider basis drives VR");
+assert.match(dashboardSource, /does not change the VR figures below/, "VR page must disclose that September basis controls do not recalculate historical VR figures");
+assert.match(dashboardSource, /obtain formal CSC VR estimates at 57–59/, "VR page must identify the missing evidence required before reliance");
+assert.match(dashboardSource, /function CollapsiblePanel/, "Command Centre provides progressive disclosure for secondary detail");
 assert.doesNotMatch(dashboardSource, /cost \/ 2_600/, "Frontier no longer uses the age-75-only fixed bar scale");
 assert.match(v23Source, /range\.setAttribute\("aria-label"/, "V23 enhanced range controls retain accessible names");
 console.log("Retirement dual-basis registry, partial-source gate, target-age clarity, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");

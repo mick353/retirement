@@ -69,6 +69,9 @@
 - The source gate is build-blocking at election level: a prudent-basis 100% request normalises to its verified 60/40 default, the 100% control is disabled, and no current-basis value is borrowed. The 65/35 and 70/30 provider one-cent component residuals are accepted but not rewritten.
 - Wash regression verifies direct PSS components and source-limited maxima of 6, 5, 4 and 0 cycles for the current basis; 5, 5 and 4 for the prudent basis; plus 5 for Rail A.
 - Mobile Frontier regression at age 91 confirms the selected age stays visible, the Adjust handoff retains 91, the projection horizon remains 95, and the page has no horizontal overflow.
+- VR regression confirms the top status and page banner identify the March/V5 research basis, disclose that September basis controls do not recalculate VR, and require formal CSC estimates at ages 57–59 before reliance.
+- Progressive-disclosure regression confirms secondary PSS allocation, three-pool, VR chart/logic and evidence-source details open and close by pointer, Enter and Space without hiding the primary provider-basis or election controls.
+- Mobile PSS and VR regression at 390 × 844 confirms the active prudent basis is selectable, disclosure summaries remain within the viewport and there is no page-level horizontal overflow.
 - V23 mobile toolbar regression confirms page-level width remains fixed while the 862-pixel action strip scrolls within its 351-pixel container.
 - At 390 × 844, Atlas has no page-level horizontal overflow. The six mode buttons scroll inside their own toolbar, while the focused canvas remains within the viewport.
 - TypeScript, governed-model invariants, visual DOM bindings and the production build all pass.
