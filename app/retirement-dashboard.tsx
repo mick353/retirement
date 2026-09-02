@@ -341,22 +341,23 @@ function definedBenefitAt60(rail: Rail) {
   return rail.fas * 10;
 }
 
-function vrScenarioPath(rail: Rail, basis: PssProjectionBasis, realReturn: number, age: number, mode: VrMode): VrScenario {
+function vrScenarioPath(rail: Rail, _basis: PssProjectionBasis, realReturn: number, age: number, mode: VrMode): VrScenario {
   const factors = VR_AGE_FACTORS[age] ?? VR_AGE_FACTORS[60];
   const years = Math.max(0, 60 - age);
   const pensionShare = rail.pensionPercent / 100;
   const lumpShare = rail.lumpPercent / 100;
   const definedAt60 = definedBenefitAt60(rail);
   const definedAtExit = definedAt60 * factors.abmRatio;
-  const nominalReturn = (1 + realReturn) * (1 + basis.cpi) - 1;
-  const investmentGrowth = Math.pow(1 + nominalReturn, years);
-  const cpiGrowth = Math.pow(1 + basis.cpi, years);
+  // Every rail is already a CPI-reduced, today-dollar provider result. Keep the
+  // VR bridge on that same price basis: indexed pension is flat in real terms,
+  // while investable cash compounds only at the selected real return.
+  const investmentGrowth = Math.pow(1 + realReturn, years);
   const vrCashAtExit = age < 60 ? VR_CURRENT_SALARY * VR_PACKAGE_WEEKS / 52 : 0;
   const vrCashAt60 = vrCashAtExit * investmentGrowth;
   const pensionStart = age === 60 ? rail.grossPension : definedAtExit * pensionShare / factors.pcf;
-  const immediatePension60 = pensionStart * cpiGrowth;
+  const immediatePension60 = pensionStart;
   const immediateLumpAtExit = age === 60 ? rail.lumpSum : definedAtExit * lumpShare;
-  const preservedDefinedAt60 = definedAtExit * cpiGrowth;
+  const preservedDefinedAt60 = definedAtExit;
   const preservedPension60 = age === 60 ? rail.grossPension : preservedDefinedAt60 * pensionShare / 11;
   const preservedLumpAt60 = age === 60 ? rail.lumpSum : preservedDefinedAt60 * lumpShare;
   const pension60 = mode === "immediate" ? immediatePension60 : preservedPension60;
@@ -368,7 +369,7 @@ function vrScenarioPath(rail: Rail, basis: PssProjectionBasis, realReturn: numbe
   const superEligibleAt60 = rail.hostplus + pssLumpAt60;
   const potentialAbpAt60 = Math.min(superEligibleAt60, Math.max(0, headroom - TSB_BUFFER));
   const pre60GrossPension = mode === "immediate"
-    ? Array.from({ length: years }, (_, index) => pensionStart * Math.pow(1 + basis.cpi, index)).reduce((sum, value) => sum + value, 0)
+    ? pensionStart * years
     : 0;
   return {
     age,
@@ -1663,7 +1664,7 @@ export default function RetirementDashboard() {
     return <>
       <SectionHeading eyebrow="Illustrative early-retirement lab · active scenario" title="Voluntary retirement / redundancy at 57–59" copy="See how the timing trade-off changes for the PSS basis and pension/lump election you have actually selected. The age-60 anchor is source-backed; ages 57–59 are transparent illustrations until CSC supplies formal VR estimates." />
       <section className="panel vr-source-boundary" aria-labelledby="vr-source-title">
-        <div><Badge tone="modelled">Active anchor · {activeSourceLabel}</Badge><h3 id="vr-source-title">Current choices now drive the VR illustration</h3><p>The selected age-60 pension, lump and FAS form the anchor. March/V5 research supplies only the early-age ABM pattern and published pension-conversion factors. Your selected provider CPI indexes the PSS path; your selected {pct(realReturn, 1)} real return grows investable lump and illustrative VR cash to age 60.</p></div>
+        <div><Badge tone="modelled">Active anchor · {activeSourceLabel}</Badge><h3 id="vr-source-title">Current choices now drive the VR illustration</h3><p>The selected age-60 pension, lump and FAS form the anchor. March/V5 research supplies only the early-age ABM pattern and published pension-conversion factors. Provider CPI is already reflected in the CPI-reduced source anchor; the PSS pension therefore stays flat in real terms, while your selected {pct(realReturn, 1)} real return grows investable lump and illustrative VR cash to age 60.</p></div>
         <div className="vr-source-actions"><span><b>Direct source</b>age-60 {rail.electionLabel} values</span><span><b>Illustrative layer</b>ages 57–59 timing and cash-growth bridge</span><span><b>Before relying on it</b>obtain formal CSC VR estimates and tax components</span></div>
       </section>
 
@@ -1680,10 +1681,10 @@ export default function RetirementDashboard() {
 
       <section className="vr-controls" aria-label="Choose VR pathway and age"><div><span className="control-kicker">2 · Pathway</span><div className="segmented"><button className={vrMode === "immediate" ? "active" : ""} aria-pressed={vrMode === "immediate"} onClick={() => setVrMode("immediate")}>Start PSS immediately</button><button className={vrMode === "preserve" ? "active" : ""} aria-pressed={vrMode === "preserve"} onClick={() => setVrMode("preserve")}>Preserve whole PSS to 60</button></div></div><div><span className="control-kicker">3 · Exit / pension decision age</span><div className="segmented ages">{VR_AGES.map((age) => <button key={age} className={vrAge === age ? "active" : ""} aria-pressed={vrAge === age} onClick={() => setVrAge(age)}>Age {age}</button>)}</div></div></section>
 
-      <section className="vr-reading-guide" aria-label="How to read this result"><div><span>Selected comparison</span><b>Age {vrAge} · {selectedPathName}</b></div><i aria-hidden="true">→</i><div><span>PSS source basis</span><b>{railKey === "A" ? "March/V5" : projectionBasis.shortLabel}% · {rail.electionLabel}</b></div><i aria-hidden="true">→</i><div><span>Growth to age 60</span><b>{pct(realReturn, 1)} real + {pct(vrBasis.cpi, 1)} CPI</b></div></section>
+      <section className="vr-reading-guide" aria-label="How to read this result"><div><span>Selected comparison</span><b>Age {vrAge} · {selectedPathName}</b></div><i aria-hidden="true">→</i><div><span>PSS source basis</span><b>{railKey === "A" ? "March/V5" : projectionBasis.shortLabel}% · {rail.electionLabel}</b></div><i aria-hidden="true">→</i><div><span>Real-dollar bridge to 60</span><b>{pct(realReturn, 1)} real on cash · pension flat in real $</b></div></section>
 
       <div className="metrics four">
-        <Metric label={vrMode === "immediate" ? `Gross pension starting at ${vrAge}` : "Gross pension starting at 60"} value={money(vrMode === "immediate" ? selectedVrPath.pensionStart : selectedVrPath.pension60)} sub={vrMode === "immediate" ? `${money(selectedVrPath.pre60GrossPension)} gross pension before 60` : "No PSS pension is paid before age 60"} tone="violet" />
+        <Metric label={vrMode === "immediate" ? `Gross pension starting at ${vrAge}` : "Gross pension starting at 60"} value={money(vrMode === "immediate" ? selectedVrPath.pensionStart : selectedVrPath.pension60)} sub={vrMode === "immediate" ? `${money(selectedVrPath.pre60GrossPension)} gross pension before 60 · today's dollars` : "No PSS pension is paid before age 60"} tone="violet" />
         <Metric label="PSS pension by age 60" value={money(selectedVrPath.pension60)} sub={`${fmt1.format(selectedVrPath.netPf60)} indicative net / fortnight at 60`} />
         <Metric label="Raw TBC headroom" value={money(selectedVrPath.headroom)} sub={headroomDelta === 0 ? "No additional headroom versus the same election starting at 60" : `${headroomDelta > 0 ? "+" : "−"}${money(Math.abs(headroomDelta))} versus the same election starting at 60`} tone="green" />
         <Metric label={selectedLumpLabel} value={money(selectedVrPath.flexibleCapitalAt60)} sub={`Includes ${money(selectedVrPath.vrCashAt60)} illustrative VR cash · excludes existing Hostplus`} tone="amber" />
@@ -1696,11 +1697,11 @@ export default function RetirementDashboard() {
       {selectedVrPath.headroom === 0 && <div className="note warn"><b>No ABP headroom on this illustration:</b> the selected PSS pension’s ×16 special value uses the full {money(TBC)} planning cap (or exceeds it). Existing Hostplus can remain in accumulation, but this model does not place it in a new retirement-phase ABP without headroom.</div>}
       <div className="note"><b>Money-bucket boundary:</b> “Potential ABP at 60” includes existing Hostplus plus the illustrated PSS lump, capped by raw TBC headroom less the {money(TSB_BUFFER)} planning buffer. The VR employment payment is shown separately and is not assumed to be a super rollover.</div>
 
-      <CollapsiblePanel title="TBC headroom and pension by decision age" copy={`Active ${rail.electionLabel} · ${railKey === "A" ? "March/V5" : projectionBasis.shortLabel + "%"} provider basis.`} meta="Open the interactive timing curves" badge={<Badge tone="modelled">Illustrative ages 57–59</Badge>}><div className="vr-chart-stack"><div><h4>Raw TBC headroom</h4><LineChart height={240} labels={[...VR_AGES]} series={[{ name: "Start PSS immediately", values: vrImmediatePaths.map((row) => row.headroom), color: "#47d6a0" }, { name: "Preserve to 60", values: vrPreservePaths.map((row) => row.headroom), color: "#6f8cff" }]} /></div><div><h4>Gross PSS pension by age 60</h4><LineChart height={240} labels={[...VR_AGES]} series={[{ name: "Immediate start, indexed to 60", values: vrImmediatePaths.map((row) => row.pension60), color: "#9d79ff" }, { name: "Preserve whole PSS to 60", values: vrPreservePaths.map((row) => row.pension60), color: "#f3a950" }]} /></div></div></CollapsiblePanel>
+      <CollapsiblePanel title="TBC headroom and pension by decision age" copy={`Active ${rail.electionLabel} · ${railKey === "A" ? "March/V5" : projectionBasis.shortLabel + "%"} provider basis · today's dollars.`} meta="Open the interactive timing curves" badge={<Badge tone="modelled">Illustrative ages 57–59</Badge>}><div className="vr-chart-stack"><div><h4>Raw TBC headroom</h4><LineChart height={240} labels={[...VR_AGES]} series={[{ name: "Start PSS immediately", values: vrImmediatePaths.map((row) => row.headroom), color: "#47d6a0" }, { name: "Preserve to 60", values: vrPreservePaths.map((row) => row.headroom), color: "#6f8cff" }]} /></div><div><h4>Gross PSS pension by age 60</h4><LineChart height={240} labels={[...VR_AGES]} series={[{ name: "Immediate start, flat in real terms", values: vrImmediatePaths.map((row) => row.pension60), color: "#9d79ff" }, { name: "Preserve whole PSS to 60", values: vrPreservePaths.map((row) => row.pension60), color: "#f3a950" }]} /></div></div></CollapsiblePanel>
 
       <CollapsiblePanel title="Age-by-age VR comparison" copy="The same active source anchor, election and assumptions are applied consistently across ages 57–60." meta="Open exact illustrated figures" badge={<Badge tone="exact">Scenario-aware</Badge>}><div className="table-scroll"><table className="vr-table"><thead><tr><th>Age</th><th>Path</th><th>Gross pension at start</th><th>Pension by 60</th><th>PSS lump at 60</th><th>VR cash at 60</th><th>Raw TBC headroom</th><th>Potential ABP at 60</th></tr></thead><tbody>{VR_AGES.flatMap((age) => [vrImmediatePaths.find((row) => row.age === age)!, vrPreservePaths.find((row) => row.age === age)!]).map((path) => <tr key={`${path.age}-${path.mode}`} className={path.age === vrAge && path.mode === vrMode ? "selected" : ""}><td>{path.age}</td><td>{path.mode === "immediate" ? "Immediate" : "Preserve"}</td><td>{path.mode === "immediate" ? money(path.pensionStart) : "—"}</td><td>{money(path.pension60)}</td><td>{money(path.pssLumpAt60)}</td><td>{money(path.vrCashAt60)}</td><td>{money(path.headroom)}</td><td>{money(path.potentialAbpAt60)}</td></tr>)}</tbody></table></div></CollapsiblePanel>
 
-      <CollapsiblePanel title="How the illustration is calculated" copy="Clear separation between sourced age-60 values and scenario assumptions." meta="Open formulas, assumptions and limitations" badge={<Badge tone="speculative">Formal CSC estimate required</Badge>}><div className="decision-grid"><article><h3>Source-backed anchor</h3><p>{activeSourceLabel}: gross pension {money(rail.grossPension)}, lump {money(rail.lumpSum)}, FAS {money(rail.fas)}. Those age-60 values are not interpolated between provider bases.</p></article><article><h3>Early-age calibration</h3><p>March/V5 research supplies ABM ratios of 90.7%, 93.8%, 96.9% and 100%, with pension-conversion factors 11.6, 11.4, 11.2 and 11.0 at ages 57–60.</p></article><article><h3>Growth bridge</h3><p>PSS pension and the preserve lower-bound use {pct(vrBasis.cpi, 1)} CPI. Invested PSS lump and the illustrative 48-week VR payment use {pct(realReturn, 1)} real plus CPI to age 60.</p></article><article><h3>What is not assumed</h3><p>No under-60 tax-component split, ETP rollover, personal cap indexation, preserved member-component return or formal CSC redundancy quote is invented.</p></article></div></CollapsiblePanel>
+      <CollapsiblePanel title="How the illustration is calculated" copy="Clear separation between sourced age-60 values and scenario assumptions." meta="Open formulas, assumptions and limitations" badge={<Badge tone="speculative">Formal CSC estimate required</Badge>}><div className="decision-grid"><article><h3>Source-backed anchor</h3><p>{activeSourceLabel}: gross pension {money(rail.grossPension)}, lump {money(rail.lumpSum)}, FAS {money(rail.fas)}. Those age-60 values are CPI-reduced provider outputs and are not interpolated between bases.</p></article><article><h3>Early-age calibration</h3><p>March/V5 research supplies ABM ratios of 90.7%, 93.8%, 96.9% and 100%, with pension-conversion factors 11.6, 11.4, 11.2 and 11.0 at ages 57–60.</p></article><article><h3>Real-dollar growth bridge</h3><p>The CPI-indexed PSS pension is held flat in today's dollars. Invested PSS lump and the illustrative 48-week VR payment grow only at the selected {pct(realReturn, 1)} real return to age 60; the provider's {pct(vrBasis.cpi, 1)} CPI assumption is not applied a second time.</p></article><article><h3>What is not assumed</h3><p>No under-60 tax-component split, ETP rollover, personal cap indexation, preserved member-component return or formal CSC redundancy quote is invented.</p></article></div></CollapsiblePanel>
       <CollapsiblePanel title="Decision logic and confirmations" copy="The pathways answer different objectives; neither is automatically better." meta="Open benefits, costs and evidence required" badge={<Badge tone="speculative">Decision gate</Badge>}><div className="decision-grid"><article><h3>Start PSS immediately</h3><p><b>Potential benefit:</b> earlier indexed income and a lower ×16 credit may leave more ABP headroom.</p><p><b>Trade-off:</b> a permanently lower pension base and uncertain under-60 tax until CSC supplies components.</p></article><article><h3>Preserve whole PSS</h3><p><b>Potential benefit:</b> keeps the whole PSS for a later pension/lump election.</p><p><b>Trade-off:</b> the TBC credit occurs at 60 and the exact preserved result depends on personal components.</p></article><article><h3>Required confirmation</h3><p>Formal CSC estimates at 57, 58 and 59 for each election being considered; pension and lump tax components; post-1995 transfer amounts; preservation growth; and written election sequencing.</p></article></div></CollapsiblePanel>
     </>;
   };
@@ -1812,7 +1813,7 @@ export default function RetirementDashboard() {
           <a className="deep-link spending-deep-link" href={v23SpendPlanUrl} target="_blank" rel="noreferrer"><span>Set spending plan in V23</span><small>Fine-tune age-by-age gaps and drawdown periods. Command Centre spending is a flat comparison lens.</small><b>Open Income &amp; draws ↗</b></a>
           <a className="deep-link" href={atlasUrl} target="_blank" rel="noreferrer"><span>Retirement Atlas</span><small>Strategy map linking the floor, pools, tax, trajectory and estate</small><b>Open Atlas ↗</b></a>
           <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
-          <div className="version">September 2026 scenario-aware VR release · v8</div>
+          <div className="version">September 2026 real-basis VR release · v9</div>
         </aside>
         <main className="content">{content}</main>
       </div>

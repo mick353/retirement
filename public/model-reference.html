@@ -58,7 +58,7 @@
   <body>
     <header>
       <div class="wrap">
-        <p class="eyebrow">Static model documentation · scenario-aware VR release · 2 September 2026</p>
+        <p class="eyebrow">Static model documentation · real-basis VR release · 3 September 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the selectable PSS elections, data rails, formulas, scenario engines, governance controls and source lineage used by the Command Centre, Atlas and V23.</p>
         <div class="actions">
@@ -151,8 +151,8 @@ raw TBC headroom = max(0, $2,100,000 − PSS TBC credit)
 potential ABP at 60 = min(Hostplus + illustrated PSS lump at 60, raw headroom − $5,000 buffer)</pre>
         <div class="grid">
           <div class="card"><b>Historical age calibration</b>ABM ratios: age 57 90.7%, 58 93.8%, 59 96.9%, 60 100%. Pension-conversion factors: 11.6, 11.4, 11.2 and 11.0 respectively.</div>
-          <div class="card"><b>Provider CPI</b>The selected provider basis supplies 2.5% or 3% CPI for indexing an immediate pension to age 60 and for the preserve-whole lower-bound illustration.</div>
-          <div class="card"><b>Investment bridge</b>The selected site real return plus provider CPI grows the illustrated PSS lump and 48-week VR cash assumption to age 60. Existing Hostplus is shown separately.</div>
+          <div class="card"><b>Provider CPI</b>The selected provider basis supplies 2.5% or 3% CPI and that assumption is already reflected in the CPI-reduced, today-dollar age-60 source values. It is not applied again by the VR illustration.</div>
+          <div class="card"><b>Real-dollar bridge</b>The CPI-indexed PSS pension stays flat in real terms. The selected site real return alone grows the illustrated PSS lump and 48-week VR cash assumption to age 60. Existing Hostplus is shown separately.</div>
           <div class="card"><b>Money-bucket boundary</b>The VR employment payment is not treated as a super rollover. PSS lump, VR cash, Hostplus, potential ABP and super outside ABP are reported separately.</div>
         </div>
         <p>At age 60, every VR path reconciles exactly to the selected provider pension and lump. The 100% pension illustration has no PSS lump and does not invent ABP headroom when the pension's ×16 special value consumes the planning cap. Indicative net pension at 60 scales from the selected iEstimator net-to-gross ratio; under-60 tax remains unresolved.</p>

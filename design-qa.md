@@ -69,7 +69,7 @@
 - The source gate is build-blocking at election level: a prudent-basis 100% request normalises to its verified 60/40 default, the 100% control is disabled, and no current-basis value is borrowed. The 65/35 and 70/30 provider one-cent component residuals are accepted but not rewritten.
 - Wash regression verifies direct PSS components and source-limited maxima of 6, 5, 4 and 0 cycles for the current basis; 5, 5 and 4 for the prudent basis; plus 5 for Rail A.
 - Mobile Frontier regression at age 91 confirms the selected age stays visible, the Adjust handoff retains 91, the projection horizon remains 95, and the page has no horizontal overflow.
-- VR regression confirms the top status and page banner identify the March/V5 research basis, disclose that September basis controls do not recalculate VR, and require formal CSC estimates at ages 57–59 before reliance.
+- VR regression confirms the page identifies the active March/V5 or September source anchor and election, distinguishes exact age-60 inputs from illustrated ages 57–59, and requires formal CSC estimates before reliance.
 - Progressive-disclosure regression confirms secondary PSS allocation, three-pool, VR chart/logic and evidence-source details open and close by pointer, Enter and Space without hiding the primary provider-basis or election controls.
 - Mobile PSS and VR regression at 390 × 844 confirms the active prudent basis is selectable, disclosure summaries remain within the viewport and there is no page-level horizontal overflow.
 - V23 mobile toolbar regression confirms page-level width remains fixed while the 862-pixel action strip scrolls within its 351-pixel container.
@@ -95,6 +95,16 @@
 - Zero-denominator comparisons display N/A rather than a misleading 0%.
 - The active PSS election, CSC projection basis and post-retirement real return appear beside the phase results.
 - Partial funding and the first shortfall age are explained in plain English.
+
+## 3 September 2026 VR real-basis regression
+
+- All seven supported source/election combinations plus Rail A are exercised at ages 57, 58, 59 and 60 across both immediate and preserve pathways.
+- CPI-reduced age-60 CSC values remain unchanged and reconcile exactly at age 60.
+- CPI-indexed pension is flat in today's dollars; changing the provider CPI alone cannot inflate a fixed real source anchor.
+- Immediate PSS lump and illustrative VR cash compound only at the selected real return to age 60.
+- Preserve-path pension, lump and TBC headroom remain on one real-dollar basis.
+- Every VR pension, lump, cash, headroom, ABP and flexible-capital result is finite and non-negative.
+- The interface and model reference explicitly distinguish provider CPI already embedded in the source anchor from the site's separate real-return bridge.
 
 ## Residual note
 

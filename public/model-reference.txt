@@ -1,6 +1,6 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Current release: 2 September 2026 scenario-aware VR model
+Current release: 3 September 2026 real-basis VR correction
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -91,7 +91,7 @@ tbcCredit = grossPensionWhenStarted x 16
 rawTbcHeadroom = max(0, 2100000 - tbcCredit)
 potentialAbpAt60 = min(Hostplus + illustratedPssLumpAt60, max(0, rawTbcHeadroom - 5000))
 
-The selected provider CPI (2.5% or 3%) indexes the PSS path to age 60. The selected post-retirement real return plus that CPI grows the illustrated PSS lump and a 48-week VR cash assumption to age 60. VR cash is not treated as a super rollover. The site keeps PSS lump, VR cash, Hostplus, potential ABP and super outside ABP separate. At age 60, every path reconciles to the selected provider pension and lump. A 100% pension scenario has no PSS lump and does not invent ABP headroom when the x16 value consumes the cap.
+The selected provider CPI (2.5% or 3%) is already reflected in each CPI-reduced, today-dollar age-60 CSC source anchor. The VR illustration therefore holds the indexed PSS pension flat in real terms and grows the illustrated PSS lump and 48-week VR cash assumption only at the selected real return to age 60; CPI is not applied a second time. VR cash is not treated as a super rollover. The site keeps PSS lump, VR cash, Hostplus, potential ABP and super outside ABP separate. At age 60, every path reconciles to the selected provider pension and lump. A 100% pension scenario has no PSS lump and does not invent ABP headroom when the x16 value consumes the cap.
 
 RETURNS AND RISK
 - Retirement projections use real dollars and the selected post-retirement real return.

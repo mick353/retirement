@@ -207,6 +207,9 @@ assert.match(dashboardSource, /Current choices now drive the VR illustration/, "
 assert.match(dashboardSource, /ages 57–59 are transparent illustrations/, "VR page must distinguish illustrative early ages from the sourced age-60 anchor");
 assert.match(dashboardSource, /No under-60 tax-component split, ETP rollover/, "VR page must identify assumptions it refuses to invent");
 assert.match(dashboardSource, /obtain formal CSC VR estimates and tax components/, "VR page must identify the missing evidence required before reliance");
+assert.match(dashboardSource, /CPI is already reflected in the CPI-reduced source anchor/, "VR page explains why provider CPI is not reapplied");
+assert.match(dashboardSource, /pension flat in real \$/, "VR result summary states the real-dollar pension treatment");
+assert.doesNotMatch(dashboardSource, /const nominalReturn = \(1 \+ realReturn\) \* \(1 \+ basis\.cpi\) - 1/, "VR bridge cannot mix real return and provider CPI");
 
 const railAHistorical57 = dashboard.vrScenarioPath(dashboard.RAILS.A, dashboard.PSS_PROJECTION_BASES["source-825"], .05, 57, "immediate");
 close(railAHistorical57.pensionStart, 67_415.31, "Rail A VR age-57 calibration pension");
@@ -221,6 +224,54 @@ close(current7030At60.pssLumpAt60, current7030.lumpSum, "Current 70/30 VR age-60
 const current7030At57Low = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .04, 57, "immediate");
 const current7030At57High = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .075, 57, "immediate");
 assert.ok(current7030At57High.flexibleCapitalAt60 > current7030At57Low.flexibleCapitalAt60, "VR capital bridge responds to the selected post-retirement real return");
+const current7030At57 = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .065, 57, "immediate");
+close(current7030At57.pension60, current7030At57.pensionStart, "VR CPI-indexed pension remains flat in real dollars to age 60");
+close(current7030At57.pre60GrossPension, current7030At57.pensionStart * 3, "VR pre-60 pension total remains in today dollars");
+close(current7030At57.pssLumpAt60, current7030At57.pssLumpAtExit * Math.pow(1.065, 3), "VR PSS lump grows only at the selected real return");
+close(current7030At57.vrCashAt60, current7030At57.vrCashAtExit * Math.pow(1.065, 3), "VR employment cash grows only at the selected real return");
+const current7030At57OtherCpi = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["prudent-630"], .065, 57, "immediate");
+for (const field of ["pension60", "pre60GrossPension", "pssLumpAt60", "vrCashAt60", "headroom"]) {
+  close(current7030At57OtherCpi[field], current7030At57[field], `VR ${field} does not reapply provider CPI to a fixed real source anchor`);
+}
+const current7030Preserve57 = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .065, 57, "preserve");
+const expectedPreservedDefined57 = dashboard.definedBenefitAt60(current7030) * .907;
+close(current7030Preserve57.pension60, expectedPreservedDefined57 * .7 / 11, "VR preserve lower-bound pension remains on the real-dollar basis");
+close(current7030Preserve57.pssLumpAt60, expectedPreservedDefined57 * .3, "VR preserve lower-bound lump remains on the real-dollar basis");
+const vrRailCases = [
+  ["Rail A", dashboard.RAILS.A, dashboard.PSS_PROJECTION_BASES["source-825"]],
+  ...Object.entries(expectedElectionsByBasis).flatMap(([basisKey, elections]) => Object.keys(elections).map((electionKey) => [
+    `${basisKey} ${electionKey}`,
+    dashboard.railBForElection(electionKey, basisKey),
+    dashboard.PSS_PROJECTION_BASES[basisKey],
+  ])),
+];
+for (const [label, vrRail, vrBasis] of vrRailCases) {
+  for (const age of dashboard.VR_AGES) {
+    const years = 60 - age;
+    const factor = dashboard.VR_AGE_FACTORS[age];
+    const immediate = dashboard.vrScenarioPath(vrRail, vrBasis, .065, age, "immediate");
+    const preserve = dashboard.vrScenarioPath(vrRail, vrBasis, .065, age, "preserve");
+    for (const path of [immediate, preserve]) {
+      for (const field of ["pension60", "pssLumpAt60", "vrCashAt60", "headroom", "potentialAbpAt60", "flexibleCapitalAt60"]) {
+        assert.ok(Number.isFinite(path[field]) && path[field] >= 0, `${label} age ${age} ${path.mode} ${field} is finite and non-negative`);
+      }
+    }
+    if (age === 60) {
+      close(immediate.pension60, vrRail.grossPension, `${label} age-60 immediate pension reconciles to source`);
+      close(preserve.pension60, vrRail.grossPension, `${label} age-60 preserve pension reconciles to source`);
+      close(immediate.pssLumpAt60, vrRail.lumpSum, `${label} age-60 immediate lump reconciles to source`);
+      close(preserve.pssLumpAt60, vrRail.lumpSum, `${label} age-60 preserve lump reconciles to source`);
+    } else {
+      const definedAtExit = dashboard.definedBenefitAt60(vrRail) * factor.abmRatio;
+      close(immediate.pension60, immediate.pensionStart, `${label} age ${age} immediate pension stays flat in real dollars`);
+      close(immediate.pre60GrossPension, immediate.pensionStart * years, `${label} age ${age} pre-60 pension is summed in real dollars`);
+      close(immediate.pssLumpAt60, immediate.pssLumpAtExit * Math.pow(1.065, years), `${label} age ${age} immediate lump uses real growth only`);
+      close(immediate.vrCashAt60, immediate.vrCashAtExit * Math.pow(1.065, years), `${label} age ${age} VR cash uses real growth only`);
+      close(preserve.pension60, definedAtExit * (vrRail.pensionPercent / 100) / 11, `${label} age ${age} preserve pension uses the real lower bound`);
+      close(preserve.pssLumpAt60, definedAtExit * (vrRail.lumpPercent / 100), `${label} age ${age} preserve lump uses the real lower bound`);
+    }
+  }
+}
 const source100At57 = dashboard.vrScenarioPath(dashboard.railBForElection("100", "source-825"), dashboard.PSS_PROJECTION_BASES["source-825"], .05, 57, "immediate");
 close(source100At57.pssLumpAt60, 0, "100% pension VR illustration has no PSS lump");
 close(source100At57.potentialAbpAt60, 0, "100% pension VR illustration does not invent ABP headroom");
