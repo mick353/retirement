@@ -24,7 +24,7 @@ function runCommonJs(source, require) {
 const core = runCommonJs(compile(coreSource), () => { throw new Error("retirement-core has no external runtime dependencies"); });
 const reactStub = { useEffect: () => undefined, useMemo: (factory) => factory(), useRef: () => ({ current: null }), useState: (value) => [value, () => undefined] };
 const dashboard = runCommonJs(
-  compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_PRUDENT_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, normaliseProjectionBasis, normaliseElectionForBasis, railBForElection, washOutcome, operationalLedger, monteCarloFan };`),
+  compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_PRUDENT_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, VR_AGES, VR_AGE_FACTORS, normaliseProjectionBasis, normaliseElectionForBasis, railBForElection, definedBenefitAt60, vrScenarioPath, washOutcome, operationalLedger, monteCarloFan };`),
   (name) => {
     if (name === "react") return reactStub;
     if (name === "react/jsx-runtime") return { Fragment: Symbol("Fragment"), jsx: () => null, jsxs: () => null };
@@ -203,9 +203,27 @@ assert.match(v23Source, /const LS_KEY="v23_4_state"/, "V23 uses the partial-basi
 assert.match(dashboardSource, /Frontier decision point/, "Command Centre exposes the selected Frontier age on mobile");
 assert.match(dashboardSource, /continues to age 95/, "Command Centre distinguishes target age from projection horizon");
 assert.match(dashboardSource, /const marginalScale = Math\.max\(1, \.\.\.marginalCost\)/, "Frontier marginal bars scale to late target ages without overflow");
-assert.match(dashboardSource, /VR sensitivity · March\/V5 research/, "VR top status must not imply that the active September provider basis drives VR");
-assert.match(dashboardSource, /does not change the VR figures below/, "VR page must disclose that September basis controls do not recalculate historical VR figures");
-assert.match(dashboardSource, /obtain formal CSC VR estimates at 57–59/, "VR page must identify the missing evidence required before reliance");
+assert.match(dashboardSource, /Current choices now drive the VR illustration/, "VR page must disclose that the active source anchor drives the illustration");
+assert.match(dashboardSource, /ages 57–59 are transparent illustrations/, "VR page must distinguish illustrative early ages from the sourced age-60 anchor");
+assert.match(dashboardSource, /No under-60 tax-component split, ETP rollover/, "VR page must identify assumptions it refuses to invent");
+assert.match(dashboardSource, /obtain formal CSC VR estimates and tax components/, "VR page must identify the missing evidence required before reliance");
+
+const railAHistorical57 = dashboard.vrScenarioPath(dashboard.RAILS.A, dashboard.PSS_PROJECTION_BASES["source-825"], .05, 57, "immediate");
+close(railAHistorical57.pensionStart, 67_415.31, "Rail A VR age-57 calibration pension");
+close(railAHistorical57.headroom, 1_021_355.02, "Rail A VR age-57 calibration TBC headroom");
+const railAHistorical60 = dashboard.vrScenarioPath(dashboard.RAILS.A, dashboard.PSS_PROJECTION_BASES["source-825"], .05, 60, "immediate");
+close(railAHistorical60.pensionStart, dashboard.RAILS.A.grossPension, "Rail A VR age-60 pension reconciles to source");
+close(railAHistorical60.pssLumpAt60, dashboard.RAILS.A.lumpSum, "Rail A VR age-60 lump reconciles to source");
+const current7030 = dashboard.railBForElection("70-30", "source-825");
+const current7030At60 = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .065, 60, "preserve");
+close(current7030At60.pension60, current7030.grossPension, "Current 70/30 VR age-60 pension reconciles to provider source");
+close(current7030At60.pssLumpAt60, current7030.lumpSum, "Current 70/30 VR age-60 lump reconciles to provider source");
+const current7030At57Low = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .04, 57, "immediate");
+const current7030At57High = dashboard.vrScenarioPath(current7030, dashboard.PSS_PROJECTION_BASES["source-825"], .075, 57, "immediate");
+assert.ok(current7030At57High.flexibleCapitalAt60 > current7030At57Low.flexibleCapitalAt60, "VR capital bridge responds to the selected post-retirement real return");
+const source100At57 = dashboard.vrScenarioPath(dashboard.railBForElection("100", "source-825"), dashboard.PSS_PROJECTION_BASES["source-825"], .05, 57, "immediate");
+close(source100At57.pssLumpAt60, 0, "100% pension VR illustration has no PSS lump");
+close(source100At57.potentialAbpAt60, 0, "100% pension VR illustration does not invent ABP headroom");
 assert.match(dashboardSource, /function CollapsiblePanel/, "Command Centre provides progressive disclosure for secondary detail");
 assert.doesNotMatch(dashboardSource, /cost \/ 2_600/, "Frontier no longer uses the age-75-only fixed bar scale");
 assert.match(v23Source, /range\.setAttribute\("aria-label"/, "V23 enhanced range controls retain accessible names");

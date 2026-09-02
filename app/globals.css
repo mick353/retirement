@@ -161,7 +161,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .collapsible-heading h3, .collapsible-heading p, .collapsible-heading small { display: block; }
 .collapsible-heading p { margin-top: 4px; }
 .collapsible-heading small { margin-top: 7px; color: var(--blue); font-size: 10px; font-weight: 800; }
-.collapsible-action { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; color: var(--muted); }
+.collapsible-action { min-width: 0; flex: 0 1 auto; display: flex; align-items: center; gap: 9px; color: var(--muted); }
+.collapsible-action > .badge { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
 .collapsible-action b { font-size: 10px; white-space: nowrap; }
 .collapsible-action > span { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--text); font-size: 17px; transition: transform .18s ease; }
 .collapsible-panel[open] .collapsible-action > span { transform: rotate(180deg); }
@@ -614,13 +615,48 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .split-grid b { margin-top: 4px; font-size: 17px; }
 .estate-composition > small { display: block; color: var(--muted); margin-top: 12px; }
 
-.vr-controls { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.vr-controls { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; padding: 2px 0; }
+.vr-controls > div { display: grid; gap: 6px; }
+.control-kicker { color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .vr-source-boundary { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .8fr); gap: 22px; border-color: color-mix(in srgb, var(--violet) 44%, var(--line)); background: linear-gradient(120deg, color-mix(in srgb, var(--violet) 8%, var(--panel)), var(--panel) 58%, color-mix(in srgb, var(--amber) 7%, var(--panel))); }
 .vr-source-boundary h3 { margin-top: 10px; }
 .vr-source-actions { display: grid; gap: 9px; align-content: start; }
 .vr-source-actions span { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--muted); font-size: 10px; }
 .vr-source-actions b { display: block; margin-bottom: 3px; color: var(--text); }
 .vr-source-actions button { justify-self: stretch; }
+.vr-scenario-studio { display: grid; gap: 14px; }
+.vr-scenario-studio > *, .vr-source-boundary > *, .vr-basis-grid, .vr-election-grid, .vr-controls > div { min-width: 0; }
+.vr-basis-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.vr-basis-grid button, .vr-election-grid button { display: grid; gap: 4px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--text); text-align: left; cursor: pointer; }
+.vr-basis-grid button span, .vr-election-grid button span { color: var(--muted); font-size: 10px; }
+.vr-basis-grid button b, .vr-election-grid button b { font-size: 15px; }
+.vr-basis-grid button small { color: var(--soft); font-size: 9px; }
+.vr-basis-grid button.active, .vr-election-grid button.active { border-color: var(--green); background: linear-gradient(145deg, color-mix(in srgb, var(--green) 13%, var(--panel)), color-mix(in srgb, var(--blue) 8%, var(--panel))); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--green) 80%, transparent); }
+.vr-election-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.vr-election-grid button:disabled { opacity: .48; cursor: not-allowed; }
+.vr-reading-guide { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 11px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--blue) 42%, var(--line)); border-radius: 14px; background: linear-gradient(110deg, color-mix(in srgb, var(--blue) 10%, var(--panel)), color-mix(in srgb, var(--green) 7%, var(--panel))); }
+.vr-reading-guide div { display: grid; gap: 3px; }
+.vr-reading-guide span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.vr-reading-guide b { font-size: 11px; }
+.vr-reading-guide i { color: var(--green); font-style: normal; }
+.vr-path-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vr-path-comparison > button { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .85fr); gap: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--text); text-align: left; cursor: pointer; }
+.vr-path-comparison > button.active { border-color: var(--blue); background: linear-gradient(145deg, color-mix(in srgb, var(--blue) 14%, var(--panel)), color-mix(in srgb, var(--green) 6%, var(--panel))); box-shadow: 0 14px 34px rgba(0,0,0,.12), inset 0 -3px 0 var(--blue); }
+.vr-path-comparison h3 { margin: 10px 0 4px; }
+.vr-path-comparison p { margin: 0; color: var(--muted); font-size: 10px; }
+.vr-path-comparison dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.vr-path-comparison dl div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel-2) 86%, transparent); }
+.vr-path-comparison dt, .vr-path-comparison dd { display: block; margin: 0; }
+.vr-path-comparison dt { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .04em; }
+.vr-path-comparison dd { margin-top: 4px; color: var(--text); font-size: 14px; font-weight: 850; }
+.vr-chart-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.vr-chart-stack > div { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.vr-chart-stack h4 { margin: 0 0 6px; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.vr-table th, .vr-table td { padding: 10px 9px; border-bottom: 1px solid var(--line); text-align: right; }
+.vr-table th:first-child, .vr-table td:first-child, .vr-table th:nth-child(2), .vr-table td:nth-child(2) { text-align: left; }
+.vr-table th { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.vr-table tr.selected td { color: var(--text); background: color-mix(in srgb, var(--blue) 13%, var(--panel)); font-weight: 800; }
 .segmented { display: flex; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
 .segmented button { padding: 9px 13px; border: 0; border-right: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
 .segmented button:last-child { border-right: 0; }
@@ -762,9 +798,10 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .hero { grid-template-columns: 1fr; min-height: 0; gap: 28px; }
   .scenario-layout { grid-template-columns: 1fr; }
   .control-panel { position: static; }
-  .decision-grid, .pool-grid, .risk-grid { grid-template-columns: 1fr; }
+  .decision-grid, .pool-grid, .risk-grid, .vr-path-comparison, .vr-chart-stack { grid-template-columns: 1fr; }
   .tradeoff, .wash-layout { grid-template-columns: 1fr; }
   .vr-source-boundary { grid-template-columns: 1fr; }
+  .vr-path-comparison > button { grid-template-columns: 1fr; }
   .two-models { grid-template-columns: 1fr; }
   .compare-cards { grid-template-columns: 1fr; }
   .review-grid, .review-hero { grid-template-columns: 1fr; }
@@ -797,7 +834,7 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .horizon-controls { grid-template-columns: 1fr; margin-inline: 0; }
   .horizon-milestones { justify-content: flex-start; }
   .horizon-bottom-grid, .horizon-outcomes { grid-template-columns: 1fr; }
-  .metrics.four, .metrics.three, .objective-grid, .classification-grid, .rail-compare, .pss-election-grid, .projection-basis-options, .benchmark-hero, .source-list, .control-register, .official-links, .split-grid, .wash-result, .sensitivity-layout { grid-template-columns: 1fr; }
+  .metrics.four, .metrics.three, .objective-grid, .classification-grid, .rail-compare, .pss-election-grid, .projection-basis-options, .benchmark-hero, .source-list, .control-register, .official-links, .split-grid, .wash-result, .sensitivity-layout, .vr-basis-grid { grid-template-columns: 1fr; }
   .projection-basis-compact, .projection-flow { grid-template-columns: 1fr; }
   .projection-basis-compact i, .projection-flow i { transform: rotate(90deg); justify-self: start; }
   .election-switch { grid-template-columns: 1fr; }
@@ -823,6 +860,12 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .segmented { width: 100%; overflow-x: auto; }
   .segmented button { flex: 1; white-space: nowrap; }
   .vr-controls { display: grid; }
+  .vr-controls .segmented { max-width: 100%; }
+  .vr-election-grid { display: flex; overflow-x: auto; padding-bottom: 4px; }
+  .vr-election-grid button { min-width: 170px; }
+  .vr-source-boundary > div > .badge, .vr-scenario-studio .panel-head > .badge { max-width: 100%; white-space: normal; line-height: 1.25; }
+  .vr-reading-guide { grid-template-columns: 1fr; }
+  .vr-reading-guide i { transform: rotate(90deg); justify-self: start; }
   .cashflow-bars div { grid-template-columns: 145px minmax(0, 1fr); }
   .cashflow-bars b { grid-column: 2; }
   .tradeoff-bars div { grid-template-columns: 50px minmax(0, 1fr); }

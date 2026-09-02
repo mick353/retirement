@@ -1,6 +1,6 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Current release: 1 September 2026 PSS projection-basis model
+Current release: 2 September 2026 scenario-aware VR model
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -74,6 +74,24 @@ V23 has two spending contexts:
 2. Manual V23 age bands are gap-above-PSS controls. Editing a band clears the imported total target. Each band maps to its own lifestyle phase, and the display subdivides a phase whenever its funding routine changes.
 
 The birthday-year planning rows apply the ABP minimum rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. The provider calculates actual financial-year minima and first-year pro-rating.
+
+VOLUNTARY RETIREMENT / REDUNDANCY SENSITIVITY
+The VR page now uses the active Rail B provider basis and pension/lump election as its exact age-60 anchor. The current basis supports 60/40, 65/35, 70/30 and 100% pension; the prudent basis supports its three supplied elections. Rail A remains the March/V5 historical 60/40 control.
+
+The September iEstimator PDFs do not provide formal VR estimates at ages 57, 58 or 59. Those ages remain labelled ILLUSTRATIVE and must be replaced by CSC estimates before any decision.
+
+Historical calibration from the March/V5 research:
+- ABM ratio: age 57 90.7%; 58 93.8%; 59 96.9%; 60 100%.
+- Pension conversion factor: age 57 11.6; 58 11.4; 59 11.2; 60 11.0.
+
+age60DefinedBenefit = grossAge60Pension x 11 / selectedPensionShare
+definedBenefitAtExit = age60DefinedBenefit x historicalAbmRatio
+grossPensionAtExit = definedBenefitAtExit x selectedPensionShare / agePcf
+tbcCredit = grossPensionWhenStarted x 16
+rawTbcHeadroom = max(0, 2100000 - tbcCredit)
+potentialAbpAt60 = min(Hostplus + illustratedPssLumpAt60, max(0, rawTbcHeadroom - 5000))
+
+The selected provider CPI (2.5% or 3%) indexes the PSS path to age 60. The selected post-retirement real return plus that CPI grows the illustrated PSS lump and a 48-week VR cash assumption to age 60. VR cash is not treated as a super rollover. The site keeps PSS lump, VR cash, Hostplus, potential ABP and super outside ABP separate. At age 60, every path reconciles to the selected provider pension and lump. A 100% pension scenario has no PSS lump and does not invent ABP headroom when the x16 value consumes the cap.
 
 RETURNS AND RISK
 - Retirement projections use real dollars and the selected post-retirement real return.

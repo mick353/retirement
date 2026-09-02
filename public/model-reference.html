@@ -58,7 +58,7 @@
   <body>
     <header>
       <div class="wrap">
-        <p class="eyebrow">Static model documentation · PSS projection-basis release · 1 September 2026</p>
+        <p class="eyebrow">Static model documentation · scenario-aware VR release · 2 September 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the selectable PSS elections, data rails, formulas, scenario engines, governance controls and source lineage used by the Command Centre, Atlas and V23.</p>
         <div class="actions">
@@ -72,7 +72,7 @@
 
     <nav aria-label="Model reference sections">
       <div class="wrap">
-        <a href="#scope">Scope</a><a href="#baseline">Baseline</a><a href="#projection">Projection</a><a href="#risk">Risk</a><a href="#ncc">NCC wash</a><a href="#tax">Tax</a><a href="#governance">Governance</a><a href="#sources">Sources</a>
+        <a href="#scope">Scope</a><a href="#baseline">Baseline</a><a href="#vr">VR</a><a href="#projection">Projection</a><a href="#risk">Risk</a><a href="#ncc">NCC wash</a><a href="#tax">Tax</a><a href="#governance">Governance</a><a href="#sources">Sources</a>
       </div>
     </nav>
 
@@ -135,6 +135,27 @@
           <li>The 100% pension special value is <strong>$2,447,360.80</strong>, $347,360.80 above the current $2.1m planning anchor. Confirm actual defined-benefit cap and tax treatment with CSC and an adviser.</li>
           <li>Retirement scenarios are expressed in real dollars and use real returns unless explicitly labelled otherwise. The selected rate should be net of product fees; Pool C also applies a separate 0.35% annual modelled distribution drag. Pre-retirement sensitivities are separately labelled nominal.</li>
         </ul>
+      </section>
+
+      <section id="vr">
+        <p class="eyebrow">Scenario-aware early-retirement sensitivity</p>
+        <h2>Voluntary retirement / redundancy at ages 57–59</h2>
+        <p>The active Rail B provider basis and pension/lump election now supply the VR page's source-backed age-60 anchor. The current basis supports 60/40, 65/35, 70/30 and 100% pension; the prudent basis supports its three supplied elections. Rail A remains available as the March/V5 historical 60/40 control.</p>
+        <div class="note warning"><strong>Source boundary.</strong> The supplied September iEstimator PDFs provide age-60 elections, not formal redundancy estimates at 57, 58 or 59. Every earlier-age result is therefore labelled illustrative and must be replaced by a formal CSC estimate before a decision.</div>
+        <h3>Illustrative timing method</h3>
+        <pre>age-60 defined benefit = gross age-60 pension × 11 ÷ selected pension share
+defined benefit at exit = age-60 defined benefit × historical ABM ratio
+gross pension at exit = defined benefit at exit × selected pension share ÷ age PCF
+PSS TBC credit = gross pension when the pension starts × 16
+raw TBC headroom = max(0, $2,100,000 − PSS TBC credit)
+potential ABP at 60 = min(Hostplus + illustrated PSS lump at 60, raw headroom − $5,000 buffer)</pre>
+        <div class="grid">
+          <div class="card"><b>Historical age calibration</b>ABM ratios: age 57 90.7%, 58 93.8%, 59 96.9%, 60 100%. Pension-conversion factors: 11.6, 11.4, 11.2 and 11.0 respectively.</div>
+          <div class="card"><b>Provider CPI</b>The selected provider basis supplies 2.5% or 3% CPI for indexing an immediate pension to age 60 and for the preserve-whole lower-bound illustration.</div>
+          <div class="card"><b>Investment bridge</b>The selected site real return plus provider CPI grows the illustrated PSS lump and 48-week VR cash assumption to age 60. Existing Hostplus is shown separately.</div>
+          <div class="card"><b>Money-bucket boundary</b>The VR employment payment is not treated as a super rollover. PSS lump, VR cash, Hostplus, potential ABP and super outside ABP are reported separately.</div>
+        </div>
+        <p>At age 60, every VR path reconciles exactly to the selected provider pension and lump. The 100% pension illustration has no PSS lump and does not invent ABP headroom when the pension's ×16 special value consumes the planning cap. Indicative net pension at 60 scales from the selected iEstimator net-to-gross ratio; under-60 tax remains unresolved.</p>
       </section>
 
       <section id="projection">
