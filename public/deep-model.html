@@ -249,6 +249,14 @@ body.print-pack section.page.print-pack-include{display:flex}
 .control-bar-body{margin-top:14px}
 .control-bar-body[hidden]{display:none!important}
 .control-bar.collapsed{padding-top:13px;padding-bottom:13px}
+.profile-controls-body{margin-top:14px}
+.profile-controls-body[hidden]{display:none!important}
+.profile-bar.collapsed{padding-top:13px;padding-bottom:13px}
+.table-view-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}
+.table-view-tools>div{display:flex;gap:6px;flex-wrap:wrap}
+.table-view-tools button{min-height:36px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:var(--chip);color:var(--muted);font:700 10px/1 inherit;cursor:pointer}
+.table-view-tools button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#03080f}
+.table-view-tools small{color:var(--muted);font-size:10px;line-height:1.4}
 .profile-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .profile-row .pill{
   background:var(--chip);color:var(--muted);
@@ -934,7 +942,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.6 · plain-English funding and drawdown release · 2 Sep 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.7 · explicit Pool C funding and progressive-detail release · 2 Sep 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1013,13 +1021,21 @@ main{min-width:0;}
   <main>
     <div class="v23-plan-authority" id="v23-plan-authority" role="status" aria-live="polite"><div><b>Detailed V23 spending plan</b><span id="v23-plan-authority-copy">Loading the active age-band plan…</span></div><small id="v23-plan-authority-basis">V23 uses the detailed plan. Command Centre and Atlas remain flat-spend comparison lenses.</small></div>
     <!-- PROFILE BAR -->
-    <div class="profile-bar">
-      <h3>Profile</h3>
-      <div class="profile-row">
-        <span class="pill active" data-profile="michael">Michael (default)</span>
-        <span class="pill" data-profile="custom">Custom</span>
-        <span class="muted smaller" id="profile-summary"></span>
+    <div class="profile-bar collapsed" id="profile-controls">
+      <div class="control-bar-head">
+        <div class="control-bar-title">
+          <h3>Profile <span class="control-caption">PSS source, election and opening pools</span></h3>
+          <div class="profile-row">
+            <span class="pill active" data-profile="michael">Michael (default)</span>
+            <span class="pill" data-profile="custom">Custom</span>
+            <span class="muted smaller" id="profile-summary"></span>
+          </div>
+        </div>
+        <button type="button" class="control-bar-toggle" id="profile-controls-toggle" aria-expanded="false" aria-controls="profile-controls-body">
+          <span id="profile-controls-toggle-label">Edit profile &amp; PSS</span><span class="control-bar-toggle-icon" aria-hidden="true">⌄</span>
+        </button>
       </div>
+      <div class="profile-controls-body" id="profile-controls-body" hidden>
       <div class="pss-election-studio" aria-labelledby="pss-election-title">
         <div>
           <strong id="pss-election-title">Rail B PSS pension / lump-sum election</strong>
@@ -1052,6 +1068,7 @@ main{min-width:0;}
           <label>Strong ($k) <input type="number" id="cf_strong" step="10" value="1750"/></label>
           <label>Default gap (pa) <input type="number" id="cf_gap" step="500" value="24000"/></label>
         </div>
+      </div>
       </div>
     </div>
 
@@ -1113,6 +1130,14 @@ main{min-width:0;}
             <option value="returnPct">Override: % of investment earnings</option>
             <option value="drawPct">Override: % of mandatory drawdown</option>
           </select>
+        </div>
+        <div class="slider-block highlight">
+          <div class="lab"><span>Pool C spending policy</span><span class="val" id="lbl-poolcpolicy"></span></div>
+          <select id="sel_poolcpolicy">
+            <option value="preserve">Preserve Pool C — show any gap shortfall</option>
+            <option value="after-abp">Use Pool C after Pools A and B are exhausted</option>
+          </select>
+          <div class="note" id="poolc-policy-note" style="margin-top:8px"></div>
         </div>
         <div class="slider-block">
           <div class="lab"><span id="lbl-spendbasis">Spend % of annual investment earnings</span><span class="val" id="lbl-spendreturn"></span></div>
@@ -1294,7 +1319,7 @@ main{min-width:0;}
       <div class="cards" id="in_cards"></div>
       <div class="panel">
         <h2>Income composition by year (likely path)</h2>
-        <div class="muted smaller">Net PSS pension + Pool A drawdown consumed. The amber line is the ceiling you can spend WITHOUT exceeding the compulsory ABP minimum (PSS + mandatory draw) — any orange sitting above it is a voluntary extra draw from Pool A. Dashed lines mark the brief's $95k–$105k usable income band.</div>
+        <div class="muted smaller">Net PSS pension plus the investment pools actually used. The amber line is the ceiling you can spend WITHOUT exceeding the compulsory ABP minimum (PSS + mandatory draw). Extra Pool A/B and any policy-authorised Pool C support are shown as separate stacks. Dashed lines mark the brief's $95k–$105k usable income band.</div>
         <div class="chart-wrap"><canvas id="in_chart"></canvas></div>
       </div>
       <div class="panel">
@@ -1309,22 +1334,33 @@ main{min-width:0;}
           <div class="status-strip" id="in_phase_context"></div>
           <div class="note good" id="in_phase_guide"></div>
         </div>
+        <div class="table-view-tools" role="group" aria-label="Lifestyle phase table detail">
+          <div><button type="button" data-income-table-mode="essential" aria-pressed="true">Essential columns</button><button type="button" data-income-table-mode="full" aria-pressed="false">Full detail</button></div>
+          <small id="income-table-view-note">Essential view keeps the spending result, funding source and gross-equivalent comparison visible.</small>
+        </div>
         <table id="in_tbl"></table>
       </div>
     </section>
 
     <section class="page" id="page-reinvest">
       <div class="spending-control-callout">
-        <div><b>Looking for net income and gross salary equivalent?</b><span>Those comparisons sit in Income &amp; draws, alongside the age-band lifestyle phases. This page focuses only on compulsory-draw surplus and Pool C recycling.</span></div>
+        <div><b>Looking for net income and gross salary equivalent?</b><span>Those comparisons sit in Income &amp; draws, alongside the age-band lifestyle phases. This page reconciles money moving into and—when explicitly selected—out of Pool C.</span></div>
         <a href="#income" data-page="income" class="btn">Open Income &amp; draws ↗</a>
       </div>
       <div class="panel">
-        <h2>Surplus recycled (likely path)</h2>
+        <h2>Pool C recycling and use (likely path)</h2>
         <div class="muted smaller">Opening balances follow the active profile. Rail A preserves the March/V5 control; Rail B uses the selected 1 September iEstimator. The TBC position, source-limited NCC wash and Pool C routing remain explicit.</div>
         <div class="note" id="ri-empty" hidden></div>
         <div class="chart-wrap"><canvas id="ri_chart"></canvas></div>
       </div>
-      <div class="panel"><h2>Reinvestment table</h2><table id="ri_tbl"></table></div>
+      <div class="panel">
+        <h2>Reinvestment table</h2>
+        <div class="table-view-tools" role="group" aria-label="Reinvestment table detail">
+          <div><button type="button" data-reinvest-table-mode="key" aria-pressed="true">Key ages &amp; activity</button><button type="button" data-reinvest-table-mode="all" aria-pressed="false">Every year</button></div>
+          <small id="reinvest-table-view-note">Key view keeps every year with Pool C activity plus the main age checkpoints.</small>
+        </div>
+        <table id="ri_tbl"></table>
+      </div>
     </section>
 
     <section class="page" id="page-oneoff">
@@ -1725,7 +1761,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.6";
+const APP_VERSION = "v23.7";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -1825,6 +1861,9 @@ const STATE = {
   runs:500,
   cpi:6, cpiDur:3, cpiAge:63, cpiDrag:2,
   poolCDrag:0.0035,
+  poolCPolicy:"preserve",
+  incomeTableMode:"essential",
+  reinvestTableMode:"key",
   health:"none",
   theme:"dark",
   slotNames:{A:"Scenario A",B:"Scenario B",C:"Scenario C"},
@@ -1955,12 +1994,13 @@ function lifestylePhaseDefinitions(sim,p){
 function cashflowRoutine(row){
   if((row.spendingShortfall||0)>0.005)return"shortfall";
   if((row.pensionSurplus||0)>0.005)return"psssurplus";
+  if((row.poolCDraw||0)>0.005)return"poolc";
   if((row.extraDraw||0)>0.005)return"extra";
   if((row.surplus||0)>0.005)return"surplus";
   return"matched";
 }
 function cashflowRoutineLabel(routine){
-  return routine==="shortfall"?"Target spend not fully funded":routine==="psssurplus"?"PSS surplus → Pool C":routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
+  return routine==="shortfall"?"Target spend not fully funded":routine==="psssurplus"?"PSS surplus → Pool C":routine==="poolc"?"Pool C supports target":routine==="extra"?"Extra Pool A draw":routine==="surplus"?"Mandatory surplus → Pool C":"Mandatory draw exactly covers gap";
 }
 function splitPhaseByCashflow(phase,sim){
   const sourceRows=sim.rows.filter(row=>!row.launchSnapshot&&row.age>=phase.start&&row.age<=phase.end);
@@ -2139,6 +2179,7 @@ function runModel(opts){
   const poolCDrag=opts.poolCDrag??STATE.poolCDrag;
   const spendMode=opts.spendMode??STATE.spendMode;
   const spendReturnPct=opts.spendReturnPct??STATE.spendReturnPct;
+  const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
   const totalSpendTarget=opts.totalSpendTarget!==undefined?opts.totalSpendTarget:STATE.totalSpendTarget;
   const oneOff=opts.oneOff??STATE.oneOff;
   const oneOffAge=opts.oneOffAge??startAge;
@@ -2149,13 +2190,15 @@ function runModel(opts){
   let poolC=opts.startPoolC??(p.poolC_day1??0);
   let headroom=initialHeadroom(p,tbcAlloc);
   const rows=[];
-  let launchOneOff=0;
+  let launchOneOff=0,launchPoolCOneOff=0;
   if(oneOff>0&&oneOffAge===startAge){
-    const w=withdrawFromPools(oneOff/oneOffSpread,abp,acc);abp=w.abp;acc=w.acc;launchOneOff=w.drawn;
+    const slice=oneOff/oneOffSpread;
+    const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;launchOneOff=w.drawn;
+    if(poolCPolicy==="after-abp"&&w.drawn<slice){launchPoolCOneOff=Math.min(slice-w.drawn,poolC);poolC-=launchPoolCOneOff;}
   }
   rows.push({
     age:startAge,targetSpend:0,gap:0,fundedGap:0,fundedTotalSpend:0,spendingShortfall:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,pensionToPoolC:0,
-    extraDraw:0,oneOffDrawn:launchOneOff,abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,
+    extraDraw:0,poolCDraw:0,oneOffDrawn:launchOneOff,oneOffPoolCDrawn:launchPoolCOneOff,abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,
     pension:0,pensionSpent:0,pensionSurplus:0,headroom,rA:0,rB:0,rC:0,launchSnapshot:true
   });
   for(let age=startAge+1;age<=endAge;age++){
@@ -2179,15 +2222,20 @@ function runModel(opts){
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;toABP=r.toABP;toPoolC=r.toPoolC;}
     const pensionToPoolC=pensionSurplus;
     if(pensionToPoolC>0){poolC+=pensionToPoolC;toPoolC+=pensionToPoolC;}
-    let extraDraw=0;
-    if(gap>mandDraw){const w=withdrawFromPools(gap-mandDraw,abp,acc);abp=w.abp;acc=w.acc;extraDraw=w.drawn;}
-    const fundedGap=realExit+extraDraw;
+    let extraDraw=0,poolCDraw=0;
+    if(gap>mandDraw){
+      const requestedExtra=gap-mandDraw;
+      const w=withdrawFromPools(requestedExtra,abp,acc);abp=w.abp;acc=w.acc;extraDraw=w.drawn;
+      const remaining=Math.max(0,requestedExtra-extraDraw);
+      if(poolCPolicy==="after-abp"&&remaining>0){poolCDraw=Math.min(remaining,poolC);poolC-=poolCDraw;}
+    }
+    const fundedGap=realExit+extraDraw+poolCDraw;
     const fundedTotalSpend=pensionSpent+fundedGap;
     const spendingShortfall=Math.max(0,targetSpend-fundedTotalSpend);
-    let oneOffDrawn=0;
-    if(oneOff>0){const ageEnd=oneOffAge+oneOffSpread-1;if(age>=oneOffAge&&age<=ageEnd){const slice=oneOff/oneOffSpread;const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;oneOffDrawn=w.drawn;}}
+    let oneOffDrawn=0,oneOffPoolCDrawn=0;
+    if(oneOff>0){const ageEnd=oneOffAge+oneOffSpread-1;if(age>=oneOffAge&&age<=ageEnd){const slice=oneOff/oneOffSpread;const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;oneOffDrawn=w.drawn;if(poolCPolicy==="after-abp"&&w.drawn<slice){oneOffPoolCDrawn=Math.min(slice-w.drawn,poolC);poolC-=oneOffPoolCDrawn;}}}
     // NCC wash (V5.0 Integrated Optimiser): Pool A commutes $130k out → BANK (creates room).
-    // Natural growth excess above Day 1 cap → Pool C (deposit only — Pool C never withdrawn from).
+    // Natural growth excess above Day 1 cap → Pool C. Routine withdrawals occur only when the explicit Pool C policy allows them.
     // $130k NCC: BANK → Pool B → ABP (refills the room). Net: Pool A locked at Day 1 cap ages 61-74;
     // only natural growth excess deposits to Pool C. BANK leg nets to zero and is not modelled.
     if(p.washAge&&age>=p.washAge&&age<=(p.washCapThrough??p.washAge)){
@@ -2195,7 +2243,7 @@ function runModel(opts){
       if(abp>aCap){poolC+=abp-aCap;abp=aCap;}
     }
     rows.push({
-      age,targetSpend,gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,oneOffDrawn,
+      age,targetSpend,gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,poolCDraw,oneOffDrawn,oneOffPoolCDrawn,
       abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,pension:p.netPension,pensionSpent,pensionSurplus,headroom,rA,rB,rC
     });
   }
@@ -2292,6 +2340,7 @@ function runHealth(scenarioKey,opts={}){
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=initialHeadroom(p,tbcAlloc);
   const abpR=opts.abpReturn??STATE.likely;const accR=abpR*0.85;const poolCR=Math.max(-1,abpR-STATE.poolCDrag);
+  const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
   const gapBands=opts.gapBands??STATE.gapBands;const gapGrowth=STATE.gapGrowth;
   const rows=[{age:startAge,abp,acc,poolC,total:abp+acc+poolC,launchSnapshot:true}];
   for(let age=startAge+1;age<=endAge;age++){
@@ -2302,11 +2351,11 @@ function runHealth(scenarioKey,opts={}){
     abp=preAbp*(1+abpR)-mandDraw;acc*=(1+accR);poolC*=(1+poolCR);
     const realExit=Math.min(gap,mandDraw);const surplus=Math.max(0,mandDraw-realExit);
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;}
-    if(gap>mandDraw){const w=withdrawFromPools(gap-mandDraw,abp,acc);abp=w.abp;acc=w.acc;}
+    if(gap>mandDraw){const amount=gap-mandDraw;const w=withdrawFromPools(amount,abp,acc);abp=w.abp;acc=w.acc;if(poolCPolicy==="after-abp"&&w.drawn<amount){const fromC=Math.min(amount-w.drawn,poolC);poolC-=fromC;}}
     const bump=sc.bumps.find(b=>b.age===age);
-    if(bump){const w=withdrawFromPools(bump.amount,abp,acc);abp=w.abp;acc=w.acc;}
+    if(bump){const w=withdrawFromPools(bump.amount,abp,acc);abp=w.abp;acc=w.acc;if(poolCPolicy==="after-abp"&&w.drawn<bump.amount){const fromC=Math.min(bump.amount-w.drawn,poolC);poolC-=fromC;}}
     // NCC wash (V5.0 Integrated Optimiser): Pool A commutes $130k out → BANK (creates room).
-    // Natural growth excess above Day 1 cap → Pool C (deposit only — Pool C never withdrawn from).
+    // Natural growth excess above Day 1 cap → Pool C; the selected spending policy controls later withdrawals.
     // $130k NCC: BANK → Pool B → ABP (refills the room). Net: Pool A locked at Day 1 cap ages 61-74;
     // only natural growth excess deposits to Pool C. BANK leg nets to zero and is not modelled.
     if(p.washAge&&age>=p.washAge&&age<=(p.washCapThrough??p.washAge)){
@@ -2323,6 +2372,7 @@ function runCPI(opts={}){
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   let abp=p.poolA_day1??tbcAlloc.poolA,acc=p.poolB_day1??tbcAlloc.poolB,poolC=p.poolC_day1??0,headroom=initialHeadroom(p,tbcAlloc);
   const baseR=STATE.likely;const drag=STATE.cpiDrag/100;const poolCDrag=STATE.poolCDrag;
+  const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
   const shockMag=STATE.cpi/100;const shockDur=STATE.cpiDur;const shockStart=Math.max(startAge+1,STATE.cpiAge);const shockEnd=shockStart+shockDur-1;
   const gapBands=opts.gapBands??STATE.gapBands;const gapGrowth=STATE.gapGrowth;
   let pensionReal=p.netPension;const rows=[{age:startAge,abp,acc,poolC,total:abp+acc+poolC,pensionReal:p.netPension,inShock:false,launchSnapshot:true}];
@@ -2339,9 +2389,9 @@ function runCPI(opts={}){
     abp=preAbp*(1+ageRetReal)-mandDraw;acc*=(1+ageRetReal*0.85);poolC*=(1+poolCR);
     const realExit=Math.min(gap,mandDraw);const surplus=Math.max(0,mandDraw-realExit);
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;}
-    if(gap>mandDraw){const w=withdrawFromPools(gap-mandDraw,abp,acc);abp=w.abp;acc=w.acc;}
+    if(gap>mandDraw){const amount=gap-mandDraw;const w=withdrawFromPools(amount,abp,acc);abp=w.abp;acc=w.acc;if(poolCPolicy==="after-abp"&&w.drawn<amount){const fromC=Math.min(amount-w.drawn,poolC);poolC-=fromC;}}
     // NCC wash (V5.0 Integrated Optimiser): Pool A commutes $130k out → BANK (creates room).
-    // Natural growth excess above Day 1 cap → Pool C (deposit only — Pool C never withdrawn from).
+    // Natural growth excess above Day 1 cap → Pool C; the selected spending policy controls later withdrawals.
     // $130k NCC: BANK → Pool B → ABP (refills the room). Net: Pool A locked at Day 1 cap ages 61-74;
     // only natural growth excess deposits to Pool C. BANK leg nets to zero and is not modelled.
     if(p.washAge&&age>=p.washAge&&age<=(p.washCapThrough??p.washAge)){
@@ -2454,17 +2504,21 @@ function makeChart(id,config){
   const ctx=document.getElementById(id);if(!ctx)return null;
   if(STATE.charts[id])STATE.charts[id].destroy();
   STATE.charts[id]=new Chart(ctx,config);
-  wireChartFocus(id,ctx);
+  wireChartFocus(id,ctx,config);
   return STATE.charts[id];
 }
 
-function wireChartFocus(id,canvas){
-  if(!canvas||canvas.dataset.focusWired)return;
-  canvas.dataset.focusWired="1";
+function wireChartFocus(id,canvas,config){
+  if(!canvas)return;
+  const heading=canvas.closest(".panel")?.querySelector("h2")?.textContent?.trim()||id;
+  const series=(config?.data?.datasets||[]).map(dataset=>dataset.label).filter(Boolean).slice(0,6).join(", ");
   canvas.setAttribute("role","button");
+  canvas.setAttribute("aria-roledescription","interactive chart");
   canvas.setAttribute("tabindex","0");
-  canvas.setAttribute("aria-label",`Open focused view for ${id}`);
+  canvas.setAttribute("aria-label",`${heading}. ${series?`Series: ${series}. `:""}Press Enter for an enlarged chart and numeric readout.`);
   canvas.title="Double-click or press Enter to open chart focus";
+  if(canvas.dataset.focusWired)return;
+  canvas.dataset.focusWired="1";
   canvas.addEventListener("dblclick",()=>openChartFocus(id));
   canvas.addEventListener("keydown",e=>{
     if(e.key==="Enter"||e.key===" "){e.preventDefault();openChartFocus(id);}
@@ -2551,7 +2605,7 @@ function renderExecutive(){
   const likely_cap=likely.rows[idx].total;
   const tsb=tbcAlloc.sv+(p.poolA_day1??tbcAlloc.poolA)+(p.poolB_day1??tbcAlloc.poolB);
   const operatingRows=likely.rows.filter(r=>!r.launchSnapshot);
-  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumD+=r.realExit+r.extraDraw;});
+  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumD+=r.realExit+r.extraDraw+(r.poolCDraw||0);});
   const avgIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
   const floorStatus=targetStatus(conserv_cap,p);const baseStatus=targetStatus(base_cap,p);const likelyStatus=targetStatus(likely_cap,p);
   const ncStatus=Number(p.washSourceGross??p.lumpSum??0)<=0
@@ -2569,7 +2623,7 @@ function renderExecutive(){
     <div class="card good"><div class="label">Active capital @${ta}</div><div class="value">${fmt$(likely_cap)}</div><div class="sub">${fmtPct(STATE.likely)} real [MODELLED] · ${likelyStatus.detail}.</div></div>
     <div class="card"><div class="label">Fixed comparison range @${ta}</div><div class="value">${fmt$(conserv_cap)} – ${fmt$(base_cap)}</div><div class="sub">Reference only: 4.0% conservative to 5.0% base. Active result is the green card.</div></div>
     <div class="card"><div class="label">Pool A / B / C start</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">${openingPoolNote(p)}</div></div>
-    <div class="card"><div class="label">Average usable income</div><div class="value">${fmt$(avgIncome)}/yr</div><div class="sub">PSS plus consumed Pool A draw, likely path to 95.</div></div>
+    <div class="card"><div class="label">Average usable income</div><div class="value">${fmt$(avgIncome)}/yr</div><div class="sub">PSS plus funded investment-pool spending, likely path to 95.</div></div>
   `;
   const c=getThemeColors();
   makeChart("exec_chart",{
@@ -2590,7 +2644,7 @@ function renderExecutive(){
   document.getElementById("exec_policy").innerHTML=[
     ["PSS election",isRailBProfile(p)?(PSS_PROJECTION_BASES[STATE.pssProjectionBasis].elections[p.pssElection]?.label||"Selected"):"Rail A control","Compare every source-backed election available in the selected provider basis; Pool C routing, TBC use and the pension-versus-capital trade-off update together."],
     ["TBC mechanics","Use $2.1M anchor","Today's-dollar modelling means future indexation is not double-counted; update only if real policy changes."],
-    ["Surplus rule","Externalise to Pool C","TSB held $5k below TBC (Day 1). NCC wash active from age 61 to clean DBT. Surplus Pool A draws continue to externalise into Pool C."],
+    ["Pool C spending policy",STATE.poolCPolicy==="after-abp"?"Use only after Pools A and B":"Preserve for estate / reserve",STATE.poolCPolicy==="after-abp"?"Routine gaps use PSS, compulsory draw and Pools A/B first. Pool C is tapped only for the remainder and every withdrawal is visible.":"Surpluses can accumulate in Pool C, but routine gaps never draw it automatically; any remaining gap is reported as a shortfall."],
     ["Spend rule",STATE.spendMode==="returnPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of positive annual investment earnings`:(STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of the mandatory ABP drawdown`:"Age bands ($ / % return / % draw)"),"Controls the annual lifestyle gap above the PSS pension."],
     ["Annual review","Update source inputs","Refresh PSS indexation, TBC, concessional caps, Hostplus balance, and actual spending bands."]
   ].map(([k,v,s])=>`<div class="decision-card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
@@ -2839,19 +2893,20 @@ function renderIncome(){
   const tc=getThemeColors();
   const operatingRows=sim.rows.filter(r=>!r.launchSnapshot);
   const operatingAges=operatingRows.map(r=>`${r.age-1}→${r.age}`);
-  let cumP=0,cumPSurplus=0,cumD=0,cumX=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumPSurplus+=r.pensionSurplus||0;cumD+=r.realExit;cumX+=r.extraDraw;});
-  const lifetimeTotal=cumP+cumD+cumX;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
-  const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pensionSpent??firstYear?.pension??0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0);
+  let cumP=0,cumPSurplus=0,cumD=0,cumX=0,cumC=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumPSurplus+=r.pensionSurplus||0;cumD+=r.realExit;cumX+=r.extraDraw;cumC+=r.poolCDraw||0;});
+  const lifetimeTotal=cumP+cumD+cumX+cumC;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
+  const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pensionSpent??firstYear?.pension??0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0)+(firstYear?.poolCDraw||0);
   document.getElementById("in_cards").innerHTML=`
     <div class="card accent"><div class="label">Avg total usable income</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
     <div class="card"><div class="label">PSS net pension (CPI-flat)</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight${cumPSurplus>0?` · excess above spend is saved`:``}</div></div>
-    <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS consumed ${fmt$(cumP)} + Pool A ${fmt$(cumD)}${cumX>0?` + Pool A extra ${fmt$(cumX)}`:``}${cumPSurplus>0?` · PSS surplus ${fmt$(cumPSurplus)} → Pool C`:``}</div></div>
+    <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS consumed ${fmt$(cumP)} + compulsory draw ${fmt$(cumD)}${cumX>0?` + Pool A/B extra ${fmt$(cumX)}`:``}${cumC>0?` + Pool C ${fmt$(cumC)}`:``}${cumPSurplus>0?` · PSS surplus ${fmt$(cumPSurplus)} → Pool C`:``}</div></div>
     <div class="card"><div class="label">Year 1 income (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">Includes PSSDB pension and investment draw · ${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
   makeChart("in_chart",{type:"bar",data:{labels:operatingAges,datasets:[
     {label:"PSS pension consumed",data:operatingRows.map(r=>r.pensionSpent??r.pension),backgroundColor:tc.pension,stack:"s"},
     {label:"Pool A draw consumed",data:operatingRows.map(r=>r.realExit),backgroundColor:tc.poolA,stack:"s"},
     {label:"Pool A extra draw (gap above mandatory)",data:operatingRows.map(r=>r.extraDraw),backgroundColor:tc.poolB,stack:"s"},
+    {label:"Pool C withdrawal (after A/B)",data:operatingRows.map(r=>r.poolCDraw||0),backgroundColor:tc.poolC,stack:"s"},
     {label:"Max without extra draw (PSS + mandatory draw)",data:operatingRows.map(r=>r.pension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
     {label:"Lifestyle band low ($95k)",data:operatingAges.map(()=>95000),type:"line",borderColor:tc.acc3,borderDash:[4,4],pointRadius:0,fill:false,stack:"_l"},
     {label:"Lifestyle band high ($105k)",data:operatingAges.map(()=>105000),type:"line",borderColor:tc.good,borderDash:[4,4],pointRadius:0,fill:false,stack:"_h"}
@@ -2861,43 +2916,44 @@ function renderIncome(){
   const cashflowPhases=cashflowSubPhases(phases,sim);
   let cumSpend=0;
   const sgn=v=>v<0?`<span style="color:var(--bad,#ff6b6b)">−${fmtFull(Math.abs(v))}</span>`:fmtFull(v);
-  const T={earn:0,mand:0,drawn:0,extra:0,surp:0,pssSurp:0,ret:0,targetGap:0,spend:0,shortfall:0,inc:0};
-  sim.rows.forEach(r=>{const sp=r.fundedGap??(r.realExit+r.extraDraw);const ps=r.pensionSpent??r.pension;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.surp+=r.surplus;T.pssSurp+=r.pensionSurplus||0;T.targetGap+=r.gap;T.spend+=sp;T.shortfall+=r.spendingShortfall||0;T.ret+=(r.investmentReturn-sp+(r.pensionSurplus||0));T.inc+=(ps+sp);});
+  const T={earn:0,mand:0,drawn:0,extra:0,poolCdraw:0,surp:0,pssSurp:0,ret:0,targetGap:0,spend:0,shortfall:0,inc:0};
+  sim.rows.forEach(r=>{const sp=r.fundedGap??(r.realExit+r.extraDraw+(r.poolCDraw||0));const ps=r.pensionSpent??r.pension;T.earn+=r.investmentReturn;T.mand+=r.mandDraw;T.drawn+=r.realExit;T.extra+=r.extraDraw;T.poolCdraw+=r.poolCDraw||0;T.surp+=r.surplus;T.pssSurp+=r.pensionSurplus||0;T.targetGap+=r.gap;T.spend+=sp;T.shortfall+=r.spendingShortfall||0;T.ret+=(r.investmentReturn-sp+(r.pensionSurplus||0));T.inc+=(ps+sp);});
   const rows=cashflowPhases.map(phase=>{
     const segs=sim.rows.filter(r=>!r.launchSnapshot&&r.age>=phase.start&&r.age<=phase.end);
     const n=segs.length||1;
     const avgDrawn=segs.reduce((s,r)=>s+r.realExit,0)/n;
     const avgExtra=segs.reduce((s,r)=>s+r.extraDraw,0)/n;
+    const avgPoolCDraw=segs.reduce((s,r)=>s+(r.poolCDraw||0),0)/n;
     const avgMand=segs.reduce((s,r)=>s+r.mandDraw,0)/n;
     const avgSurplus=segs.reduce((s,r)=>s+r.surplus,0)/n;
     const avgPssSurplus=segs.reduce((s,r)=>s+(r.pensionSurplus||0),0)/n;
     const avgPensionSpent=segs.reduce((s,r)=>s+(r.pensionSpent??r.pension),0)/n;
     const avgEarn=segs.reduce((s,r)=>s+r.investmentReturn,0)/n;
     const avgTargetGap=segs.reduce((s,r)=>s+r.gap,0)/n;
-    const avgSpend=avgDrawn+avgExtra;
+    const avgSpend=avgDrawn+avgExtra+avgPoolCDraw;
     const avgShortfall=segs.reduce((s,r)=>s+(r.spendingShortfall||0),0)/n;
     const avgRetained=avgEarn-avgSpend+avgPssSurplus;
-    const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw))+(r.pensionSurplus||0)),0);
+    const retainedPhase=segs.reduce((s,r)=>s+(r.investmentReturn-(r.fundedGap??(r.realExit+r.extraDraw+(r.poolCDraw||0)))+(r.pensionSurplus||0)),0);
     const targetFundedPct=safePercent(avgSpend,avgTargetGap,{cap:true});
     const mandatoryUsedPct=safePercent(avgDrawn,avgMand,{cap:true});
     const gapVsEarningsPct=safePercent(avgSpend,avgEarn);
     const totalAnnual=avgPensionSpent+avgSpend;
     const grossEquivalent=grossSalaryEquivalent(totalAnnual);
     cumSpend+=totalAnnual*segs.length;
-    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),phaseMetricCell(targetFundedPct,"funding"),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",phaseMetricCell(mandatoryUsedPct,"mandatory"),phaseMetricCell(gapVsEarningsPct,"earnings"),fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgSurplus),fmtFull(avgPssSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
+    return[phase.label,phase.input,fmtFull(avgTargetGap),fmtFull(avgSpend),phaseMetricCell(targetFundedPct,"funding"),avgShortfall>0?`<span style="color:var(--bad,#ff6b6b)">${fmtFull(avgShortfall)}</span>`:"—",phaseMetricCell(mandatoryUsedPct,"mandatory"),phaseMetricCell(gapVsEarningsPct,"earnings"),fmtFull(avgEarn),fmtFull(avgMand),fmtFull(avgDrawn),fmtFull(avgExtra),fmtFull(avgPoolCDraw),fmtFull(avgSurplus),fmtFull(avgPssSurplus),sgn(avgRetained),sgn(retainedPhase),fmtFull(totalAnnual),fmtFull(grossEquivalent),fmtPF(totalAnnual/26),fmtFull(cumSpend)];
   });
   const lifetimeAnnualIncome=T.inc/Math.max(1,operatingRows.length);
   const lifetimeTargetFunded=safePercent(T.spend,T.targetGap,{cap:true});
   const lifetimeMandatoryUsed=safePercent(T.drawn,T.mand,{cap:true});
   const lifetimeGapVsEarnings=safePercent(T.spend,T.earn);
   rows.push(["<b>LIFETIME 60–95</b>","<b>All active bands</b>",`<b>${fmtFull(T.targetGap/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${fmtFull(T.spend/Math.max(1,operatingRows.length))}/yr avg</b>`,`<b>${phaseMetricCell(lifetimeTargetFunded,"funding")}</b>`,T.shortfall>0?`<b>${fmtFull(T.shortfall)}</b>`:"—",`<b>${phaseMetricCell(lifetimeMandatoryUsed,"mandatory")}</b>`,`<b>${phaseMetricCell(lifetimeGapVsEarnings,"earnings")}</b>`,
-    `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.surp)}</b>`,`<b>${fmtFull(T.pssSurp)}</b>`,
+    `<b>${fmtFull(T.earn)}</b>`,`<b>${fmtFull(T.mand)}</b>`,`<b>${fmtFull(T.drawn)}</b>`,`<b>${fmtFull(T.extra)}</b>`,`<b>${fmtFull(T.poolCdraw)}</b>`,`<b>${fmtFull(T.surp)}</b>`,`<b>${fmtFull(T.pssSurp)}</b>`,
     `<b>${sgn(T.ret)}</b>`,`<b>${sgn(T.ret)}</b>`,`<b>${fmtFull(T.inc)}</b>`,`<b>${fmtFull(grossSalaryEquivalent(lifetimeAnnualIncome))}/yr avg</b>`,"—",`<b>${fmtFull(T.inc)}</b>`]);
   makeChart("in_chart2",{type:"line",data:{labels:operatingAges,datasets:[
     {label:"Investment earnings (Pool A + Pool C)",data:operatingRows.map(r=>r.investmentReturn),borderColor:tc.good,backgroundColor:(tc.good||"#2fd492")+"22",fill:"origin",tension:.2,borderWidth:2},
-    {label:"Funded lifestyle gap",data:operatingRows.map(r=>r.fundedGap??(r.realExit+r.extraDraw)),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
+    {label:"Funded lifestyle gap",data:operatingRows.map(r=>r.fundedGap??(r.realExit+r.extraDraw+(r.poolCDraw||0))),borderColor:tc.warn,fill:false,tension:.2,borderWidth:3},
     {label:"Target lifestyle gap",data:operatingRows.map(r=>r.gap),borderColor:tc.acc3,borderDash:[4,4],fill:false,tension:.2,borderWidth:2},
-    {label:"Retained cashflow (earnings + PSS surplus − portfolio spend)",data:operatingRows.map(r=>r.investmentReturn+(r.pensionSurplus||0)-(r.fundedGap??(r.realExit+r.extraDraw))),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
+    {label:"Retained cashflow (earnings + PSS surplus − portfolio spend)",data:operatingRows.map(r=>r.investmentReturn+(r.pensionSurplus||0)-(r.fundedGap??(r.realExit+r.extraDraw+(r.poolCDraw||0)))),borderColor:tc.acc,borderDash:[5,3],fill:false,tension:.2,borderWidth:2},
     {label:"Zero line",data:operatingAges.map(()=>0),borderColor:tc.soft,borderDash:[2,3],pointRadius:0,fill:false,borderWidth:1,order:99}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
@@ -2910,6 +2966,7 @@ function renderIncome(){
     `<span class="status-pill">${isRailBProfile(p)?`${election?.label||STATE.pssElection} PSS pension / lump option`:"Rail A historical benchmark"}</span>`,
     basis?`<span class="status-pill">CSC basis ${basis.shortLabel}</span>`:"",
     `<span class="status-pill">${fmtPctClean(STATE.likely)} real return after retirement</span>`,
+    `<span class="status-pill">Pool C: ${STATE.poolCPolicy==="after-abp"?"used after A/B":"preserved"}</span>`,
     `<span class="status-pill ${T.shortfall>0?"bad":"good"}">${T.shortfall>0?`${fmtFull(T.shortfall)} lifetime gap shortfall`:"Every planned gap funded"}</span>`
   ].join("");
   const phaseGuide=document.getElementById("in_phase_guide");
@@ -2917,15 +2974,21 @@ function renderIncome(){
     const fundingText=lifetimeTargetFunded===null
       ? "This selection does not require an investment-funded gap."
       : T.shortfall>0
-        ? `<b>Plain-English result:</b> the investments fund ${lifetimeTargetFunded.toFixed(1)}% of your planned gap across retirement. Pool A can no longer meet the full gap from age ${firstShortfall?.age??"the first shortfall year"}; your PSS pension continues, but the unfunded gap is not silently counted as spending.`
-        : `<b>Plain-English result:</b> the investments fund 100% of every planned gap in this schedule.`;
+        ? `<b>Plain-English result:</b> the investments fund ${lifetimeTargetFunded.toFixed(1)}% of your planned gap across retirement. Pools A and B can no longer meet the full gap from age ${firstShortfall?.age??"the first shortfall year"}; your PSS pension continues, but the unfunded gap is not silently counted as spending.`
+        : `<b>Plain-English result:</b> the investments fund 100% of every planned gap in this schedule.${T.poolCdraw>0?` Pool C supplies ${fmtFull(T.poolCdraw)} only after Pools A and B are exhausted.`:""}`;
     phaseGuide.innerHTML=`${fundingText}<br><b>How to read the percentages:</b> “Target funded” shows how much of your planned gap was actually delivered. “Mandatory used” shows how much of the compulsory ABP payment you spent. “Gap ÷ earnings” tests whether the funded gap stayed within portfolio growth; above 100% means some capital was consumed. N/A means there was no amount to compare.`;
   }
-  renderTable("in_tbl",rows,["Cashflow sub-phase","Band input","Avg planned gap","Avg funded gap","Target funded","Avg shortfall","Mandatory used","Gap ÷ portfolio earnings","Avg portfolio earnings","Avg compulsory ABP payment","Spent from compulsory payment","Extra Pool A withdrawal","Unspent compulsory payment → C","PSS excess → C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"]);
+  const allHeaders=["Cashflow sub-phase","Band input","Avg planned gap","Avg funded gap","Target funded","Avg shortfall","Mandatory used","Gap ÷ portfolio earnings","Avg portfolio earnings","Avg compulsory ABP payment","Spent from compulsory payment","Extra Pool A/B withdrawal","Pool C withdrawal","Unspent compulsory payment → C","PSS excess → C","Retained /yr","Retained (phase)","Net usable /yr","Gross salary equiv. /yr","Net usable /pf","Cumulative"];
+  const essentialColumns=[0,1,2,3,4,5,6,11,12,17,18,19];
+  const activeColumns=STATE.incomeTableMode==="full"?allHeaders.map((_,index)=>index):essentialColumns;
+  document.querySelectorAll("[data-income-table-mode]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.incomeTableMode===STATE.incomeTableMode)));
+  const tableViewNote=document.getElementById("income-table-view-note");
+  if(tableViewNote)tableViewNote.textContent=STATE.incomeTableMode==="full"?"Full accounting view: all source, recycling, retained-cashflow and cumulative columns are shown.":"Essential view: the spending decision, funding result, Pool A/B and Pool C sources, and net/gross equivalents are shown. Choose Full detail for the complete reconciliation.";
+  renderTable("in_tbl",rows.map(row=>activeColumns.map(index=>row[index])),activeColumns.map(index=>allHeaders[index]));
   const inTblNote=document.getElementById("in_tbl");
-  if(inTblNote&&!document.getElementById("in_tbl_note")){const nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";
-    nz.innerHTML=`Exact dollars (no $k rounding). “Planned gap” is the amount above your PSS pension requested by the active age band; “funded gap” is what Pool A can actually supply. Each row stays within one band and one funding result, so a full gap and a shortfall are never averaged together. Pool C is never automatically drawn. An imported Command Centre target is total net spending; V23 derives the portfolio gap, or sends pension above that target to Pool C. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Your provider calculates the legal ABP minimum by financial year, including first-year pro-rating.`;
-    inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
+  if(inTblNote){let nz=document.getElementById("in_tbl_note");if(!nz){nz=document.createElement("div");nz.id="in_tbl_note";nz.className="muted smaller";nz.style.marginTop="8px";inTblNote.parentNode.insertBefore(nz,inTblNote.nextSibling);}
+    const policyCopy=STATE.poolCPolicy==="after-abp"?"Pool C is used only after Pools A and B cannot meet the remaining gap; every such withdrawal is shown in its own column and reduces Pool C.":"Pool C is preserved: if Pools A and B cannot meet the requested gap, the unfunded amount is shown as a shortfall rather than counted as spending.";
+    nz.innerHTML=`Exact dollars (no $k rounding). “Planned gap” is the amount above your PSS pension requested by the active age band; “funded gap” is what the selected funding policy actually supplies. Each row stays within one band and one funding result, so a full gap and a shortfall are never averaged together. ${policyCopy} An imported Command Centre target is total net spending; V23 derives the portfolio gap, or sends pension above that target to Pool C. “Gross salary equivalent” is the ${SALARY_EQUIVALENT_TAX_YEAR} resident salary (including 2% Medicare) that produces the same annual net income; it is a comparison only, not taxable retirement income. Age 60 is the opening snapshot; the LIFETIME total covers ${operatingRows.length} annual planning periods. Your provider calculates the legal ABP minimum by financial year, including first-year pro-rating.`;}
 }
 
 /* ========== REINVEST ========== */
@@ -2933,33 +2996,43 @@ function renderReinvest(){
   const p=getProfile();const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const tc=getThemeColors();const ages=sim.rows.map(r=>r.age);
   const totalRecycled=sim.rows.reduce((sum,r)=>sum+Math.max(0,r.toABP||0)+Math.max(0,r.toPoolC||0),0);
+  const totalPoolCUsed=sim.rows.reduce((sum,r)=>sum+(r.poolCDraw||0)+(r.oneOffPoolCDrawn||0),0);
   const empty=document.getElementById("ri-empty");
   if(empty){
-    empty.hidden=totalRecycled>.005;
-    empty.innerHTML=totalRecycled>.005?"":`<b>No surplus is recycled in this scenario.</b> The chart is intentionally zero: the active spending rule uses every compulsory Pool A payment and there is no PSS pension above an imported total-spend target. Pool C can still grow from investment returns; see the reconciliation table below.`;
+    empty.hidden=totalRecycled>.005||totalPoolCUsed>.005;
+    empty.innerHTML=empty.hidden?"":`<b>No Pool C recycling or withdrawal occurs in this scenario.</b> The chart is intentionally zero: the active spending rule uses every compulsory Pool A payment, no PSS pension sits above the spending target, and the selected policy does not need Pool C. Pool C can still grow from investment returns; see the reconciliation table below.`;
   }
   makeChart("ri_chart",{type:"bar",data:{labels:ages,datasets:[
     {label:"Surplus → Pool A (TBC headroom)",data:sim.rows.map(r=>r.toABP),backgroundColor:tc.poolA,stack:"s"},
     {label:"Mandatory-draw surplus → Pool C",data:sim.rows.map(r=>Math.max(0,r.toPoolC-(r.pensionToPoolC||0))),backgroundColor:tc.poolC,stack:"s"},
-    {label:"PSS pension surplus → Pool C",data:sim.rows.map(r=>r.pensionToPoolC||0),backgroundColor:tc.good,stack:"s"}
+    {label:"PSS pension surplus → Pool C",data:sim.rows.map(r=>r.pensionToPoolC||0),backgroundColor:tc.good,stack:"s"},
+    {label:"Pool C used for spending",data:sim.rows.map(r=>-((r.poolCDraw||0)+(r.oneOffPoolCDrawn||0))),backgroundColor:tc.warn,stack:"s"}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{stacked:true,ticks:{callback:moneyTick}},x:{stacked:true}}}});
   // Show every year 60-90 with a Pool C return column so the balance reconciles row-by-row.
-  // Pool C balance[yr] = Pool C balance[yr-1] + Pool C return[yr] + surplus routed this yr
-  const display=sim.rows.filter(r=>r.age<=90);
-  const rows=display.map((r,i)=>{
-    const prevPoolC=i===0?(p.poolC_day1??0):display[i-1].poolC;
+  // Pool C balance[yr] = prior balance + return + deposits - explicit withdrawals.
+  const allDisplay=sim.rows.filter(r=>r.age<=90);
+  const keyAges=new Set([p.retireAge,p.retireAge+1,65,70,75,80,85,90]);
+  const display=STATE.reinvestTableMode==="all"?allDisplay:allDisplay.filter(r=>keyAges.has(r.age)||(r.toPoolC||0)>.005||(r.toABP||0)>.005||(r.poolCDraw||0)>.005||(r.oneOffPoolCDrawn||0)>.005);
+  document.querySelectorAll("[data-reinvest-table-mode]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.reinvestTableMode===STATE.reinvestTableMode)));
+  const reinvestViewNote=document.getElementById("reinvest-table-view-note");
+  if(reinvestViewNote)reinvestViewNote.textContent=STATE.reinvestTableMode==="all"?"Every annual planning row from retirement to age 90 is shown.":"Key view includes the main age checkpoints and every year with a Pool C deposit or withdrawal; no activity is hidden.";
+  const rows=display.map(r=>{
+    const simIndex=sim.rows.findIndex(candidate=>candidate===r);
+    const prevPoolC=simIndex===0?(p.poolC_day1??0):sim.rows[simIndex-1].poolC;
     const poolCReturn=prevPoolC*r.rC;
-    return[r.age,fmt$(r.mandDraw),fmt$(r.realExit),fmt$(r.surplus),fmt$(r.pensionToPoolC||0),fmt$(r.toPoolC),fmt$(poolCReturn),fmt$(r.poolC)];
+    const poolCUsed=(r.poolCDraw||0)+(r.oneOffPoolCDrawn||0);
+    return[r.age,fmt$(r.mandDraw),fmt$(r.realExit),fmt$(r.surplus),fmt$(r.pensionToPoolC||0),fmt$(r.toPoolC),fmt$(poolCUsed),fmt$(poolCReturn),fmt$(r.poolC)];
   });
-  renderTable("ri_tbl",rows,["Age","Mandatory draw","Spent from mand. draw","Mandatory surplus","PSS surplus","Total → Pool C","Pool C return","Pool C balance"]);
+  renderTable("ri_tbl",rows,["Age","Mandatory draw","Spent from mand. draw","Mandatory surplus","PSS surplus","Total → Pool C","Pool C withdrawal","Pool C return","Pool C balance"]);
   const tbl=document.getElementById("ri_tbl");
   if(tbl&&!document.getElementById("ri_note")){
     const note=document.createElement("p");
     note.id="ri_note";note.className="muted smaller";note.style.marginTop="8px";
-    note.textContent=`Each row reconciles: Pool C balance = prior balance + Pool C return + mandatory-draw surplus + any PSS pension above the total spending target. Pool C return = prior balance × (likely return − drag). ${openingPoolNote(p)} NCC wash controls start at age ${p.washAge??61}.`;
     tbl.parentNode.insertBefore(note,tbl.nextSibling);
   }
+  const note=document.getElementById("ri_note");
+  if(note)note.textContent=`Each row reconciles: Pool C balance = prior balance + Pool C return + deposits − explicit Pool C withdrawals. ${STATE.poolCPolicy==="after-abp"?"Pool C may fund a remaining lifestyle gap only after Pools A and B are exhausted.":"Pool C is preserved for routine spending; any unfunded lifestyle gap remains visible as a shortfall."} Pool C return = prior balance × (likely return − drag). ${openingPoolNote(p)} NCC wash controls start at age ${p.washAge??61}.`;
 }
 
 /* ========== ONE-OFF ========== */
@@ -3780,6 +3853,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.7","Sep 2026","Added an explicit Pool C spending policy (preserve, or use only after Pools A and B), with ledger-level withdrawals, shortfall protection, reinvestment reconciliation and CSV/state persistence. Profile and plan controls now collapse to live summaries; the lifestyle table defaults to an essential view with full accounting available on demand; chart keyboard labels describe the visible series."],
     ["v23.6","Sep 2026","Replaced the easily misread funded-gap-versus-minimum ratios in the lifestyle table with Target funded, Mandatory used and Gap ÷ portfolio earnings. Added plain-English funding conclusions and repeated the active PSS option, CSC provider basis and post-retirement real return beside the results."],
     ["v23.4","Sep 2026","Activated the direct 6% fund / 5% salary / 3% CPI CSC estimates for 60/40, 65/35 and 70/30, including the separate $162,380.20 FAS and source-specific tax components. The unavailable 100% option remains gated; shared-state schema advanced to v7."],
     ["v23.3","Sep 2026","Added a governed PSS projection-basis layer across V23, shared links, local persistence, audit and AI context. The current 8.2% / 5% / 2.5% source set remains active; the 6% / 5% / 3% sensitivity is visible but source-gated so pension, lump and tax components can never be inferred or mixed silently."],
@@ -3958,7 +4032,7 @@ function captureScenarioState(){
   return {
     profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,
     gapBands:STATE.gapBands.map(b=>({...b})),gapGrowth:STATE.gapGrowth,
-    spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,
+    spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
     cpi:STATE.cpi,cpiDur:STATE.cpiDur,cpiAge:STATE.cpiAge,cpiDrag:STATE.cpiDrag,theme:STATE.theme
   };
@@ -3967,7 +4041,10 @@ function applyScenarioState(s){
   if(!s)return;
   STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
   if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
-  ["profile","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
+  ["profile","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","poolCPolicy","incomeTableMode","reinvestTableMode","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
+  STATE.poolCPolicy=STATE.poolCPolicy==="after-abp"?"after-abp":"preserve";
+  STATE.incomeTableMode=STATE.incomeTableMode==="full"?"full":"essential";
+  STATE.reinvestTableMode=STATE.reinvestTableMode==="all"?"all":"key";
   if(Array.isArray(s.gapBands)&&s.gapBands.length){
     const clean=normaliseGapBands(s.gapBands);STATE.gapBands=clean.bands;
     if(clean.duplicateAges.length)alert(`Duplicate start age${clean.duplicateAges.length>1?"s":""} ${clean.duplicateAges.join(", ")} removed from the imported plan; the later value was kept.`);
@@ -3986,7 +4063,7 @@ function renameSlot(slot,name){
 }
 function scenarioStateResult(s){
   const p=s?.pssElection&&PSS_ELECTIONS[s.pssElection]?railBProfileForElection(s.pssElection,normaliseProjectionBasis(s.pssProjectionBasis||STATE.pssProjectionBasis)):(PROFILES[s?.profile||STATE.profile]||getProfile());
-  const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,totalSpendTarget:s?.totalSpendTarget??null,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag});
+  const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,poolCPolicy:s?.poolCPolicy??STATE.poolCPolicy,totalSpendTarget:s?.totalSpendTarget??null,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag});
   const idx=Math.max(0,Math.min(sim.rows.length-1,(s?.targetAge??STATE.targetAge)-p.retireAge));
   return {profile:p,sim,row:sim.rows[idx]};
 }
@@ -4151,6 +4228,21 @@ function initialPageFromQuery(){
   return document.getElementById(id)?id:"page-executive";
 }
 let currentPage=initialPageFromQuery();
+function setProfileControlsExpanded(expanded){
+  const body=document.getElementById("profile-controls-body");
+  const bar=document.getElementById("profile-controls");
+  const toggle=document.getElementById("profile-controls-toggle");
+  if(!body||!bar||!toggle)return;
+  const open=Boolean(expanded);
+  body.hidden=!open;bar.classList.toggle("collapsed",!open);toggle.setAttribute("aria-expanded",String(open));
+  const label=document.getElementById("profile-controls-toggle-label");
+  if(label)label.textContent=open?"Hide profile & PSS":"Edit profile & PSS";
+}
+function wireProfileControls(){
+  const toggle=document.getElementById("profile-controls-toggle");
+  if(toggle)toggle.addEventListener("click",()=>setProfileControlsExpanded(toggle.getAttribute("aria-expanded")!=="true"));
+  setProfileControlsExpanded(false);
+}
 function setPlanControlsExpanded(expanded,{scroll=false}={}){
   const body=document.getElementById("plan-controls-body");
   const bar=document.getElementById("plan-controls");
@@ -4226,6 +4318,11 @@ function updateLabels(){
   set("lbl-spendreturn",fmtPctClean(STATE.spendReturnPct,0));
   set("lbl-oo","$"+(STATE.oneOff/1000).toFixed(0)+"k");
   set("lbl-poolcdrag",fmtPctClean(STATE.poolCDrag,2));
+  set("lbl-poolcpolicy",STATE.poolCPolicy==="after-abp"?"Use after A/B":"Preserve");
+  const poolCPolicyNote=document.getElementById("poolc-policy-note");
+  if(poolCPolicyNote)poolCPolicyNote.innerHTML=STATE.poolCPolicy==="after-abp"
+    ? `<b>Use after A/B:</b> if the PSS pension plus Pools A and B cannot fund the active target, V23 draws the remaining gap from external Pool C. This improves spending coverage but reduces liquid estate capital.`
+    : `<b>Preserve Pool C:</b> V23 does not sell external Pool C to fund routine lifestyle gaps. Any gap left after Pools A and B is shown honestly as a shortfall.`;
   const importedSpend=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined;
   const planRuleLabel=importedSpend
     ? "Imported annual spend target"
@@ -4242,7 +4339,7 @@ function updateLabels(){
     : STATE.spendMode==="fixed"?"Age bands active":"Override active · age bands saved, not used";
   set("plan-control-rule-label",planRuleLabel);
   set("lbl-gap-summary",planRuleSummary);
-  set("plan-control-context",`${planRuleContext} · ${fmtPctClean(STATE.likely)} real return · target age ${STATE.targetAge}`);
+  set("plan-control-context",`${planRuleContext} · ${fmtPctClean(STATE.likely)} real return · target age ${STATE.targetAge} · Pool C ${STATE.poolCPolicy==="after-abp"?"after A/B":"preserved"}`);
   set("lbl-cpi",STATE.cpi+"%");
   set("lbl-cpidur",STATE.cpiDur+" yrs");
   set("lbl-cpiage","age "+STATE.cpiAge);
@@ -4326,6 +4423,7 @@ function applyStateToInputs(){
   set("sl_targetage",STATE.targetAge);
   set("sl_gapgrowth",Number((STATE.gapGrowth*100).toFixed(1)));
   set("sel_spendmode",STATE.spendMode);
+  set("sel_poolcpolicy",STATE.poolCPolicy);
   set("sl_spendreturn",Math.round(STATE.spendReturnPct*100));
   set("sl_oo",STATE.oneOff);
   set("sl_poolcdrag",Number((STATE.poolCDrag*100).toFixed(2)));
@@ -4434,6 +4532,8 @@ function wireSliders(){
   bind("sl_cpidrag",v=>STATE.cpiDrag=parseFloat(v));
   const spendMode=document.getElementById("sel_spendmode");
   if(spendMode)spendMode.addEventListener("change",()=>{STATE.spendMode=spendMode.value;STATE.totalSpendTarget=null;updateLabels();renderBandRows();rerenderAll();saveState();});
+  const poolCPolicy=document.getElementById("sel_poolcpolicy");
+  if(poolCPolicy)poolCPolicy.addEventListener("change",()=>{STATE.poolCPolicy=poolCPolicy.value==="after-abp"?"after-abp":"preserve";updateLabels();rerenderAll();saveState();});
   // Scenario comp sliders
   ["sc_sl_ret","sc_sl_gap","sc_sl_vol"].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
@@ -4444,6 +4544,19 @@ function wireSliders(){
     const el=document.getElementById(id);if(!el)return;
     el.addEventListener("input",()=>{updateLabels();if(currentPage==="page-poolcetf")renderPoolCETF();});
   });
+}
+
+function wireIncomeTableMode(){
+  document.querySelectorAll("[data-income-table-mode]").forEach(button=>button.addEventListener("click",()=>{
+    STATE.incomeTableMode=button.dataset.incomeTableMode==="full"?"full":"essential";
+    renderIncome();saveState();
+  }));
+}
+function wireReinvestTableMode(){
+  document.querySelectorAll("[data-reinvest-table-mode]").forEach(button=>button.addEventListener("click",()=>{
+    STATE.reinvestTableMode=button.dataset.reinvestTableMode==="all"?"all":"key";
+    renderReinvest();saveState();
+  }));
 }
 
 /* ========== NAV ========== */
@@ -4498,6 +4611,7 @@ function wireProfile(){
       btn.classList.add("active");
       const cf=document.getElementById("customForm");
       if(cf)cf.classList.toggle("show",STATE.profile==="custom");
+      if(STATE.profile==="custom")setProfileControlsExpanded(true);
       updateLabels();rerenderAll();saveState();
     });
   });
@@ -4550,11 +4664,11 @@ function wireTheme(){
 function exportCSV(){
   const p=getProfile();
   const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,gapBands:STATE.gapBands});
-  const cols=["age","total","poolA","poolB","poolC","investmentReturn","mandDraw","realExit","extraDraw","surplus","pensionSurplus","toPoolC","gap","targetSpend","pension","pensionSpent"];
-  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A Extra Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income"].join(",");
+  const cols=["age","total","poolA","poolB","poolC","investmentReturn","mandDraw","realExit","extraDraw","poolCDraw","surplus","pensionSurplus","toPoolC","gap","targetSpend","pension","pensionSpent"];
+  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A or B Extra Draw","Pool C Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income"].join(",");
   const rows=sim.rows.map(r=>{
     const base=cols.map(c=>Math.round(r[c]||0));
-    const spend=(r.realExit||0)+(r.extraDraw||0);
+    const spend=(r.realExit||0)+(r.extraDraw||0)+(r.poolCDraw||0);
     base.push(Math.round((r.pensionSpent??r.pension??0)+spend),Math.round((r.investmentReturn||0)+(r.pensionSurplus||0)-spend),Math.round((r.pensionSpent??r.pension??0)+spend));
     return base.join(",");
   });
@@ -4576,7 +4690,7 @@ function saveState(){
     profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,
     likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,simulationSeed:STATE.simulationSeed,liquidityMonths:STATE.liquidityMonths,
     gapBands:STATE.gapBands,gapGrowth:STATE.gapGrowth,
-    spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,
+    spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
     cpi:STATE.cpi,cpiDur:STATE.cpiDur,cpiAge:STATE.cpiAge,cpiDrag:STATE.cpiDrag,
     theme:STATE.theme,slotNames:STATE.slotNames,notes:STATE.notes,wash:STATE.wash
@@ -4601,6 +4715,7 @@ function loadState(){
     ap("gapBands",Array.isArray(s.gapBands)&&s.gapBands.length?s.gapBands:undefined);
     ap("gapGrowth",s.gapGrowth);ap("oneOff",s.oneOff);ap("poolCDrag",s.poolCDrag);
     ap("spendMode",s.spendMode);ap("spendReturnPct",s.spendReturnPct);
+    ap("poolCPolicy",s.poolCPolicy==="after-abp"?"after-abp":"preserve");ap("incomeTableMode",s.incomeTableMode==="full"?"full":"essential");ap("reinvestTableMode",s.reinvestTableMode==="all"?"all":"key");
     ap("cpi",s.cpi);ap("cpiDur",s.cpiDur);ap("cpiAge",s.cpiAge);ap("cpiDrag",s.cpiDrag);
     ap("theme",s.theme);if(s.wash)STATE.wash={...STATE.wash,...s.wash,schedule:{...(s.wash.schedule||{})}};if(s.slotNames)STATE.slotNames=s.slotNames;if(s.notes)STATE.notes=s.notes;
   }catch(e){}
@@ -4612,8 +4727,11 @@ function init(){
   applyStateToInputs();
   applyChartTheme();
   wireNav();
+  wireProfileControls();
   wirePlanControls();
   wireSliders();
+  wireIncomeTableMode();
+  wireReinvestTableMode();
   const mcSeed=document.getElementById("btn-mc-new-seed");
   if(mcSeed)mcSeed.addEventListener("click",()=>{STATE.simulationSeed=STATE.simulationSeed>=2147000000?20260814:STATE.simulationSeed+1;rerenderAll();saveState();});
   wireProfile();
@@ -4660,7 +4778,7 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Wash strategy line","A planning status only: the engine uses a birthday-model proxy. A real wash requires the verified prior-30-June TSB, current cap, legal timing and provider/ATO eligibility confirmation."],
 ["TBC planning anchor","The $2.1M transfer balance cap used for Day-1 allocation (real dollars)."],
 ["Pool A / B / C start","Day-1 opening balances after the cap-kiss allocation."],
-["Average usable income","PSS net pension plus the consumed part of Pool A draws, averaged over the likely path to 95. Surplus that is recycled to Pool C is excluded — it is savings, not spending."],
+["Average usable income","PSS net pension plus the investment-pool amounts actually used for spending, averaged over the likely path to 95. Recycled surplus is excluded; a Pool C withdrawal is included only when the explicit use-after-A/B policy is active."],
 ["Presentation answer","One-sentence verdict suitable for reading out: does the plan clear the bands, and with how much margin."],
 ["Executive scenario table","Conservative 4%, reference 5%, and active-return rows with capital, margins and status at the target age."],
 ["Active capital @target / reference range","The active card follows the selected likely-return control. The separate 4–5% range is a labelled comparison reference."],
@@ -4694,7 +4812,7 @@ pre60:{t:"Pre-60 tracker",w:"Contribution phases from now to December 2033 and t
 ["Annual real return assumption","The pre-60 growth rate used for the Hostplus projection (real, after fees)."],
 ["Projected Hostplus @60","Quarterly compounding from your entered balance and start age. The loop previously ran 31 quarters across a 30-quarter window — one extra quarter of growth AND contribution, overstating the balance by ~$12,569. Fixed. NOTE: this page is a tracker only; the retirement model uses the LOCKED $317,448 Hostplus figure and is unaffected either way."],
 ["Reconciliation gap","With the default inputs ($24,522 @52.5, 6.5%, $650pf then +$550pf) this page projects ~$293k, against the locked master figure of $317,448. The difference is real and expected: the master figure includes assumptions this page does not model (e.g. the Apr-2027 salary-increment boost to $900pf). Do not treat the two as contradicting each other."]]},
-twopool:{t:"Three-pool structure",w:"Mechanics and balances of Pool A (ABP, 0% earnings tax), Pool B (accumulation transit, opens $0) and Pool C (external ETF, deposit-only).",h:["Pool C is one-way by design — the engine never models withdrawals from it.","Use the donuts to see composition shift from super-dominated to Pool-C-heavy across retirement."],f:[
+twopool:{t:"Three-pool structure",w:"Mechanics and balances of Pool A (ABP, 0% earnings tax), Pool B (accumulation transit, normally opens $0) and Pool C (external ETF).",h:["The default preserves Pool C; the alternative policy uses it only after Pools A and B cannot fund the remaining spending gap.","Use the donuts to see composition shift from super-dominated to Pool-C-heavy across retirement."],f:[
 ["Pool A @60","Tax-free account-based pension opening balance — the compounding engine, sized to kiss the cap."],
 ["Pool B @60","$0 — transit vehicle only; anything landing here moves out on Day 1 (and later hosts wash re-contributions until each cycle commutes)."],
 ["Pool C @60","External ETF portfolio opening balance (Pool B Day-1 withdrawal + one-off seed)."],
@@ -4710,17 +4828,17 @@ income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor p
 ["Avg total usable income","Mean of pension + consumed draws across the horizon (real)."],
 ["PSS net pension (CPI-flat)","The floor: constant in real terms because CPI indexation exactly offsets inflation."],
 ["Lifetime usable to 95","Cumulative real income available across the whole horizon."],
-["Income composition chart","Stacked bands: PSS pension + Pool A consumed draw + Pool A extra draw. The extra band appears only when the gap exceeds the mandatory minimum (large bands, or override ≳58% at Day-1 values)."],
-["Target funded","The share of your planned lifestyle gap that Pool A actually supplies in that phase. 100% = fully funded; 12% = only 12 cents of each planned gap dollar is delivered; 0% = the PSS pension continues but none of the additional gap is funded."],
+["Income composition chart","Stacked bands: PSS pension + compulsory draw consumed + extra Pool A/B draw + any explicit Pool C support. Each source appears only when the active gap and funding policy require it."],
+["Target funded","The share of your planned lifestyle gap that the active funding policy actually supplies in that phase. 100% = fully funded; 12% = only 12 cents of each planned gap dollar is delivered; 0% = the PSS pension continues but none of the additional gap is funded."],
 ["Mandatory used","The share of the compulsory ABP payment that you actually spend. It is capped at 100%; any spending above the compulsory payment appears separately as Extra Pool A withdrawal. N/A means there was no compulsory payment to compare."],
 ["Gap ÷ portfolio earnings","The funded lifestyle gap divided by investment earnings from Pool A + Pool C. At or below 100% means the gap fits inside current portfolio growth; above 100% means the plan also consumes capital. This is a comparison, not a spending control."],
 ["Avg portfolio earnings","Average annual investment return generated by Pool A + Pool C in that phase, before spending. Pool C remains a growth and estate pool unless you deliberately change that policy."],
 ["Avg compulsory ABP payment","Average minimum payment calculated from the Pool A balance and the applicable statutory age rate. It can become very small after Pool A has been heavily drawn down. Your provider determines the legal financial-year amount, including first-year pro-rating."],
-["Avg planned gap / funded gap / shortfall","Planned gap is the amount requested above the PSS pension by your age band. Funded gap is what Pool A can actually deliver. Shortfall is the difference; it is never silently counted as income or spending."],
+["Avg planned gap / funded gap / shortfall","Planned gap is the amount requested above the PSS pension by your age band. Funded gap is what the active PSS, Pool A/B and Pool C policy actually delivers. Shortfall is the difference; it is never silently counted as income or spending."],
 ["Band input","The exact age-band setting that created this lifestyle phase. Editing or adding a 'From age' band creates one matching row; it is never averaged into a preset calendar bucket."],
 ["Avg lifestyle gap","The average annual amount actually spent above the PSS pension in that one band: amount spent from the mandatory draw plus any voluntary Pool A draw."],
 ["Avg spent from mandatory","The portion of the lifestyle gap funded from the compulsory ABP minimum draw."],
-["Avg voluntary Pool A draw","The portion of the lifestyle gap that exceeds the compulsory ABP minimum. It is structurally $0 in 'Override: % of mandatory drawdown' mode, and can arise with large dollar bands, % return bands, or '% of earnings' override above ~58%. Pool B holds $0 and Pool C is never withdrawn."],
+["Avg voluntary Pool A/B draw","The portion of the lifestyle gap that exceeds the compulsory ABP minimum and is funded from Pools A or B. It is structurally $0 in 'Override: % of mandatory drawdown' mode. Pool C support, when selected and needed, is shown separately."],
 ["Gross salary equivalent","A comparison only: the 2026–27 resident salary, including the 2% Medicare levy, that would leave the same annual net usable income. It does not make post-60 pension or super draws taxable."],
 ["Max without extra draw (amber line)","Chart ceiling = PSS pension + the mandatory ABP draw for that year. Spending at or below it consumes only money the ABP is legally forced to pay out. Any orange stacked ABOVE the amber line is capital you chose to withdraw early."],
 ["Avg surplus→C","Average unconsumed mandatory draw recycled out of the ABP — the first $5,000 refills Pool A headroom, essentially everything after routes to Pool C."],
@@ -4744,12 +4862,12 @@ guardrails:{t:"Guardrail spending",w:"Spending-band editor with pre-agreed raise
 ["Normal gap @target","What your live spend rule produces at the target age, before any guardrail adjustment."],
 ["Guardrail gap @target","The same gap after the zone multiplier (70% / 90% / 100% / 120% / 135%). Advisory only — it does not feed back into the projection."],
 ["Tighten / expand years","How many ages in the projection fall into a cut zone versus an upside zone."]]},
-reinvest:{t:"Drawdown & reinvestment",w:"Where mandatory draws go when they exceed spending: the surplus recycling path from Pool A into Pool C.",h:["This is why Pool C grows with no planned deposits — it is the default destination for forced-draw surplus.","Check the table when the ABP minimum steps up (75, 80…) — surplus jumps at those ages."],f:[
-["Surplus recycled (chart)","Annual dollars flowing Pool A → Pool C after spending is met."],
-["Reinvestment table","Year-by-year: mandatory draw, lifestyle gap consumed, surplus banked to Pool C."],
+reinvest:{t:"Drawdown & reinvestment",w:"Where mandatory draws go when they exceed spending, and whether the selected policy later uses Pool C to support a gap.",h:["This is why Pool C can grow with no planned deposits — it is the default destination for forced-draw surplus.","Negative bars are explicit Pool C withdrawals, permitted only under the use-after-A/B policy."],f:[
+["Pool C recycling and use (chart)","Positive bars are dollars recycled to Pool A or Pool C; negative bars are Pool C used for spending after A/B under the selected policy."],
+["Reinvestment table","Year-by-year: compulsory draw, amount spent, surplus banked, Pool C withdrawal, return and ending balance."],
 ["Surplus → Pool A (TBC headroom)","While transfer-balance headroom exists (e.g. after a wash commutation), surplus can re-enter the 0%-tax pension phase — the preferred destination."],
 ["Surplus → Pool C (External ETF)","Once the cap is saturated, surplus defaults outside super. This is the dominant recycling pathway in the plan."],
-["Table: Age / Mandatory draw / Spent from mand. draw / Surplus / → Pool C / Pool C return / Pool C balance","Year-by-year trace of the recycling pathway. 'Spent from mand. draw' is the portion of the compulsory payout you consumed — it EXCLUDES any voluntary extra Pool A draw (that never touches this table). Surplus is what was left, and → Pool C is where it went once TBC headroom was exhausted. Balance reconciles row by row: prior balance + Pool C return + surplus routed."]]},
+["Pool C reconciliation","Every ending balance reconciles as prior balance + Pool C return + deposits − explicit withdrawals. This makes the preserve/use-after-A/B choice auditable rather than implied."]]},
 oneoff:{t:"One-off capacity",w:"How much can be pulled out in a single hit (car, renovation, gift) without breaching the floor band — tested at each scenario return.",h:["Set the one-off amount on the sidebar slider, then read the capacity cards.","Capacity is the maximum single withdrawal at retirement that still clears the floor at the target age."],f:[
 ["Max @ Conservative (4%)","Largest Day-1 one-off that still clears the floor if returns run at 4% real."],
 ["Max @ Base (5%) / Strong (7%)","Same test at the base and strong returns — the spread shows how return-sensitive spare capacity is."],
