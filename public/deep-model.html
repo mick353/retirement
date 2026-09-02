@@ -235,6 +235,20 @@ body.print-pack section.page.print-pack-include{display:flex}
   color:var(--soft);text-transform:uppercase;letter-spacing:1.4px;
 }
 .control-caption{margin-left:8px;color:var(--muted);font-size:9px;font-weight:600;letter-spacing:.02em;text-transform:none}
+.control-bar-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.control-bar-title{min-width:0;flex:1}
+.control-bar-title h3{margin-bottom:7px}
+.control-bar-summary{display:flex;align-items:baseline;gap:7px 12px;min-width:0;flex-wrap:wrap}
+.control-bar-summary>span:first-child{color:var(--muted);font-size:10px;font-weight:700}
+.control-bar-summary strong{color:var(--acc);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.control-bar-summary small{color:var(--soft);font-size:9.5px;line-height:1.4}
+.control-bar-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 auto;min-height:38px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);font:700 11px/1 inherit;cursor:pointer}
+.control-bar-toggle:hover,.control-bar-toggle:focus-visible{border-color:var(--acc);outline:none}
+.control-bar-toggle-icon{font-size:14px;transition:transform .16s ease}
+.control-bar:not(.collapsed) .control-bar-toggle-icon{transform:rotate(180deg)}
+.control-bar-body{margin-top:14px}
+.control-bar-body[hidden]{display:none!important}
+.control-bar.collapsed{padding-top:13px;padding-bottom:13px}
 .profile-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .profile-row .pill{
   background:var(--chip);color:var(--muted);
@@ -314,7 +328,7 @@ body.print-pack section.page.print-pack-include{display:flex}
 .band-row .rm{
   cursor:pointer;background:transparent;border:1px solid var(--border);
   border-radius:6px;color:var(--muted);padding:3px 9px;font-size:14px;line-height:1;
-  transition:all .12s;
+  transition:all .12s;justify-self:end;align-self:center;min-width:36px;min-height:32px;
 }
 .band-row .rm:hover{background:rgba(255,77,106,.12);color:var(--bad);border-color:var(--bad)}
 .band-row.first .rm{visibility:hidden}
@@ -566,6 +580,7 @@ hr.sep{border:0;border-top:1px solid var(--border);margin:14px 0}
   .band-row label{flex-direction:column;align-items:stretch;gap:3px}
   .band-row label:nth-child(3){grid-column:1 / -1}
   .band-row select{width:100%;min-width:0}
+  .band-row .rm{grid-column:2;justify-self:end;min-width:44px;min-height:44px}
   .profile-row #profile-summary{flex:1 1 100%;overflow-wrap:anywhere}
 }
 @media(max-width:520px){
@@ -884,7 +899,9 @@ main{min-width:0;}
   .profile-bar,.control-bar,.panel{padding:13px;border-radius:13px}
   .profile-row .pill{min-height:40px;display:inline-flex;align-items:center;padding:7px 13px}
   .profile-row #profile-summary{font-size:11px;line-height:1.5}
-  body.v23-mobile-compact .control-bar{display:none}
+  .control-bar-head{align-items:flex-start}
+  .control-bar-summary{display:grid;gap:3px}
+  .control-bar-toggle{min-width:92px;min-height:42px}
   #v23-mobile-compactbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-bottom:10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
   #v23-mobile-compactbar span,#v23-mobile-compactbar b{display:block}
   #v23-mobile-compactbar span{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.8px}
@@ -1039,14 +1056,27 @@ main{min-width:0;}
     </div>
 
     <!-- CONTROL BAR -->
-    <div class="control-bar">
-      <h3>Plan controls <span class="control-caption">Change once · every V23 page updates</span></h3>
+    <div class="control-bar collapsed" id="plan-controls">
+      <div class="control-bar-head">
+        <div class="control-bar-title">
+          <h3>Plan controls <span class="control-caption">Change once · every V23 page updates</span></h3>
+          <div class="control-bar-summary" aria-live="polite">
+            <span id="plan-control-rule-label">Annual gap by age band</span>
+            <strong id="lbl-gap-summary"></strong>
+            <small id="plan-control-context"></small>
+          </div>
+        </div>
+        <button type="button" class="control-bar-toggle" id="plan-controls-toggle" aria-expanded="false" aria-controls="plan-controls-body">
+          <span id="plan-controls-toggle-label">Edit controls</span><span class="control-bar-toggle-icon" aria-hidden="true">⌄</span>
+        </button>
+      </div>
+      <div class="control-bar-body" id="plan-controls-body" hidden>
       <div class="slider-grid">
         <div class="slider-block band-block primary-spend-control" id="spend-control">
           <div class="control-kicker">Primary spending control</div>
           <div class="lab">
-            <span>Annual gap by age band</span>
-            <span class="val" id="lbl-gap-summary"></span>
+            <span>Age-band editor</span>
+            <span class="val">Detailed inputs</span>
           </div>
           <div id="band-rows"></div>
           <div class="band-actions">
@@ -1111,6 +1141,7 @@ main{min-width:0;}
           <div class="lab"><span>MC runs</span><span class="val" id="lbl-runs"></span></div>
           <input type="range" id="sl_runs" min="100" max="2000" step="100" value="500"/>
         </div>
+      </div>
       </div>
     </div>
 
@@ -1283,9 +1314,14 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-reinvest">
+      <div class="spending-control-callout">
+        <div><b>Looking for net income and gross salary equivalent?</b><span>Those comparisons sit in Income &amp; draws, alongside the age-band lifestyle phases. This page focuses only on compulsory-draw surplus and Pool C recycling.</span></div>
+        <a href="#income" data-page="income" class="btn">Open Income &amp; draws ↗</a>
+      </div>
       <div class="panel">
         <h2>Surplus recycled (likely path)</h2>
         <div class="muted smaller">Opening balances follow the active profile. Rail A preserves the March/V5 control; Rail B uses the selected 1 September iEstimator. The TBC position, source-limited NCC wash and Pool C routing remain explicit.</div>
+        <div class="note" id="ri-empty" hidden></div>
         <div class="chart-wrap"><canvas id="ri_chart"></canvas></div>
       </div>
       <div class="panel"><h2>Reinvestment table</h2><table id="ri_tbl"></table></div>
@@ -2896,6 +2932,12 @@ function renderIncome(){
 function renderReinvest(){
   const p=getProfile();const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const tc=getThemeColors();const ages=sim.rows.map(r=>r.age);
+  const totalRecycled=sim.rows.reduce((sum,r)=>sum+Math.max(0,r.toABP||0)+Math.max(0,r.toPoolC||0),0);
+  const empty=document.getElementById("ri-empty");
+  if(empty){
+    empty.hidden=totalRecycled>.005;
+    empty.innerHTML=totalRecycled>.005?"":`<b>No surplus is recycled in this scenario.</b> The chart is intentionally zero: the active spending rule uses every compulsory Pool A payment and there is no PSS pension above an imported total-spend target. Pool C can still grow from investment returns; see the reconciliation table below.`;
+  }
   makeChart("ri_chart",{type:"bar",data:{labels:ages,datasets:[
     {label:"Surplus → Pool A (TBC headroom)",data:sim.rows.map(r=>r.toABP),backgroundColor:tc.poolA,stack:"s"},
     {label:"Mandatory-draw surplus → Pool C",data:sim.rows.map(r=>Math.max(0,r.toPoolC-(r.pensionToPoolC||0))),backgroundColor:tc.poolC,stack:"s"},
@@ -4109,6 +4151,30 @@ function initialPageFromQuery(){
   return document.getElementById(id)?id:"page-executive";
 }
 let currentPage=initialPageFromQuery();
+function setPlanControlsExpanded(expanded,{scroll=false}={}){
+  const body=document.getElementById("plan-controls-body");
+  const bar=document.getElementById("plan-controls");
+  const toggle=document.getElementById("plan-controls-toggle");
+  if(!body||!bar||!toggle)return;
+  const open=Boolean(expanded);
+  body.hidden=!open;
+  bar.classList.toggle("collapsed",!open);
+  toggle.setAttribute("aria-expanded",String(open));
+  const label=document.getElementById("plan-controls-toggle-label");
+  if(label)label.textContent=open?"Hide controls":"Edit controls";
+  const mobileToggle=document.getElementById("v23-adjust-toggle");
+  if(mobileToggle){mobileToggle.textContent=open?"Hide controls":"Adjust";mobileToggle.setAttribute("aria-expanded",String(open));}
+  if(open&&scroll)bar.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+}
+function togglePlanControls({scroll=false}={}){
+  const body=document.getElementById("plan-controls-body");
+  setPlanControlsExpanded(Boolean(body?.hidden),{scroll});
+}
+function wirePlanControls(){
+  const toggle=document.getElementById("plan-controls-toggle");
+  if(toggle)toggle.addEventListener("click",()=>togglePlanControls());
+  setPlanControlsExpanded(false);
+}
 function showPage(id){
   if(id&&!id.startsWith("page-"))id="page-"+id;
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
@@ -4160,7 +4226,23 @@ function updateLabels(){
   set("lbl-spendreturn",fmtPctClean(STATE.spendReturnPct,0));
   set("lbl-oo","$"+(STATE.oneOff/1000).toFixed(0)+"k");
   set("lbl-poolcdrag",fmtPctClean(STATE.poolCDrag,2));
-  set("lbl-gap-summary",STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined?`${fmtFull(STATE.totalSpendTarget)} total spend · derived gap/surplus`:bandsToString(STATE.gapBands));
+  const importedSpend=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined;
+  const planRuleLabel=importedSpend
+    ? "Imported annual spend target"
+    : STATE.spendMode==="fixed"?"Annual gap by age band":"Active annual gap rule";
+  const planRuleSummary=importedSpend
+    ? `${fmtFull(STATE.totalSpendTarget)} total spend · derived gap/surplus`
+    : STATE.spendMode==="returnPct"
+    ? `${fmtPctClean(STATE.spendReturnPct,0)} of positive investment earnings`
+    : STATE.spendMode==="drawPct"
+    ? `${fmtPctClean(STATE.spendReturnPct,0)} of the mandatory ABP draw`
+    : bandsToString(STATE.gapBands);
+  const planRuleContext=importedSpend
+    ? "Imported target active"
+    : STATE.spendMode==="fixed"?"Age bands active":"Override active · age bands saved, not used";
+  set("plan-control-rule-label",planRuleLabel);
+  set("lbl-gap-summary",planRuleSummary);
+  set("plan-control-context",`${planRuleContext} · ${fmtPctClean(STATE.likely)} real return · target age ${STATE.targetAge}`);
   set("lbl-cpi",STATE.cpi+"%");
   set("lbl-cpidur",STATE.cpiDur+" yrs");
   set("lbl-cpiage","age "+STATE.cpiAge);
@@ -4231,7 +4313,13 @@ function updateLabels(){
 }
 
 function applyStateToInputs(){
-  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  const set=(id,v)=>{
+    const el=document.getElementById(id);if(!el)return;
+    const numeric=Number(v);
+    el.value=Number.isFinite(numeric)&&!Number.isInteger(numeric)
+      ? numeric.toFixed(2).replace(/\.00$/,"").replace(/(\.\d)0$/,"$1")
+      : v;
+  };
   set("sl_likely",(STATE.likely*100).toFixed(1));
   set("sl_vol",(STATE.vol*100).toFixed(0));
   set("sl_runs",STATE.runs);
@@ -4279,7 +4367,7 @@ function renderBandRows(){
         <option value="returnPct" ${(b.unit||"dollar")==="returnPct"?"selected":""}>% return</option>
         <option value="drawPct" ${(b.unit||"dollar")==="drawPct"?"selected":""}>% draw</option>
       </select></label>
-      ${STATE.gapBands.length>1?`<button class="pill" type="button" aria-label="Remove band from age ${b.age}" title="Remove this band" onclick="STATE.gapBands.splice(${i},1);onBandChange()">×</button>`:""}
+      ${STATE.gapBands.length>1?`<button class="rm" type="button" aria-label="Remove band from age ${b.age}" title="Remove this band" onclick="STATE.gapBands.splice(${i},1);onBandChange()">×</button>`:""}
     </div>`).join("");
   container.innerHTML=modeNote+container.innerHTML;
   container.querySelectorAll("input[data-band-age]").forEach(input=>{
@@ -4524,6 +4612,7 @@ function init(){
   applyStateToInputs();
   applyChartTheme();
   wireNav();
+  wirePlanControls();
   wireSliders();
   const mcSeed=document.getElementById("btn-mc-new-seed");
   if(mcSeed)mcSeed.addEventListener("click",()=>{STATE.simulationSeed=STATE.simulationSeed>=2147000000?20260814:STATE.simulationSeed+1;rerenderAll();saveState();});
@@ -5167,6 +5256,7 @@ function syncSpendControls(){
     : mode==="drawPct"
     ? `<b>Override — % of MANDATORY DRAWDOWN.</b> Gap = ${pct} of the compulsory ABP minimum. <b>Never exceeds it</b> — no extra Pool A draw at any setting; the unspent remainder routes to Pool C.`
     : `<b>Slider inactive</b> — age-band mode. Moving it changes nothing. The fixed simulation seed keeps the risk outputs stable; switch the mode above to activate this slider.`;
+  window.syncV23PrecisionControls?.();
 }
 try{
   syncSpendControls();
@@ -5217,7 +5307,9 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       const commit=value=>{range.value=String(clamp(value));exact.value=range.value;range.dispatchEvent(new Event("input",{bubbles:true}));};
       minus.addEventListener("click",()=>commit(Number(range.value)-Number(range.step||1)));
       plus.addEventListener("click",()=>commit(Number(range.value)+Number(range.step||1)));
-      exact.addEventListener("change",()=>commit(Number(exact.value)));
+      const commitExact=()=>{if(exact.value.trim()!=="")commit(Number(exact.value));};
+      exact.addEventListener("input",commitExact);
+      exact.addEventListener("change",commitExact);
       range.addEventListener("input",()=>{exact.value=range.value;exact.disabled=range.disabled;minus.disabled=range.disabled;plus.disabled=range.disabled;});
     });
     syncPrecisionControls(root);
@@ -5366,11 +5458,9 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     updateDock((typeof currentPage==="string"?currentPage:"executive").replace(/^page-/,""));
     const toggle=document.getElementById("v23-adjust-toggle");
     toggle.addEventListener("click",()=>{
-      const compact=document.body.classList.toggle("v23-mobile-compact");
-      toggle.textContent=compact?"Adjust":"Hide controls";toggle.setAttribute("aria-expanded",String(!compact));
-      if(!compact)document.querySelector(".control-bar")?.scrollIntoView({behavior:"smooth",block:"start"});
+      if(typeof togglePlanControls==="function")togglePlanControls({scroll:true});
     });
-    if(matchMedia("(max-width:700px)").matches){document.body.classList.add("v23-mobile-compact");toggle.textContent="Adjust";}
+    if(matchMedia("(max-width:700px)").matches&&typeof setPlanControlsExpanded==="function")setPlanControlsExpanded(false);
   }
 
   function start(){
