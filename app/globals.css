@@ -652,7 +652,8 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .vr-chart-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .vr-chart-stack > div { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
 .vr-chart-stack h4 { margin: 0 0 6px; }
-.table-scroll { max-width: 100%; overflow-x: auto; }
+.table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.mobile-scroll-cue { display: none; }
 .vr-table th, .vr-table td { padding: 10px 9px; border-bottom: 1px solid var(--line); text-align: right; }
 .vr-table th:first-child, .vr-table td:first-child, .vr-table th:nth-child(2), .vr-table td:nth-child(2) { text-align: left; }
 .vr-table th { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
@@ -815,6 +816,11 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .brand b { font-size: 14px; }
   .top-actions > .badge { display: none; }
   .menu-button { min-width: 54px; }
+  .icon-button, .content button, .content a.primary, .content a.secondary, .content a.text-button, .sidebar nav button { min-height: 44px; }
+  .content select, .content input:not([type="checkbox"]) { min-height: 44px; }
+  .content input[type="checkbox"] { width: 22px; height: 22px; }
+  .horizon-return-control button { width: 44px; }
+  .horizon-milestones button { min-height: 44px; }
   .hero { padding: 25px 20px; border-radius: 18px; }
   .hero h1 { font-size: 38px; }
   .hero-actions { align-items: stretch; }
@@ -857,12 +863,21 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .panel-actions { justify-content: flex-start; }
   .waterfall { flex-direction: column; }
   .wf { flex: 0 0 auto !important; min-height: 78px; }
-  .segmented { width: 100%; overflow-x: auto; }
-  .segmented button { flex: 1; white-space: nowrap; }
+  .badge { max-width: 100%; white-space: normal; line-height: 1.25; overflow-wrap: anywhere; text-align: left; }
+  .panel-head > .badge { align-self: flex-start; }
+  .segmented { width: 100%; overflow: visible; }
+  .segmented button { min-width: 0; white-space: normal; }
   .vr-controls { display: grid; }
-  .vr-controls .segmented { max-width: 100%; }
-  .vr-election-grid { display: flex; overflow-x: auto; padding-bottom: 4px; }
-  .vr-election-grid button { min-width: 170px; }
+  .vr-controls > div { width: 100%; }
+  .vr-controls .segmented { max-width: 100%; display: grid; }
+  .vr-controls .segmented:not(.ages) { grid-template-columns: 1fr; }
+  .vr-controls .segmented.ages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vr-controls .segmented button { min-height: 44px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .vr-controls .segmented button:last-child { border-bottom: 0; }
+  .vr-controls .segmented.ages button:nth-last-child(-n + 2) { border-bottom: 0; }
+  .vr-controls .segmented.ages button:nth-child(odd) { border-right: 1px solid var(--line); }
+  .vr-election-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; padding-bottom: 0; }
+  .vr-election-grid button { min-width: 0; min-height: 74px; }
   .vr-source-boundary > div > .badge, .vr-scenario-studio .panel-head > .badge { max-width: 100%; white-space: normal; line-height: 1.25; }
   .vr-reading-guide { grid-template-columns: 1fr; }
   .vr-reading-guide i { transform: rotate(90deg); justify-self: start; }
@@ -885,6 +900,19 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .mobile-ledger dl { grid-template-columns: repeat(2, 1fr); margin-top: 11px; }
   .mobile-ledger dt { font-size: 10px; }
   .mobile-ledger dd { font-size: 12px; }
+  .compare-cards > article { min-width: 0; padding: 16px; }
+  .compare-head { flex-direction: column; }
+  .compare-head > * { min-width: 0; }
+  .compare-head > span { white-space: normal; overflow-wrap: anywhere; }
+  .compare-actions { align-items: stretch; flex-direction: column; }
+  .compare-actions > * { width: 100%; text-align: center; }
+  .source-list article { align-items: flex-start; flex-direction: column; }
+  .source-list article > div { min-width: 0; width: 100%; }
+  .source-list code { white-space: normal; overflow-wrap: anywhere; }
+  .source-list .badge { align-self: flex-start; }
+  .mobile-scroll-cue { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+  .mobile-scroll-cue::before { content: "↔"; flex: 0 0 auto; color: var(--blue); font-size: 16px; font-weight: 900; }
+  .table-scroll[tabindex] { outline-offset: 3px; }
   .precision-entry { grid-template-columns: 42px minmax(90px, 1fr) 42px; }
   .precision-entry button, .precision-entry input { min-height: 42px; }
   .compare-spend strong { font-size: 23px; }
@@ -929,6 +957,19 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .ai-composer > div > span { display: none; }
   .ai-composer > div { grid-template-columns: auto 1fr; }
   .ai-send { justify-self: end; }
+}
+
+@media (max-width: 360px) {
+  .content { padding-inline: 12px; }
+  .panel { padding: 13px; }
+  .collapsible-panel { padding: 0; }
+  .collapsible-panel > summary { padding: 13px; }
+  .collapsible-body { padding: 0 13px 13px; }
+  .vr-election-grid { grid-template-columns: 1fr; }
+  .compare-outcomes { grid-template-columns: 1fr; }
+  .horizon-explorer { padding: 13px; }
+  .mobile-dock { left: 6px; right: 6px; }
+  .mobile-dock button { font-size: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
