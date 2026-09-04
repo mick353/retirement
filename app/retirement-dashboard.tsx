@@ -1346,8 +1346,8 @@ export default function RetirementDashboard() {
       <section className="panel decision-banner">
         <div><Badge tone="good">Central operating band</Badge><h3>$100,000–$110,000 net a year</h3><p>Best structural balance across spending power, capital, tax, estate, liquidity and flexibility.</p></div>
         <div className="comparison-stat"><span>Selected spend</span><strong>{fmt1.format(retirementPf)} / pf</strong><small>{money(grossEquivalent)} salary equivalent</small></div>
-        <div className="comparison-stat"><span>Visible current bank receipt</span><strong>{fmt1.format(currentPf)} / pf</strong><small>Before the retirement release of current obligations</small></div>
-        <div className="comparison-stat positive"><span>Cashflow uplift</span><strong>+{fmt1.format(retirementPf - currentPf)} / pf</strong><small>{pct(retirementPf / currentPf - 1)} above current bank inflow</small></div>
+        <div className="comparison-stat"><span>Current cash after all expenses</span><strong>{fmt1.format(currentPf)} / pf</strong><small>After current expenses, commitments and deductions</small></div>
+        <div className="comparison-stat positive"><span>Cashflow uplift</span><strong>+{fmt1.format(retirementPf - currentPf)} / pf</strong><small>{pct(retirementPf / currentPf - 1)} above current after-expense cashflow</small></div>
       </section>
 
       <HorizonExplorer key={`horizon-${targetAge}`} rows={ledger} rail={rail} railBElectionLabel={railBForElection(effectivePssElection, pssProjectionBasis).electionLabel} spend={spend} realReturn={realReturn} targetAge={targetAge} homeValue={homeValue} taxYear={taxYear} atlasUrl={atlasUrl} onRailChange={setRailKey} onReturnChange={setRealReturn} />
