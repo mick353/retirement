@@ -1,5 +1,6 @@
 node_modules/
 dist-pages/
+public/retirement-engine.js
 coverage/
 .vite/
 .wrangler/

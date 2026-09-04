@@ -9,6 +9,8 @@
   const WASH_AMOUNT = 130_000;
   const MAX_FLAT_SPEND = 300_000;
   const THEME_STORAGE_KEY = "robinson-retirement-theme";
+  const retirementEngine = globalThis.RetirementEngine;
+  if (!retirementEngine) throw new Error("The canonical retirement engine did not load");
 
   const PSS_ELECTIONS = {
     "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 168_256.05, grossPension: 91_776.03, netPension: 86_240.18, netPensionPf: 3_316.93, lumpSum: 673_024.21, lumpTaxFree: 160_278.23, lumpTaxableTaxed: 512_745.98, lumpTaxableUntaxed: 0 },
@@ -28,38 +30,27 @@
   };
 
   function normaliseProjectionBasis(value) {
-    return value === "prudent-630" ? "prudent-630" : "source-825";
+    return retirementEngine.normaliseProjectionBasis(value);
   }
 
   function normaliseElectionForBasis(basisKey, value) {
-    const elections = PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)].elections;
-    return elections[value] ? value : "60-40";
+    return retirementEngine.normaliseElectionForBasis(basisKey, value);
   }
 
   function railBForElection(electionKey, basisKey = "source-825") {
-    const basis = PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)];
-    const election = basis.elections[normaliseElectionForBasis(basis.key, electionKey)] || basis.elections["60-40"];
-    const hostplus = 317_447.66;
-    const capital = election.lumpSum + hostplus;
-    const dbSpecialValue = election.grossPension * 16;
-    const tbcHeadroom = Math.max(0, TBC - dbSpecialValue);
-    const poolA = Math.min(capital, Math.max(0, tbcHeadroom - TSB_BUFFER));
-    const poolC = capital - poolA;
-    const washTaxableShare = election.lumpSum > 0 ? election.lumpTaxableTaxed / election.lumpSum : 0;
+    const engine = retirementEngine.railBOpeningPosition(electionKey, basisKey);
     return {
-      key: "B", electionKey: election.key, electionLabel: election.label,
-      title: `Rail B — ${election.label}`, short: `Spending frontier · ${election.label}`,
-      source: election.source || `1 Sep 2026 CSC iEstimator · ${election.label}`,
-      purpose: `Tests the selected ${basis.label.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
-      fas: election.fas, grossPension: election.grossPension, netPension: election.netPension,
-      lumpSum: election.lumpSum, hostplus, capital, dbSpecialValue, poolA, poolC,
-      pensionPercent: election.pensionPercent, lumpPercent: election.lumpPercent,
-      lumpTaxFree: election.lumpTaxFree, lumpTaxableTaxed: election.lumpTaxableTaxed, lumpTaxableUntaxed: election.lumpTaxableUntaxed,
-      tbcHeadroom, tbcExcess: Math.max(0, dbSpecialValue - TBC), washTaxableShare,
-      washEvidence: election.lumpSum > 0
-        ? `Direct 1 September 2026 CSC split: ${(washTaxableShare * 100).toFixed(2)}% taxable-taxed, ${((election.lumpTaxFree / election.lumpSum) * 100).toFixed(2)}% tax-free and 0% untaxed. Washing is limited to the original PSS lump; Hostplus components remain unresolved.`
-        : "The 100% pension election has no PSS lump and no PSS source available for NCC washing.",
-      taxStatus: election.lumpSum > 0 ? "Direct CSC component evidence" : "No PSS lump wash",
+      key: "B", electionKey: engine.key, electionLabel: engine.label,
+      title: `Rail B — ${engine.label}`, short: `Spending frontier · ${engine.label}`,
+      source: engine.source,
+      purpose: `Tests the selected ${engine.basisLabel.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
+      fas: engine.fas, grossPension: engine.grossPension, netPension: engine.netPension,
+      lumpSum: engine.lumpSum, hostplus: engine.hostplus, capital: engine.capital, dbSpecialValue: engine.dbSpecialValue, poolA: engine.poolA, poolC: engine.poolC,
+      pensionPercent: engine.pensionPercent, lumpPercent: engine.lumpPercent,
+      lumpTaxFree: engine.lumpTaxFree, lumpTaxableTaxed: engine.lumpTaxableTaxed, lumpTaxableUntaxed: engine.lumpTaxableUntaxed,
+      tbcHeadroom: engine.tbcHeadroom, tbcExcess: engine.tbcExcess, washTaxableShare: engine.washTaxableShare,
+      washEvidence: engine.washEvidence,
+      taxStatus: engine.lumpSum > 0 ? "Direct CSC component evidence" : "No PSS lump wash",
     };
   }
 
@@ -93,18 +84,7 @@
   };
 
   function washOutcome(rail, cycles, annualAmount = WASH_AMOUNT) {
-    let dirty = rail.lumpSum;
-    let taxable = rail.lumpTaxableTaxed;
-    let washed = 0;
-    const applied = [];
-    for (let index = 0; index < Math.max(0, cycles) && dirty > 0; index += 1) {
-      const amount = Math.min(annualAmount, dirty);
-      dirty -= amount;
-      taxable = Math.max(0, taxable - amount * rail.washTaxableShare);
-      washed += amount;
-      applied.push(amount);
-    }
-    return { taxableStart: rail.lumpTaxableTaxed, taxableRemaining: taxable, washed, applied, maxCycles: rail.lumpSum > 0 ? Math.ceil(rail.lumpSum / annualAmount) : 0 };
+    return retirementEngine.calculateWashOutcome(rail, cycles, annualAmount);
   }
 
   const $ = (id) => document.getElementById(id);

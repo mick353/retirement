@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "vite --config vite.pages.config.ts",
     "dev:pages": "vite --config vite.pages.config.ts",
+    "build:engine": "node tools/build-retirement-engine.mjs",
     "typecheck": "tsc --noEmit --project tsconfig.pages.json",
-    "validate:model": "node tools/validate-retirement-model.mjs",
+    "validate:model": "npm run build:engine && node tools/validate-retirement-model.mjs",
     "validate:visuals": "node --check public/atlas.js && node tools/validate-atlas-visuals.mjs",
     "validate:mobile": "node tools/validate-mobile-layout.mjs",
     "build": "npm run build:pages",

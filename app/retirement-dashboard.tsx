@@ -6,8 +6,12 @@ import {
   HOSTPLUS_BASELINE_RETURN,
   HOSTPLUS_STARTING_BALANCE,
   abpMinimumRateAtAgeOn1July,
+  calculateWashOutcome as calculateCanonicalWashOutcome,
   firstFinancialYearMinimum,
+  normaliseElectionForBasis as normaliseCanonicalElectionForBasis,
+  normaliseProjectionBasis as normaliseCanonicalProjectionBasis,
   projectHostplusAt60,
+  railBOpeningPosition as calculateCanonicalRailBOpeningPosition,
 } from "./retirement-core";
 
 type RailKey = "A" | "B";
@@ -199,7 +203,7 @@ const PSS_PROJECTION_BASES: Record<PssProjectionBasisKey, PssProjectionBasis> = 
 };
 
 function normaliseProjectionBasis(value: unknown): PssProjectionBasisKey {
-  return value === "prudent-630" ? "prudent-630" : "source-825";
+  return normaliseCanonicalProjectionBasis(value);
 }
 
 function electionsForBasis(basisKey: PssProjectionBasisKey) {
@@ -212,50 +216,37 @@ function electionKeysForBasis(basisKey: PssProjectionBasisKey) {
 }
 
 function normaliseElectionForBasis(basisKey: PssProjectionBasisKey, value: unknown): PssElectionKey {
-  const requested = (["60-40", "65-35", "70-30", "100"] as unknown[]).includes(value) ? value as PssElectionKey : "60-40";
-  return electionsForBasis(basisKey)[requested] ? requested : electionKeysForBasis(basisKey)[0] ?? "60-40";
+  return normaliseCanonicalElectionForBasis(basisKey, value);
 }
 
 function railBForElection(electionKey: PssElectionKey, basisKey: PssProjectionBasisKey = "source-825"): Rail {
-  const effectiveElectionKey = normaliseElectionForBasis(basisKey, electionKey);
-  const election = electionsForBasis(basisKey)[effectiveElectionKey];
-  if (!election) throw new Error(`PSS projection basis ${basisKey} has no verified elections`);
-  const basis = PSS_PROJECTION_BASES[basisKey];
-  const hostplus = 317_447.66;
-  const capital = election.lumpSum + hostplus;
-  const dbSpecialValue = election.grossPension * 16;
-  const tbcHeadroom = Math.max(0, TBC - dbSpecialValue);
-  const poolA = Math.min(capital, Math.max(0, tbcHeadroom - TSB_BUFFER));
-  const poolC = capital - poolA;
-  const washTaxableShare = election.lumpSum > 0 ? election.lumpTaxableTaxed / election.lumpSum : 0;
+  const engine = calculateCanonicalRailBOpeningPosition(electionKey, basisKey);
   return {
     key: "B",
-    short: `Spending frontier · ${election.label}`,
-    name: `Rail B — ${election.label}`,
-    purpose: `Tests the selected ${basis.label.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
-    source: election.source,
-    grossPension: election.grossPension,
-    netPension: election.netPension,
-    lumpSum: election.lumpSum,
-    hostplus,
-    capital,
-    dbSpecialValue,
-    poolA,
-    poolC,
-    fas: election.fas,
-    electionKey: effectiveElectionKey,
-    electionLabel: election.label,
-    pensionPercent: election.pensionPercent,
-    lumpPercent: election.lumpPercent,
-    lumpTaxFree: election.lumpTaxFree,
-    lumpTaxableTaxed: election.lumpTaxableTaxed,
-    lumpTaxableUntaxed: election.lumpTaxableUntaxed,
-    tbcHeadroom,
-    tbcExcess: Math.max(0, dbSpecialValue - TBC),
-    washTaxableShare,
-    washEvidence: election.lumpSum > 0
-      ? `Direct 1 September 2026 CSC component split: ${(washTaxableShare * 100).toFixed(2)}% taxable-taxed, ${((election.lumpTaxFree / election.lumpSum) * 100).toFixed(2)}% tax-free and 0% untaxed. Washing is limited to the original PSS lump; Hostplus components remain unresolved.`
-      : "The 100% pension election has no PSS lump sum and therefore no PSS lump component available for NCC washing.",
+    short: `Spending frontier · ${engine.label}`,
+    name: `Rail B — ${engine.label}`,
+    purpose: `Tests the selected ${engine.basisLabel.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
+    source: engine.source,
+    grossPension: engine.grossPension,
+    netPension: engine.netPension,
+    lumpSum: engine.lumpSum,
+    hostplus: engine.hostplus,
+    capital: engine.capital,
+    dbSpecialValue: engine.dbSpecialValue,
+    poolA: engine.poolA,
+    poolC: engine.poolC,
+    fas: engine.fas,
+    electionKey: engine.key,
+    electionLabel: engine.label,
+    pensionPercent: engine.pensionPercent,
+    lumpPercent: engine.lumpPercent,
+    lumpTaxFree: engine.lumpTaxFree,
+    lumpTaxableTaxed: engine.lumpTaxableTaxed,
+    lumpTaxableUntaxed: engine.lumpTaxableUntaxed,
+    tbcHeadroom: engine.tbcHeadroom,
+    tbcExcess: engine.tbcExcess,
+    washTaxableShare: engine.washTaxableShare,
+    washEvidence: engine.washEvidence,
   };
 }
 
@@ -295,18 +286,7 @@ function railFor(railKey: RailKey, electionKey: PssElectionKey, basisKey: PssPro
 }
 
 function washOutcome(rail: Rail, cycles: number, annualAmount = 130_000) {
-  let dirty = rail.lumpSum;
-  let taxable = rail.lumpTaxableTaxed;
-  let washed = 0;
-  const applied: number[] = [];
-  for (let index = 0; index < Math.max(0, cycles) && dirty > 0; index += 1) {
-    const amount = Math.min(annualAmount, dirty);
-    dirty -= amount;
-    taxable = Math.max(0, taxable - amount * rail.washTaxableShare);
-    washed += amount;
-    applied.push(amount);
-  }
-  return { taxableStart: rail.lumpTaxableTaxed, taxableRemaining: taxable, washed, applied, maxCycles: rail.lumpSum > 0 ? Math.ceil(rail.lumpSum / annualAmount) : 0 };
+  return calculateCanonicalWashOutcome(rail, cycles, annualAmount);
 }
 
 const NAV: { key: SectionKey; label: string; group: string }[] = [

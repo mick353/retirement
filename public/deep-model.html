@@ -7,6 +7,7 @@
 <link rel="manifest" href="./manifest.webmanifest" />
 <title>Robinson Retirement Dashboard V23 — Guardrails · Decision Brief · Three-Pool</title>
 <script src="./vendor/chart.umd.js"></script>
+<script src="./retirement-engine.js?v=1"></script>
 <style>
 /* ROBINSON RETIREMENT — DRAMATIC VISUAL REDESIGN v21 */
 
@@ -1765,6 +1766,8 @@ const APP_VERSION = "v23.7";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
+const RETIREMENT_ENGINE = window.RetirementEngine;
+if (!RETIREMENT_ENGINE) throw new Error("The canonical retirement engine did not load");
 const PSS_ELECTIONS = Object.freeze({
   "60-40":{key:"60-40",label:"60 / 40",pensionPct:60,lumpPct:40,grossPension:91_776.03,netPension:86_240.18,lumpSum:673_024.21,lumpTaxFree:160_278.23,lumpTaxableTaxed:512_745.98,lumpUntaxed:0,source:"i-Estimator-1-9-2026_60-40.pdf"},
   "65-35":{key:"65-35",label:"65 / 35",pensionPct:65,lumpPct:35,grossPension:99_424.03,netPension:93_888.34,lumpSum:588_896.19,lumpTaxFree:140_243.46,lumpTaxableTaxed:448_652.73,lumpUntaxed:0,source:"i-Estimator-1-9-2026_65-35.pdf"},
@@ -1780,27 +1783,23 @@ const PSS_PROJECTION_BASES=Object.freeze({
   "source-825":{key:"source-825",label:"Current CSC source basis",shortLabel:"8.2 / 5 / 2.5",fundEarnings:.082,salaryGrowth:.05,cpi:.025,realFundEarnings:1.082/1.025-1,realSalaryGrowth:1.05/1.025-1,sourceStatus:"source-backed",sourceDate:"1 September 2026",elections:PSS_ELECTIONS},
   "prudent-630":{key:"prudent-630",label:"Prudent sensitivity basis",shortLabel:"6 / 5 / 3",fundEarnings:.06,salaryGrowth:.05,cpi:.03,realFundEarnings:1.06/1.03-1,realSalaryGrowth:1.05/1.03-1,sourceStatus:"partial-source",sourceDate:"1 September 2026",elections:PSS_PRUDENT_ELECTIONS}
 });
-function normaliseProjectionBasis(value){return value==="prudent-630"?"prudent-630":"source-825";}
-function normaliseElectionForBasis(basisKey,value){const elections=PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)].elections;return elections[value]?value:"60-40";}
+function normaliseProjectionBasis(value){return RETIREMENT_ENGINE.normaliseProjectionBasis(value);}
+function normaliseElectionForBasis(basisKey,value){return RETIREMENT_ENGINE.normaliseElectionForBasis(basisKey,value);}
 function railBProfileForElection(key="60-40",basisKey="source-825"){
-  const basis=PSS_PROJECTION_BASES[normaliseProjectionBasis(basisKey)];
-  const e=basis.elections[normaliseElectionForBasis(basis.key,key)]||basis.elections["60-40"];
-  const dbSpecialValue=e.grossPension*16;
-  const tbcHeadroom=Math.max(0,TBC_AT_RETIREMENT-dbSpecialValue-TBC_PLANNING_BUFFER);
-  const poolA=Math.min(e.lumpSum+HOSTPLUS_AT_60,tbcHeadroom);
-  const poolC=Math.max(0,e.lumpSum+HOSTPLUS_AT_60-poolA);
-  const taxableShare=e.lumpSum>0?e.lumpTaxableTaxed/e.lumpSum:0;
-  const washMax=e.lumpSum>0?Math.ceil(e.lumpSum/130_000):0;
+  const opening=RETIREMENT_ENGINE.railBOpeningPosition(key,basisKey);
+  const label=opening.lumpPercent>0?`${opening.pensionPercent} / ${opening.lumpPercent}`:"100% pension";
+  const tbcHeadroom=Math.max(0,opening.tbcHeadroom-TBC_PLANNING_BUFFER);
+  const washMax=opening.lumpSum>0?Math.ceil(opening.lumpSum/RETIREMENT_ENGINE.PSS_WASH_ANNUAL_LIMIT):0;
   return{
-    name:`Rail B · ${e.label}`,pssElection:e.key,pssProjectionBasis:basis.key,retireAge:60,
-    grossPension:e.grossPension,netPension:e.netPension,lumpSum:e.lumpSum,hostplus:HOSTPLUS_AT_60,tbc:TBC_AT_RETIREMENT,fas:e.fas||168_256.05,
-    floor:500,target:1000,strong:1500,defaultGap:Math.max(0,110_000-e.netPension),
-    defaultGapBands:[{age:60,amount:Math.max(0,110_000-e.netPension),unit:"dollar"}],
-    poolA_day1:poolA,poolB_day1:0,poolC_day1:poolC,tsbBuffer:TBC_PLANNING_BUFFER,
-    dbSpecialValue,lumpTaxFree:e.lumpTaxFree,lumpTaxableTaxed:e.lumpTaxableTaxed,lumpUntaxed:e.lumpUntaxed,
-    washSourceGross:e.lumpSum,washTaxableShare:taxableShare,washMax,
-    washEvidence:`${e.source}: PSS lump components are ${fmtFull(e.lumpTaxFree)} tax-free, ${fmtFull(e.lumpTaxableTaxed)} taxable-taxed and ${fmtFull(e.lumpUntaxed)} untaxed. Hostplus components remain unresolved and are not assigned the PSS component ratio.`,
-    tbcHeadroom,tbcExcess:Math.max(0,dbSpecialValue-TBC_AT_RETIREMENT),washAge:61,washCapThrough:74,locked:false
+    name:`Rail B · ${label}`,pssElection:opening.key,pssProjectionBasis:opening.basisKey,retireAge:60,
+    grossPension:opening.grossPension,netPension:opening.netPension,lumpSum:opening.lumpSum,hostplus:opening.hostplus,tbc:TBC_AT_RETIREMENT,fas:opening.fas,
+    floor:500,target:1000,strong:1500,defaultGap:Math.max(0,110_000-opening.netPension),
+    defaultGapBands:[{age:60,amount:Math.max(0,110_000-opening.netPension),unit:"dollar"}],
+    poolA_day1:opening.poolA,poolB_day1:0,poolC_day1:opening.poolC,tsbBuffer:TBC_PLANNING_BUFFER,
+    dbSpecialValue:opening.dbSpecialValue,lumpTaxFree:opening.lumpTaxFree,lumpTaxableTaxed:opening.lumpTaxableTaxed,lumpUntaxed:opening.lumpTaxableUntaxed,
+    washSourceGross:opening.lumpSum,washTaxableShare:opening.washTaxableShare,washMax,
+    washEvidence:opening.washEvidence,
+    tbcHeadroom,tbcExcess:opening.tbcExcess,washAge:61,washCapThrough:74,locked:false
   };
 }
 

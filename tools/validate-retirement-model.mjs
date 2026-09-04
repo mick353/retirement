@@ -6,6 +6,8 @@ import ts from "typescript";
 const normalise = (source) => source.replace(/\r\n/g, "\n");
 const dashboardSource = normalise(await readFile(new URL("../app/retirement-dashboard.tsx", import.meta.url), "utf8"));
 const coreSource = normalise(await readFile(new URL("../app/retirement-core.ts", import.meta.url), "utf8"));
+const browserEngineSource = normalise(await readFile(new URL("../public/retirement-engine.js", import.meta.url), "utf8"));
+const atlasHtml = normalise(await readFile(new URL("../public/atlas.html", import.meta.url), "utf8"));
 const atlasSource = normalise(await readFile(new URL("../public/atlas.js", import.meta.url), "utf8"));
 const v23Source = normalise(await readFile(new URL("../public/deep-model.html", import.meta.url), "utf8"));
 
@@ -22,6 +24,15 @@ function runCommonJs(source, require) {
 }
 
 const core = runCommonJs(compile(coreSource), () => { throw new Error("retirement-core has no external runtime dependencies"); });
+const browserEngineContext = { Math, Number, String, Boolean, Array, Object, Set, Map, Date, JSON };
+browserEngineContext.globalThis = browserEngineContext;
+vm.createContext(browserEngineContext);
+vm.runInContext(browserEngineSource, browserEngineContext);
+const browserEngine = browserEngineContext.RetirementEngine;
+assert.ok(browserEngine, "Browser retirement engine must register on globalThis");
+assert.equal(browserEngine.RETIREMENT_ENGINE_VERSION, core.RETIREMENT_ENGINE_VERSION, "Browser retirement engine version");
+assert.match(atlasHtml, /<script src="\.\/retirement-engine\.js\?v=1"><\/script>/, "Atlas loads the canonical browser engine beside its legacy calculations");
+assert.match(v23Source, /<script src="\.\/retirement-engine\.js\?v=1"><\/script>/, "V23 loads the canonical browser engine beside its legacy calculations");
 const reactStub = { useEffect: () => undefined, useMemo: (factory) => factory(), useRef: () => ({ current: null }), useState: (value) => [value, () => undefined] };
 const dashboard = runCommonJs(
   compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_PRUDENT_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, VR_AGES, VR_AGE_FACTORS, normaliseProjectionBasis, normaliseElectionForBasis, railBForElection, definedBenefitAt60, vrScenarioPath, washOutcome, operationalLedger, monteCarloFan };`),
@@ -36,7 +47,8 @@ const dashboard = runCommonJs(
 
 const atlasPrefix = atlasSource.match(/\n  (const TBC = [\s\S]*?function washOutcome\([\s\S]*?\n  \})\n\n  const \$/)?.[1];
 assert.ok(atlasPrefix, "Could not locate the Atlas model registry");
-const atlasContext = { Math, Number, String, Array, Object };
+const atlasContext = { Math, Number, String, Array, Object, RetirementEngine: browserEngine };
+atlasContext.globalThis = atlasContext;
 vm.createContext(atlasContext);
 vm.runInContext(`${atlasPrefix}\nthis.MODEL={RAILS,PSS_ELECTIONS,PSS_PRUDENT_ELECTIONS,PSS_PROJECTION_BASES,normaliseProjectionBasis,normaliseElectionForBasis,railBForElection,washOutcome};`, atlasContext);
 const atlas = atlasContext.MODEL;
@@ -50,7 +62,7 @@ const v23Context = {
   setTimeout: () => 0, clearTimeout: () => undefined, alert: () => undefined, requestAnimationFrame: () => undefined,
   localStorage: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined },
   document: { addEventListener: () => undefined, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], documentElement: { setAttribute: () => undefined } },
-  window: { location: { search: "" } }, Chart: makeChartStub,
+  window: { location: { search: "" }, RetirementEngine: browserEngine }, Chart: makeChartStub,
 };
 vm.createContext(v23Context);
 vm.runInContext(v23Scripts[0], v23Context);
@@ -70,6 +82,7 @@ const expectedElectionsByBasis = {
   },
 };
 assert.deepEqual(Array.from(dashboard.PSS_ELECTION_ORDER), ["60-40", "65-35", "70-30", "100"], "Command Centre election order");
+assert.deepEqual(Array.from(core.PSS_ELECTION_ORDER), ["60-40", "65-35", "70-30", "100"], "Canonical engine election order");
 const close = (actual, expected, message) => assert.ok(Math.abs(Number(actual) - expected) < 0.011, `${message}: expected ${expected}, got ${actual}`);
 
 const expectedBases = {
@@ -79,6 +92,8 @@ const expectedBases = {
 
 for (const [key, expected] of Object.entries(expectedBases)) {
   const surfaces = [
+    ["Canonical engine", core.PSS_PROJECTION_BASES[key]],
+    ["Browser engine", browserEngine.PSS_PROJECTION_BASES[key]],
     ["Command Centre", dashboard.PSS_PROJECTION_BASES[key]],
     ["Atlas", atlas.PSS_PROJECTION_BASES[key]],
     ["V23", v23(`PSS_PROJECTION_BASES[${JSON.stringify(key)}]`)],
@@ -102,28 +117,40 @@ assert.equal(v23('normaliseElectionForBasis("prudent-630","100")'), "60-40", "V2
 
 for (const [basisKey, expectedElections] of Object.entries(expectedElectionsByBasis)) {
  for (const [key, expected] of Object.entries(expectedElections)) {
+  const coreElection = core.PSS_PROJECTION_BASES[basisKey].elections[key];
+  const browserElection = browserEngine.PSS_PROJECTION_BASES[basisKey].elections[key];
   const commandElection = dashboard.PSS_PROJECTION_BASES[basisKey].elections[key];
   const atlasElection = atlas.PSS_PROJECTION_BASES[basisKey].elections[key];
+  const coreRail = core.railBOpeningPosition(key, basisKey);
+  const browserRail = browserEngine.railBOpeningPosition(key, basisKey);
   const commandRail = dashboard.railBForElection(key, basisKey);
   const atlasRail = atlas.railBForElection(key, basisKey);
   const v23Election = v23(`PSS_PROJECTION_BASES[${JSON.stringify(basisKey)}].elections[${JSON.stringify(key)}]`);
   const v23Rail = v23(`railBProfileForElection(${JSON.stringify(key)},${JSON.stringify(basisKey)})`);
   for (const field of ["grossPension", "netPension", "lumpSum", "lumpTaxFree", "lumpTaxableTaxed"]) {
+    close(coreElection[field], expected[field], `Canonical engine ${basisKey} ${key} ${field}`);
+    close(browserElection[field], expected[field], `Browser engine ${basisKey} ${key} ${field}`);
     close(commandElection[field], expected[field], `Command Centre ${basisKey} ${key} ${field}`);
     close(atlasElection[field], expected[field], `Atlas ${basisKey} ${key} ${field}`);
     close(v23Election[field], expected[field], `V23 ${basisKey} ${key} ${field}`);
   }
+  close(coreElection.fas, expected.fas, `Canonical engine ${basisKey} ${key} FAS`);
+  close(browserElection.fas, expected.fas, `Browser engine ${basisKey} ${key} FAS`);
   close(commandElection.fas, expected.fas, `Command Centre ${basisKey} ${key} FAS`);
   close(atlasElection.fas, expected.fas, `Atlas ${basisKey} ${key} FAS`);
   close(v23Rail.fas, expected.fas, `V23 ${basisKey} ${key} FAS`);
   assert.ok(Math.abs(commandElection.lumpTaxFree + commandElection.lumpTaxableTaxed + commandElection.lumpTaxableUntaxed - commandElection.lumpSum) <= .011, `Command Centre ${basisKey} ${key} source components reconcile within one cent`);
   for (const [field, expectedField] of [["poolA", "poolA"], ["poolC", "poolC"], ["dbSpecialValue", "dbSpecialValue"]]) {
+    close(coreRail[field], expected[expectedField], `Canonical engine ${basisKey} ${key} ${field}`);
+    close(browserRail[field], expected[expectedField], `Browser engine ${basisKey} ${key} ${field}`);
     close(commandRail[field], expected[expectedField], `Command Centre ${basisKey} ${key} ${field}`);
     close(atlasRail[field], expected[expectedField], `Atlas ${basisKey} ${key} ${field}`);
   }
   close(v23Rail.poolA_day1, expected.poolA, `V23 ${key} poolA`);
   close(v23Rail.poolC_day1, expected.poolC, `V23 ${key} poolC`);
   close(v23Rail.dbSpecialValue, expected.dbSpecialValue, `V23 ${key} special value`);
+  assert.equal(core.calculateWashOutcome(coreRail, 99).maxCycles, expected.maxCycles, `Canonical engine ${basisKey} ${key} wash limit`);
+  assert.equal(browserEngine.calculateWashOutcome(browserRail, 99).maxCycles, expected.maxCycles, `Browser engine ${basisKey} ${key} wash limit`);
   assert.equal(dashboard.washOutcome(commandRail, 99).maxCycles, expected.maxCycles, `Command Centre ${basisKey} ${key} wash limit`);
   assert.equal(atlas.washOutcome(atlasRail, 99).maxCycles, expected.maxCycles, `Atlas ${basisKey} ${key} wash limit`);
   assert.equal(v23Rail.washMax, expected.maxCycles, `V23 ${basisKey} ${key} wash limit`);
@@ -132,6 +159,7 @@ for (const [basisKey, expectedElections] of Object.entries(expectedElectionsByBa
 
 const expectedRailA = { lumpTaxFree: 141_581.47, lumpTaxableTaxed: 433_220.20, lumpTaxableUntaxed: 0 };
 for (const [field, value] of Object.entries(expectedRailA)) {
+  close(core.RAIL_A_SOURCE[field], value, `Canonical engine Rail A ${field}`);
   close(dashboard.RAILS.A[field], value, `Command Centre Rail A ${field}`);
   close(atlas.RAILS.A[field], value, `Atlas Rail A ${field}`);
 }
@@ -204,6 +232,13 @@ assert.match(dashboardSource, /sharedScenarioParams\(scenario, theme\)/, "Comman
 assert.match(v23Source, /RETIREMENT_THEME_STORAGE_KEY="robinson-retirement-theme"/, "V23 reads the shared theme preference");
 assert.match(dashboardSource, /const MAX_FLAT_SPEND = 300_000/, "Command Centre accepts the high-PSS V23 hand-off range");
 assert.match(atlasSource, /const MAX_FLAT_SPEND = 300_000/, "Atlas accepts the high-PSS V23 hand-off range");
+assert.match(dashboardSource, /calculateCanonicalRailBOpeningPosition/, "Command Centre Rail B opening positions must use the canonical retirement engine");
+assert.match(dashboardSource, /calculateCanonicalWashOutcome/, "Command Centre wash outcomes must use the canonical retirement engine");
+assert.match(atlasSource, /const retirementEngine = globalThis\.RetirementEngine/, "Atlas must receive the canonical browser engine");
+assert.match(atlasSource, /retirementEngine\.railBOpeningPosition/, "Atlas Rail B opening positions must use the canonical retirement engine");
+assert.match(atlasSource, /retirementEngine\.calculateWashOutcome/, "Atlas wash outcomes must use the canonical retirement engine");
+assert.match(v23Source, /const RETIREMENT_ENGINE = window\.RetirementEngine/, "V23 must receive the canonical browser engine");
+assert.match(v23Source, /RETIREMENT_ENGINE\.railBOpeningPosition/, "V23 Rail B opening positions must use the canonical retirement engine");
 assert.doesNotMatch(dashboardSource, /<option value="prudent-630" disabled>/, "Command Centre prudent provider basis is enabled");
 assert.doesNotMatch(v23Source, /id="pss-basis-prudent" disabled/, "V23 prudent provider basis is enabled");
 assert.match(v23Source, /const LS_KEY="v23_4_state"/, "V23 uses the partial-basis state schema");
@@ -303,4 +338,4 @@ const v23PageIds = [...v23NavSource.matchAll(/data-page="([^"]+)"/g)].map((match
 assert.equal(v23PageIds.length, 33, "V23 retains all 33 navigable analysis pages");
 assert.equal(new Set(v23PageIds).size, v23PageIds.length, "V23 navigation contains no duplicated destinations");
 assert.match(v23NavSource, /<details class="nav-advanced"/, "V23 uses progressive disclosure for specialist analysis");
-console.log("Retirement dual-basis registry, age-band preservation, control synchronisation, plain-English funding measures, navigation disclosure, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");
+console.log("Retirement dual-basis registry, canonical PSS-opening engine, age-band preservation, control synchronisation, plain-English funding measures, navigation disclosure, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");
