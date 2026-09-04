@@ -63,10 +63,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .icon-button { min-width: 44px; width: auto; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); color: var(--text); background: var(--panel); cursor: pointer; font-size: 11px; font-weight: 800; }
 .icon-button:hover { border-color: var(--blue); }
 .mobile-only { display: none; }
+.desktop-only { display: none; }
 .mobile-dock { display: none; }
 .nav-backdrop { display: none; }
 
-.app-layout { display: grid; grid-template-columns: 246px minmax(0, 1fr); max-width: 1700px; margin: 0 auto; }
+.app-layout { display: grid; grid-template-columns: 246px minmax(0, 1fr); max-width: 1700px; margin: 0 auto; transition: grid-template-columns .22s ease; }
 .sidebar { position: sticky; top: 68px; height: calc(100vh - 68px); padding: 20px 13px 18px; overflow: auto; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 92%, transparent); }
 .sidebar-context { margin: 2px 7px 18px; padding: 15px; border-radius: 14px; background: linear-gradient(145deg, rgba(111,140,255,.14), rgba(71,214,160,.07)); border: 1px solid var(--line); }
 .sidebar-context span, .sidebar-context small { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
@@ -808,6 +809,13 @@ dd { margin: 2px 0 0; font-weight: 800; }
   .review-grid, .review-hero { grid-template-columns: 1fr; }
   .review-actions { grid-template-columns: repeat(2, 1fr); }
   .review-progress { margin-top: 18px; }
+}
+
+@media (min-width: 921px) {
+  .desktop-only { display: inline-grid; place-items: center; }
+  .app-layout.nav-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  .app-layout.nav-collapsed .sidebar { padding-left: 0; padding-right: 0; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none; border-right-color: transparent; transition: opacity .18s ease, visibility 0s linear .18s; }
+  .sidebar { transition: opacity .18s ease; }
 }
 
 @media (max-width: 650px) {

@@ -955,6 +955,30 @@ export default function RetirementDashboard() {
   const [scenarioHydrated, setScenarioHydrated] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [navOpen, setNavOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem("robinson-retirement-nav-collapsed") === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem("robinson-retirement-nav-collapsed", navCollapsed ? "1" : "0"); } catch { /* storage unavailable */ }
+  }, [navCollapsed]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = !!target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+      if (event.key === "Escape" && navOpen) {
+        setNavOpen(false);
+        document.getElementById("nav-menu-button")?.focus();
+        return;
+      }
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "[") { event.preventDefault(); setNavCollapsed((value) => !value); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
   const [showLedger, setShowLedger] = useState(false);
   const [washCycles, setWashCycles] = useState(6);
   const [vrAge, setVrAge] = useState(57);
@@ -1803,11 +1827,11 @@ export default function RetirementDashboard() {
     <div className={`retirement-app ${theme}`}>
       <header className="topbar">
         <div className="brand"><div className="brandmark">R</div><div><b>Robinson Retirement</b><span>Command centre · real dollars</span></div></div>
-        <div className="top-actions">{section === "vr" ? <Badge tone="modelled">VR · Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : " · March/V5"}</Badge> : <Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : ""}</Badge>}<button aria-label="Toggle colour theme" className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button><button aria-label={navOpen ? "Close navigation" : "Open navigation"} aria-controls="retirement-sidebar" aria-expanded={navOpen} className="icon-button mobile-only menu-button" onClick={() => setNavOpen(!navOpen)}>{navOpen ? "Close" : "Menu"}</button></div>
+        <div className="top-actions">{section === "vr" ? <Badge tone="modelled">VR · Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : " · March/V5"}</Badge> : <Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : ""}</Badge>}<button aria-label="Toggle colour theme" className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button><button aria-label={navCollapsed ? "Show navigation sidebar" : "Hide navigation sidebar"} title={navCollapsed ? "Show sidebar ( [ )" : "Hide sidebar ( [ )"} aria-controls="retirement-sidebar" aria-expanded={!navCollapsed} className="icon-button desktop-only" onClick={() => setNavCollapsed(!navCollapsed)}>{navCollapsed ? "» Menu" : "« Hide"}</button><button aria-label={navOpen ? "Close navigation" : "Open navigation"} aria-controls="retirement-sidebar" aria-expanded={navOpen} id="nav-menu-button" className="icon-button mobile-only menu-button" onClick={() => setNavOpen(!navOpen)}>{navOpen ? "Close" : "Menu"}</button></div>
       </header>
-      <div className="app-layout">
+      <div className={`app-layout ${navCollapsed ? "nav-collapsed" : ""}`.trim()}>
         {navOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={() => setNavOpen(false)} />}
-        <aside id="retirement-sidebar" aria-label="Retirement sections" className={`sidebar ${navOpen ? "open" : ""}`}>
+        <aside id="retirement-sidebar" aria-label="Retirement sections" inert={navCollapsed && !navOpen} className={`sidebar ${navOpen ? "open" : ""}`}>
           <div className="sidebar-context"><span>Retirement date</span><b>21 December 2033</b><small>Age 60 · preservation age 60</small></div>
           <nav>{NAV.map((item, index) => { const showGroup = index === 0 || item.group !== NAV[index - 1].group; return <div key={item.key}>{showGroup && <div className="nav-group">{item.group}</div>}<button aria-current={section === item.key ? "page" : undefined} className={section === item.key ? "active" : ""} onClick={() => go(item.key)}><span>{item.label}</span></button></div>; })}</nav>
           <a className="deep-link spending-deep-link" href={v23SpendPlanUrl} target="_blank" rel="noreferrer"><span>Set spending plan in V23</span><small>Fine-tune age-by-age gaps and drawdown periods. Command Centre spending is a flat comparison lens.</small><b>Open Income &amp; draws ↗</b></a>
