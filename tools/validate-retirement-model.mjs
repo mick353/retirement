@@ -191,12 +191,19 @@ assert.equal(explicitFlatPlan.gapBands.length, 1, "An explicit flat-spend import
 
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
+assert.match(atlasSource, /theme:\s*activeTheme\(\)/, "Atlas shared links carry the selected colour theme");
 assert.match(v23Source, /pss:scenario\.pssElection/, "V23 shared links carry the PSS election");
 assert.match(v23Source, /basis:normaliseProjectionBasis\(scenario\.pssProjectionBasis\)/, "V23 shared links carry the PSS projection basis");
+assert.match(v23Source, /theme:STATE\.theme/, "V23 shared links carry the selected colour theme");
 assert.match(v23Source, /version:7/, "V23 stores the current shared-scenario schema");
 assert.match(dashboardSource, /version: 7/, "Command Centre stores the current shared-scenario schema");
 assert.match(atlasSource, /version: 7/, "Atlas stores the current shared-scenario schema");
 assert.match(dashboardSource, /basis:\s*scenario\.pssProjectionBasis/, "Command Centre shared links carry the PSS projection basis");
+assert.match(dashboardSource, /THEME_STORAGE_KEY = "robinson-retirement-theme"/, "Command Centre stores the shared theme preference");
+assert.match(dashboardSource, /sharedScenarioParams\(scenario, theme\)/, "Command Centre hand-offs carry the selected colour theme");
+assert.match(v23Source, /RETIREMENT_THEME_STORAGE_KEY="robinson-retirement-theme"/, "V23 reads the shared theme preference");
+assert.match(dashboardSource, /const MAX_FLAT_SPEND = 300_000/, "Command Centre accepts the high-PSS V23 hand-off range");
+assert.match(atlasSource, /const MAX_FLAT_SPEND = 300_000/, "Atlas accepts the high-PSS V23 hand-off range");
 assert.doesNotMatch(dashboardSource, /<option value="prudent-630" disabled>/, "Command Centre prudent provider basis is enabled");
 assert.doesNotMatch(v23Source, /id="pss-basis-prudent" disabled/, "V23 prudent provider basis is enabled");
 assert.match(v23Source, /const LS_KEY="v23_4_state"/, "V23 uses the partial-basis state schema");

@@ -49,5 +49,8 @@ assert(!script.includes("visualPalette(false)") && !script.includes("visualPalet
 assert(script.includes('state.rail === "B" ? `B · ${currentRail().electionLabel}`'), "Visual studio must name the active Rail B PSS election");
 assert(/\.visual-workspace\s*\{[\s\S]*?background:\s*var\(--panel-2\);/.test(css), "Visual studio workspace must inherit the active site theme");
 assert(css.includes("body.visual-focus-open .visual-studio"), "Immersive visual focus state is missing");
+assert(script.includes('const THEME_STORAGE_KEY = "robinson-retirement-theme"'), "Atlas must use the shared retirement theme preference");
+assert(script.includes('theme: activeTheme()'), "Atlas hand-offs must carry the selected colour theme");
+assert(script.includes('normaliseTheme(params.get("theme"))'), "Atlas must honour an incoming colour-theme hand-off");
 
 console.log(`Atlas visual studio validated: ${modes.length} synchronized modes and ${scriptIds.size} DOM bindings.`);

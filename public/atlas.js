@@ -7,6 +7,8 @@
   const HOME_FLOOR = 500_000;
   const GROSS_ESTATE_FLOOR = 1_000_000;
   const WASH_AMOUNT = 130_000;
+  const MAX_FLAT_SPEND = 300_000;
+  const THEME_STORAGE_KEY = "robinson-retirement-theme";
 
   const PSS_ELECTIONS = {
     "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 168_256.05, grossPension: 91_776.03, netPension: 86_240.18, netPensionPf: 3_316.93, lumpSum: 673_024.21, lumpTaxFree: 160_278.23, lumpTaxableTaxed: 512_745.98, lumpTaxableUntaxed: 0 },
@@ -111,6 +113,8 @@
   const compact = (value) => value >= 1_000_000 ? `$${(value / 1_000_000).toFixed(2)}m` : `$${Math.round(value / 1_000).toLocaleString("en-AU")}k`;
   const pct = (value, digits = 1) => `${(value * 100).toFixed(digits)}%`;
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const normaliseTheme = (value) => value === "dark" || value === "light" ? value : null;
+  const activeTheme = () => document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 
   const params = new URLSearchParams(location.search);
   const parsedReturn = Number(params.get("return"));
@@ -120,7 +124,7 @@
     rail: params.get("rail") === "A" ? "A" : "B",
     pssElection: normaliseElectionForBasis(parsedBasis, parsedElection),
     pssProjectionBasis: parsedBasis,
-    spend: clamp(Number(params.get("spend")) || 110_000, 76_000, 150_000),
+    spend: clamp(Number(params.get("spend")) || 110_000, 76_000, MAX_FLAT_SPEND),
     realReturn: clamp(Number.isFinite(parsedReturn) && parsedReturn > 0 ? parsedReturn : 0.05, 0.02, 0.075),
     targetAge: clamp(Number(params.get("age")) || 75, 70, 95),
     home: clamp(Number(params.get("home")) || HOME_FLOOR, 300_000, 1_000_000),
@@ -236,6 +240,7 @@
       reserveMonths: String(state.liquidityMonths),
       seed: String(state.simulationSeed),
       view: state.visualMode,
+      theme: activeTheme(),
     });
     return query.toString();
   }
@@ -1135,7 +1140,10 @@
     document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#03080f" : "#eef3fb";
     $("themeToggle").textContent = theme === "dark" ? "Light" : "Dark";
     $("themeToggle").setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} theme`);
-    try { localStorage.setItem("robinson-atlas-theme", theme); } catch { /* preference only */ }
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      localStorage.setItem("robinson-atlas-theme", theme);
+    } catch { /* preference only */ }
     renderAll();
   }
 
@@ -1257,10 +1265,19 @@
   });
 
   const initialTheme = (() => {
-    try { return localStorage.getItem("robinson-atlas-theme") || "light"; } catch { return "light"; }
+    const fromQuery = normaliseTheme(params.get("theme"));
+    if (fromQuery) return fromQuery;
+    try {
+      return normaliseTheme(localStorage.getItem(THEME_STORAGE_KEY))
+        || normaliseTheme(localStorage.getItem("robinson-atlas-theme"))
+        || "light";
+    } catch { return "light"; }
   })();
   document.documentElement.dataset.theme = initialTheme === "dark" ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]').content = initialTheme === "dark" ? "#03080f" : "#eef3fb";
+  try { localStorage.setItem(THEME_STORAGE_KEY, document.documentElement.dataset.theme); } catch { /* preference only */ }
   $("themeToggle").textContent = initialTheme === "dark" ? "Light" : "Dark";
+  $("themeToggle").setAttribute("aria-label", `Switch to ${initialTheme === "dark" ? "light" : "dark"} theme`);
   $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Year ${age - 60} · age ${age - 1}→${age}</option>`).join("");
   $("capitalAgeSelect").innerHTML = Array.from({ length: 36 }, (_, index) => 60 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
   state.washCycles = washOutcome(currentRail(), 99).maxCycles;

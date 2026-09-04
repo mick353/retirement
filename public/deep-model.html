@@ -1872,6 +1872,23 @@ const STATE = {
   checklistState:{}
 };
 
+const RETIREMENT_THEME_STORAGE_KEY="robinson-retirement-theme";
+function normaliseRetirementTheme(value){return value==="dark"||value==="light"?value:null;}
+function setRetirementTheme(value){
+  const theme=normaliseRetirementTheme(value)||"dark";
+  STATE.theme=theme;
+  document.documentElement.setAttribute("data-theme",theme);
+  const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute("content",theme==="dark"?"#03080f":"#eef3fb");
+  try{localStorage.setItem(RETIREMENT_THEME_STORAGE_KEY,theme);}catch(e){}
+  try{const url=new URL(location.href);if(url.searchParams.get("theme")!==theme){url.searchParams.set("theme",theme);history.replaceState(null,"",url.pathname+url.search+url.hash);}}catch(e){}
+  return theme;
+}
+function initialiseRetirementTheme(){
+  let stored=null;try{stored=localStorage.getItem(RETIREMENT_THEME_STORAGE_KEY);}catch(e){}
+  const queryTheme=normaliseRetirementTheme(new URLSearchParams(location.search).get("theme"));
+  return setRetirementTheme(queryTheme||normaliseRetirementTheme(stored)||STATE.theme);
+}
+
 /* ========== GAP BAND HELPERS ========== */
 const BAND_MIN_AGE=60,BAND_MAX_AGE=95;
 const bandAgeTimers=new Map();
@@ -4635,11 +4652,10 @@ function wireProfile(){
 function wireTheme(){
   const themeBtn=document.getElementById("btn-theme");
   if(themeBtn)themeBtn.addEventListener("click",()=>{
-    STATE.theme=STATE.theme==="dark"?"light":"dark";
-    document.documentElement.setAttribute("data-theme",STATE.theme);
+    setRetirementTheme(STATE.theme==="dark"?"light":"dark");
     applyChartTheme();
     themeBtn.textContent=STATE.theme==="dark"?"☀ Light":"🌙 Dark";
-    rerenderAll();saveState();
+    rerenderAll();saveState();window.dispatchEvent(new Event("robinson-retirement-theme-changed"));
   });
   const printBtn=document.getElementById("btn-print");
   if(printBtn)printBtn.addEventListener("click",printSelectedPack);
@@ -4724,6 +4740,7 @@ function loadState(){
 /* ========== INIT ========== */
 function init(){
   loadState();
+  initialiseRetirementTheme();
   applyStateToInputs();
   applyChartTheme();
   wireNav();
@@ -5476,7 +5493,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
   function navigationUrl(path){
     const scenario=navigationScenario();
-    const params=new URLSearchParams({shared:"1",rail:scenario.rail,pss:scenario.pssElection||"60-40",basis:normaliseProjectionBasis(scenario.pssProjectionBasis),spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear,reserveMonths:String(scenario.liquidityMonths),seed:String(scenario.simulationSeed)});
+    const params=new URLSearchParams({shared:"1",rail:scenario.rail,pss:scenario.pssElection||"60-40",basis:normaliseProjectionBasis(scenario.pssProjectionBasis),spend:String(scenario.spend),return:String(Number(scenario.realReturn.toFixed(4))),age:String(scenario.targetAge),home:String(Math.round(scenario.homeValue)),taxYear:scenario.taxYear,reserveMonths:String(scenario.liquidityMonths),seed:String(scenario.simulationSeed),theme:STATE.theme});
     return `${path}?${params.toString()}`;
   }
   window.v23NavigationUrl=navigationUrl;
@@ -5586,6 +5603,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     buildMobileCompact();
     applySharedScenario(sharedFromQuery());
     updateNavigation();
+    window.addEventListener("robinson-retirement-theme-changed",updateNavigation);
     document.addEventListener("input",()=>setTimeout(updateNavigation,0),true);
     document.addEventListener("change",()=>setTimeout(updateNavigation,0),true);
     try{if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});}catch(e){}

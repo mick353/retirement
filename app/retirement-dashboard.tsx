@@ -41,6 +41,8 @@ type ScenarioState = {
   simulationSeed: number;
 };
 
+type Theme = "dark" | "light";
+
 type ComparisonPlan = Pick<ScenarioState, "rail" | "spend"> & {
   label: string;
   intent: string;
@@ -145,6 +147,7 @@ const TBC = 2_100_000;
 const TSB_BUFFER = 5_000;
 const HOME_BASELINE = 500_000;
 const POOL_C_DRAG = 0.0035;
+const MAX_FLAT_SPEND = 300_000;
 const ASFA_MARCH_2026 = {
   asAt: "March quarter 2026",
   singleComfortable: 55_923,
@@ -425,6 +428,24 @@ const pct = (n: number, d = 0) => `${(n * 100).toFixed(d)}%`;
 const money = (n: number) => fmt.format(Number.isFinite(n) ? n : 0);
 const compactMoney = (n: number) => n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}m` : `$${Math.round(n / 1_000)}k`;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const THEME_STORAGE_KEY = "robinson-retirement-theme";
+
+function normaliseTheme(value: string | null | undefined): Theme | null {
+  return value === "light" || value === "dark" ? value : null;
+}
+
+function initialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const queryTheme = normaliseTheme(new URLSearchParams(window.location.search).get("theme"));
+  if (queryTheme) return queryTheme;
+  try {
+    return normaliseTheme(window.localStorage.getItem(THEME_STORAGE_KEY))
+      ?? normaliseTheme(window.localStorage.getItem("robinson-atlas-theme"))
+      ?? "dark";
+  } catch {
+    return "dark";
+  }
+}
 
 function siteAsset(path: string) {
   const cleanPath = path.replace(/^\/+/, "");
@@ -437,7 +458,7 @@ const COMPARISON_PLANS: Record<string, ComparisonPlan> = {
   estate: { label: "Estate-first", intent: "Lower draw and conservative rail", rail: "A", spend: 90_000 },
 };
 
-function sharedScenarioParams(scenario: ScenarioState) {
+function sharedScenarioParams(scenario: ScenarioState, theme?: Theme) {
   const params = new URLSearchParams({
     shared: "1",
     rail: scenario.rail,
@@ -451,11 +472,12 @@ function sharedScenarioParams(scenario: ScenarioState) {
     reserveMonths: String(scenario.liquidityMonths),
     seed: String(scenario.simulationSeed),
   });
+  if (theme) params.set("theme", theme);
   return params.toString();
 }
 
-function sharedPageUrl(path: string, scenario: ScenarioState) {
-  return `${siteAsset(path)}${path.includes("?") ? "&" : "?"}${sharedScenarioParams(scenario)}`;
+function sharedPageUrl(path: string, scenario: ScenarioState, theme?: Theme) {
+  return `${siteAsset(path)}${path.includes("?") ? "&" : "?"}${sharedScenarioParams(scenario, theme)}`;
 }
 
 function seededGenerator(seed: number) {
@@ -766,7 +788,7 @@ function HorizonExplorer({ rows, rail, railBElectionLabel, spend, realReturn, ta
   const selected = rows[selectedIndex] ?? rows[0];
   const milestoneAges = [...new Set([60, 61, targetAge, 85, 95])].filter((age) => age >= 60 && age <= 95).sort((a, b) => a - b);
   const selectAge = (age: number) => setSelectedIndex(clamp(age - 60, 0, rows.length - 1));
-  const higherSpend = Math.min(150_000, spend + 10_000);
+  const higherSpend = Math.min(MAX_FLAT_SPEND, spend + 10_000);
   const lowerSpend = Math.max(76_000, spend - 10_000);
   const higherSpendCapital = ledgerEndingAtAge(rail, higherSpend, realReturn, selected.age, taxYear);
   const lowerSpendCapital = ledgerEndingAtAge(rail, lowerSpend, realReturn, selected.age, taxYear);
@@ -894,7 +916,7 @@ function FrontierCurve({ rail, selectedSpend, homeValue, realReturn, targetAge, 
           {[...new Set([minSpend, 90_000, 100_000, 110_000, 120_000, 130_000, 140_000, maxSpend])].filter((value) => value >= minSpend && value <= maxSpend).sort((a, b) => a - b).map((candidateSpend) => <text key={candidateSpend} x={x(candidateSpend)} y={height - 16} textAnchor="middle" className="chart-label">${candidateSpend / 1000}k</text>)}
         </svg>
       </div>
-      <label className="frontier-drag"><span>Drag annual spending <b>{money(selectedSpend)}</b></span><input type="range" min="76000" max="150000" step="1000" value={selectedSpend} onChange={(event) => onSelect(Number(event.target.value))} /></label>
+      <label className="frontier-drag"><span>Drag annual spending <b>{money(selectedSpend)}</b></span><input type="range" min="76000" max={MAX_FLAT_SPEND} step="1000" value={selectedSpend} onChange={(event) => onSelect(Number(event.target.value))} /></label>
       <div className="frontier-readout"><span>Selected age-{targetAge} investments · {pct(realReturn, 1)} real <b>{money(nearest.capital)}</b></span><span>Property-inclusive estate <b>{money(nearest.estate)}</b></span></div>
     </div>
   );
@@ -953,7 +975,7 @@ export default function RetirementDashboard() {
   const [liquidityMonths, setLiquidityMonths] = useState(12);
   const [simulationSeed, setSimulationSeed] = useState(20260814);
   const [scenarioHydrated, setScenarioHydrated] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const [navOpen, setNavOpen] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -963,6 +985,16 @@ export default function RetirementDashboard() {
   useEffect(() => {
     try { window.localStorage.setItem("robinson-retirement-nav-collapsed", navCollapsed ? "1" : "0"); } catch { /* storage unavailable */ }
   }, [navCollapsed]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(THEME_STORAGE_KEY, theme); } catch { /* preference only */ }
+    const pageUrl = new URL(window.location.href);
+    if (pageUrl.searchParams.get("theme") !== theme) {
+      pageUrl.searchParams.set("theme", theme);
+      window.history.replaceState(null, "", `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`);
+    }
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#071321" : "#eef3fb");
+  }, [theme]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1026,8 +1058,8 @@ export default function RetirementDashboard() {
   const selectedVrImmediate = vrImmediatePaths.find((row) => row.age === vrAge)!;
   const selectedVrPreserve = vrPreservePaths.find((row) => row.age === vrAge)!;
   const selectedVrPath = vrMode === "immediate" ? selectedVrImmediate : selectedVrPreserve;
-  const v23SpendPlanUrl = sharedPageUrl("deep-model.html?page=income", currentScenario);
-  const atlasUrl = sharedPageUrl("atlas.html", currentScenario);
+  const v23SpendPlanUrl = sharedPageUrl("deep-model.html?page=income", currentScenario, theme);
+  const atlasUrl = sharedPageUrl("atlas.html", currentScenario, theme);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
   const wash = washOutcome(rail, washCycles);
@@ -1156,7 +1188,7 @@ export default function RetirementDashboard() {
           setRailKey(candidate.rail === "A" ? "A" : "B");
           setPssElection(normaliseElectionForBasis(basis, candidate.pssElection));
           setPssProjectionBasis(basis);
-          setSpend(clamp(Number(candidate.spend) || 110_000, 76_000, 150_000));
+          setSpend(clamp(Number(candidate.spend) || 110_000, 76_000, MAX_FLAT_SPEND));
           setRealReturn(clamp(Number(candidate.realReturn) || 0.05, 0.02, 0.075));
           setTargetAge(clamp(Number(candidate.targetAge) || 75, 70, 95));
           setHomeValue(clamp(Number(candidate.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
@@ -1271,7 +1303,7 @@ export default function RetirementDashboard() {
         setRailKey(parsed.current.rail === "A" ? "A" : "B");
         setPssElection(normaliseElectionForBasis(basis, parsed.current.pssElection));
         setPssProjectionBasis(basis);
-        setSpend(clamp(Number(parsed.current.spend) || 110_000, 76_000, 150_000));
+        setSpend(clamp(Number(parsed.current.spend) || 110_000, 76_000, MAX_FLAT_SPEND));
         setRealReturn(clamp(Number(parsed.current.realReturn) || 0.05, 0.02, 0.075));
         setTargetAge(clamp(Number(parsed.current.targetAge) || 75, 70, 95));
         setHomeValue(clamp(Number(parsed.current.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
@@ -1392,7 +1424,7 @@ export default function RetirementDashboard() {
           <label>Modelling rail<select value={railKey} onChange={(e) => setRailKey(e.target.value as RailKey)}><option value="A">Rail A — conservative wealth</option><option value="B">Rail B — spending frontier</option></select></label>
           <label>PSS projection basis<select value={pssProjectionBasis} onChange={(e) => chooseProjectionBasis(normaliseProjectionBasis(e.target.value))}><option value="source-825">Current source · 8.2% / 5% / 2.5% · 4 elections</option><option value="prudent-630">Prudent · 6% / 5% / 3% · 3 elections</option></select><small className="control-help">This provider basis creates the retirement-day PSS figures. It does not replace the separate real-return control below.</small></label>
           <label>PSS election<select value={effectivePssElection} onChange={(e) => { const next = normaliseElectionForBasis(pssProjectionBasis, e.target.value); const option = activePssElections[next]!; setPssElection(next); setRailKey("B"); setWashCycles(option.lumpSum > 0 ? Math.ceil(option.lumpSum / 130_000) : 0); }}>{activePssElectionKeys.map((key) => activePssElections[key]!).map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}</select><small className="control-help">Selecting an election updates pension, lump, TBC, pools, drawdown, surplus and wash capacity everywhere. 100% pension currently exists only in the 8.2/5/2.5 source set.</small></label>
-          <AdjustableControl label="Flat net annual spend" value={spend} min={76_000} max={150_000} step={1_000} baseline={110_000} format={money} onChange={setSpend} />
+          <AdjustableControl label="Flat net annual spend" value={spend} min={76_000} max={MAX_FLAT_SPEND} step={1_000} baseline={110_000} format={money} onChange={setSpend} />
           <AdjustableControl label="Real investment return" value={realReturn} min={0.02} max={0.075} step={0.005} baseline={0.05} scale={100} format={(value) => pct(value, 1)} onChange={setRealReturn} />
           <AdjustableControl label="Liquid reserve target" value={liquidityMonths} min={0} max={24} step={3} baseline={12} format={(value) => `${Math.round(value)} months of starting gap`} onChange={setLiquidityMonths} />
           <AdjustableControl label="Target age" value={targetAge} min={70} max={95} step={1} baseline={75} format={(value) => `${Math.round(value)}`} onChange={setTargetAge} />
