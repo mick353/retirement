@@ -32,6 +32,7 @@ const electionKeys = [...html.matchAll(/data-pss-election="([^"]+)"/g)].map((mat
 assert(JSON.stringify(electionKeys) === JSON.stringify(["60-40", "65-35", "70-30", "100"]), `Atlas election controls drifted: ${electionKeys.join(", ")}`);
 assert(htmlIds.has("electionControl") && htmlIds.has("electionContext"), "Atlas election context is missing");
 assert(htmlIds.has("basisCurrent") && htmlIds.has("basisPrudent") && htmlIds.has("basisBoundary"), "Atlas projection-basis controls are missing");
+assert(htmlIds.has("commandScenarioLink"), "Atlas must offer an exact-scenario hand-off to Command Centre beside its controls");
 assert(!/id="basisPrudent"[^>]*disabled/.test(html), "Source-backed prudent Atlas basis must be enabled");
 assert(script.includes("state.pssElection"), "Atlas visuals are not wired to the active PSS election");
 assert(script.includes("state.pssProjectionBasis"), "Atlas is not wired to the active PSS projection basis");
@@ -43,6 +44,10 @@ assert(script.includes("These are scenario slices, not probabilities"), "Horizon
 assert(script.includes("annual cash flows and capital stocks on separate visual scales"), "Financial River unit boundary is missing");
 assert(script.includes("PSS floor remains an annual-income halo"), "Legacy Orbit income/capital boundary is missing");
 assert(script.includes("state.realReturn"), "Visual studio is not wired to the active real-return state");
+assert(script.includes('const light = document.documentElement.dataset.theme !== "dark"'), "Canvas visual palette must follow the active site theme");
+assert(!script.includes("visualPalette(false)") && !script.includes("visualPalette(true)"), "No Atlas visual mode may force an opposing light/dark canvas palette");
+assert(script.includes('state.rail === "B" ? `B · ${currentRail().electionLabel}`'), "Visual studio must name the active Rail B PSS election");
+assert(/\.visual-workspace\s*\{[\s\S]*?background:\s*var\(--panel-2\);/.test(css), "Visual studio workspace must inherit the active site theme");
 assert(css.includes("body.visual-focus-open .visual-studio"), "Immersive visual focus state is missing");
 
 console.log(`Atlas visual studio validated: ${modes.length} synchronized modes and ${scriptIds.size} DOM bindings.`);

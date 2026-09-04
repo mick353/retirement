@@ -393,7 +393,8 @@
     return { canvas, context, width, height };
   }
 
-  function visualPalette(light = false) {
+  function visualPalette() {
+    const light = document.documentElement.dataset.theme !== "dark";
     return light ? {
       bg: "#f8fbff", panel: "#ffffff", text: "#10203a", muted: "#637994", grid: "#d8e3f2",
       blue: "#2f67dc", green: "#11845e", amber: "#d17a12", violet: "#7650c8", cyan: "#47b9d7", danger: "#c53c56",
@@ -443,7 +444,7 @@
 
   function drawHorizon(frame, ledger) {
     const { context, width, height } = frame;
-    const palette = visualPalette(false);
+    const palette = visualPalette();
     const pad = { l: width < 620 ? 48 : 68, r: width < 620 ? 24 : 76, t: 76, b: 62 };
     const rates = [...new Set([.02, .04, state.realReturn, .065, .075].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
     const paths = rates.map((rate) => operationalLedger(currentRail(), state.spend, rate));
@@ -451,7 +452,7 @@
     const x = (index) => pad.l + index / Math.max(1, ledger.length - 1) * (width - pad.l - pad.r);
     const y = (value, index = 0, layer = 0) => pad.t + (1 - value / maximum) * (height - pad.t - pad.b) - (state.visualPerspective ? layer * 5 + index * .08 : 0);
     const gradient = context.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, "#0a2441");
+    gradient.addColorStop(0, document.documentElement.dataset.theme === "dark" ? "#0a2441" : "#e5f0ff");
     gradient.addColorStop(1, palette.bg);
     context.fillStyle = gradient;
     context.fillRect(0, 0, width, height);
@@ -529,7 +530,7 @@
 
   function drawRiver(frame, ledger) {
     const { context, width, height } = frame;
-    const palette = visualPalette(true);
+    const palette = visualPalette();
     const pad = { l: width < 620 ? 42 : 70, r: 30, t: 92, b: 46 };
     const x = (index) => pad.l + index / Math.max(1, ledger.length - 1) * (width - pad.l - pad.r);
     const annualMax = Math.max(state.spend, currentRail().netPension, ...ledger.map((row) => row.draw), 1);
@@ -589,7 +590,7 @@
 
   function drawOrbit(frame, ledger) {
     const { context, width, height } = frame;
-    const palette = visualPalette(false);
+    const palette = visualPalette();
     context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
     const cx = width * .53;
     const cy = height * .49;
@@ -631,7 +632,7 @@
 
   function drawWaterfall(frame, ledger) {
     const { context, width, height } = frame;
-    const palette = visualPalette(false);
+    const palette = visualPalette();
     context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
     const row = rowAt(ledger, state.selectedCapitalAge);
     const isOpening = row.age === 60;
@@ -679,7 +680,7 @@
 
   function drawSunburst(frame, ledger) {
     const { context, width, height } = frame;
-    const palette = visualPalette(false);
+    const palette = visualPalette();
     context.fillStyle = palette.bg; context.fillRect(0, 0, width, height);
     const row = rowAt(ledger, state.selectedCapitalAge);
     const parts = [
@@ -766,7 +767,7 @@
     $("visualStageHint").textContent = copy.hint;
     $("visualSummary").textContent = copy.summary;
     $("visualDisclosure").textContent = copy.disclosure;
-    $("visualRail").textContent = state.rail;
+    $("visualRail").textContent = state.rail === "B" ? `B · ${currentRail().electionLabel}` : "A · March 2026 control";
     $("visualSpend").textContent = `${money0.format(state.spend)} p.a.`;
     $("visualReturn").textContent = `${pct(state.realReturn)} p.a.`;
     $("visualTarget").textContent = String(state.targetAge);

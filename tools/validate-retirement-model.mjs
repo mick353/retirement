@@ -203,6 +203,8 @@ assert.match(v23Source, /const LS_KEY="v23_4_state"/, "V23 uses the partial-basi
 assert.match(dashboardSource, /Frontier decision point/, "Command Centre exposes the selected Frontier age on mobile");
 assert.match(dashboardSource, /continues to age 95/, "Command Centre distinguishes target age from projection horizon");
 assert.match(dashboardSource, /const marginalScale = Math\.max\(1, \.\.\.marginalCost\)/, "Frontier marginal bars scale to late target ages without overflow");
+assert.match(dashboardSource, /railBElectionLabel/, "Command Centre Horizon identifies the selected Rail B PSS election");
+assert.match(dashboardSource, /Atlas keeps this flat comparison; V23 keeps its age-band spending plan\./, "Command Centre Horizon must distinguish the flat comparison lens from V23 age bands");
 assert.match(dashboardSource, /Current choices now drive the VR illustration/, "VR page must disclose that the active source anchor drives the illustration");
 assert.match(dashboardSource, /ages 57–59 are transparent illustrations/, "VR page must distinguish illustrative early ages from the sourced age-60 anchor");
 assert.match(dashboardSource, /No under-60 tax-component split, ETP rollover/, "VR page must identify assumptions it refuses to invent");
