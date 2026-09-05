@@ -3,7 +3,6 @@
 
   const TBC = 2_100_000;
   const TSB_BUFFER = 5_000;
-  const POOL_C_DRAG = 0.0035;
   const HOME_FLOOR = 500_000;
   const GROSS_ESTATE_FLOOR = 1_000_000;
   const WASH_AMOUNT = 130_000;
@@ -11,6 +10,7 @@
   const THEME_STORAGE_KEY = "robinson-retirement-theme";
   const retirementEngine = globalThis.RetirementEngine;
   if (!retirementEngine) throw new Error("The canonical retirement engine did not load");
+  const POOL_C_DRAG = retirementEngine.POOL_C_MODELLED_DRAG;
 
   const PSS_ELECTIONS = {
     "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 168_256.05, grossPension: 91_776.03, netPension: 86_240.18, netPensionPf: 3_316.93, lumpSum: 673_024.21, lumpTaxFree: 160_278.23, lumpTaxableTaxed: 512_745.98, lumpTaxableUntaxed: 0 },
@@ -127,17 +127,6 @@
   let visualPlayTimer = null;
   let toastTimer;
 
-  function drawRate(age) {
-    const ageAt1July = Math.max(0, age - 1);
-    if (ageAt1July < 65) return 0.04;
-    if (ageAt1July < 75) return 0.05;
-    if (ageAt1July < 80) return 0.06;
-    if (ageAt1July < 85) return 0.07;
-    if (ageAt1July < 90) return 0.09;
-    if (ageAt1July < 95) return 0.11;
-    return 0.14;
-  }
-
   function incomeTax(gross, taxYear = state.taxYear) {
     const lowerRate = taxYear === "2027-28" ? 0.14 : 0.15;
     let tax = 0;
@@ -164,34 +153,20 @@
   }
 
   function operationalLedger(rail, spend, realReturn) {
-    let poolA = rail.poolA;
-    let poolC = rail.poolC;
-    const rows = [{
-      year: "2033 launch", age: 60, pension: 0, openingA: poolA, openingC: poolC,
-      poolA, poolC, mandatory: 0, draw: 0, spend: 0, fundedSpend: 0, shortfall: 0, reinvestment: 0,
-      externalTaxDrag: 0, netIncome: 0, grossEquivalent: 0, ending: poolA + poolC,
-    }];
-    for (let age = 61; age <= 95; age += 1) {
-      const openingA = poolA;
-      const openingC = poolC;
-      const mandatory = openingA * drawRate(age);
-      const lifestyleGap = Math.max(0, spend - rail.netPension);
-      const draw = Math.min(openingA, Math.max(mandatory, lifestyleGap));
-      const netIncome = rail.netPension + draw;
-      const fundedSpend = Math.min(spend, netIncome);
-      const shortfall = Math.max(0, spend - netIncome);
-      const reinvestment = Math.max(0, netIncome - spend);
-      const externalTaxDrag = openingC * POOL_C_DRAG;
-      poolA = Math.max(0, openingA * (1 + realReturn) - draw);
-      poolC = Math.max(0, openingC * (1 + realReturn) - externalTaxDrag + reinvestment);
-      rows.push({
-        year: `${2033 + age - 60}-${String(34 + age - 60).slice(-2)}`,
-        age, pension: rail.netPension, openingA, openingC, poolA, poolC, mandatory,
-        draw, spend, fundedSpend, shortfall, reinvestment, externalTaxDrag, netIncome,
-        grossEquivalent: grossForNet(netIncome), ending: poolA + poolC,
-      });
-    }
-    return rows;
+    return retirementEngine.calculateFlatRetirementLedger({
+      poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension,
+      spend, realReturn, poolCDrag: POOL_C_DRAG, startAge: 60, endAge: 95,
+    }).map((row) => ({
+      year: row.isOpening ? "2033 launch" : `${2033 + row.age - 60}-${String(34 + row.age - 60).slice(-2)}`,
+      age: row.age, pension: row.pension,
+      openingA: row.openingPoolA, openingC: row.openingPoolC,
+      poolA: row.poolA, poolC: row.poolC, mandatory: row.mandatoryDraw,
+      draw: row.draw, spend: row.spend, fundedSpend: row.fundedSpend,
+      shortfall: row.shortfall, reinvestment: row.reinvestment,
+      externalTaxDrag: row.externalTaxDrag, netIncome: row.netIncome,
+      grossEquivalent: row.isOpening ? 0 : grossForNet(row.netIncome),
+      ending: row.ending,
+    }));
   }
 
   function endingAt(rail, spend, realReturn, age) {
@@ -931,6 +906,7 @@
   }
 
   function renderTradeTable(rail, points) {
+    $("tradeAssumptions").textContent = `${pct(state.realReturn)} real return p.a. after inflation · Rail ${state.rail} · ${rail.electionLabel} · age ${state.targetAge} · ${money0.format(state.home)} real home. Each row holds its annual spending flat in today's dollars; spending is the only variable.`;
     $("tradeCapitalHead").textContent = `Investments @${state.targetAge}`;
     $("tradeEstateHead").textContent = `Estate @${state.targetAge}`;
     $("tradeRows").innerHTML = points.filter((point) => point.spend >= 90_000 && point.spend <= 130_000 && point.spend % 10_000 === 0).map((point) => `

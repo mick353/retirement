@@ -63,19 +63,20 @@ export function firstFinancialYearMinimum(
 }
 
 /**
- * Canonical retirement-engine domain.
+ * Canonical retirement-engine domains.
  *
- * These source-backed PSS inputs and deterministic opening-position rules are
- * deliberately framework-free.  The Command Centre currently consumes the
- * legacy implementation while the migration validator evaluates this engine
- * beside Command Centre, Atlas and V23.  Subsequent releases will switch one
- * consumer at a time only after the results agree.
+ * The framework-free core owns source-backed PSS inputs, retirement-day
+ * opening positions, the flat comparable-spend ledger used by Command Centre
+ * and Atlas, and PSS wash arithmetic. V23 retains its separate age-band,
+ * Pool B, one-off and policy-aware workbench ledger until that richer domain
+ * can be migrated with its own parity contract.
  */
-export const RETIREMENT_ENGINE_VERSION = "2026-09-04.1";
+export const RETIREMENT_ENGINE_VERSION = "2026-09-05.2";
 export const TRANSFER_BALANCE_CAP = 2_100_000;
 export const TRANSFER_BALANCE_BUFFER = 5_000;
 export const HOSTPLUS_OPENING_ANCHOR = 317_447.66;
 export const PSS_WASH_ANNUAL_LIMIT = 130_000;
+export const POOL_C_MODELLED_DRAG = 0.0035;
 
 export type PssElectionKey = "60-40" | "65-35" | "70-30" | "100";
 export type PssProjectionBasisKey = "source-825" | "prudent-630";
@@ -271,4 +272,119 @@ export function calculateWashOutcome(
     applied,
     maxCycles: rail.lumpSum > 0 ? Math.ceil(rail.lumpSum / annualAmount) : 0,
   };
+}
+
+/**
+ * Deterministic flat-spend retirement comparison ledger.
+ *
+ * This is deliberately narrower than V23: it has a flat real annual spend,
+ * two retirement pools, mandatory ABP draw rules and deposit-only Pool C.
+ * It gives Command Centre and Atlas one audited result for equivalent
+ * scenarios without pretending to replace V23's age-banded workbench.
+ */
+export type FlatRetirementLedgerInput = {
+  poolA: number;
+  poolC: number;
+  netPension: number;
+  spend: number;
+  realReturn: number;
+  poolCDrag?: number;
+  startAge?: number;
+  endAge?: number;
+  annualReturns?: readonly number[];
+};
+
+export type FlatRetirementLedgerRow = {
+  age: number;
+  isOpening: boolean;
+  annualReturn: number;
+  openingPoolA: number;
+  openingPoolC: number;
+  opening: number;
+  pension: number;
+  mandatoryDraw: number;
+  lifestyleGap: number;
+  draw: number;
+  spend: number;
+  fundedSpend: number;
+  shortfall: number;
+  reinvestment: number;
+  externalTaxDrag: number;
+  investmentGrowth: number;
+  netIncome: number;
+  poolA: number;
+  poolC: number;
+  ending: number;
+};
+
+export function calculateFlatRetirementLedger(input: FlatRetirementLedgerInput): FlatRetirementLedgerRow[] {
+  const startAge = input.startAge ?? 60;
+  const endAge = input.endAge ?? 95;
+  const poolCDrag = input.poolCDrag ?? POOL_C_MODELLED_DRAG;
+  let poolA = input.poolA;
+  let poolC = input.poolC;
+  const rows: FlatRetirementLedgerRow[] = [{
+    age: startAge,
+    isOpening: true,
+    annualReturn: 0,
+    openingPoolA: poolA,
+    openingPoolC: poolC,
+    opening: poolA + poolC,
+    pension: 0,
+    mandatoryDraw: 0,
+    lifestyleGap: 0,
+    draw: 0,
+    spend: 0,
+    fundedSpend: 0,
+    shortfall: 0,
+    reinvestment: 0,
+    externalTaxDrag: 0,
+    investmentGrowth: 0,
+    netIncome: 0,
+    poolA,
+    poolC,
+    ending: poolA + poolC,
+  }];
+
+  for (let age = startAge + 1; age <= endAge; age += 1) {
+    const annualReturn = input.annualReturns?.[age - startAge - 1] ?? input.realReturn;
+    const openingPoolA = poolA;
+    const openingPoolC = poolC;
+    const mandatoryDraw = openingPoolA * abpMinimumRateAtAgeOn1July(Math.max(0, age - 1));
+    const lifestyleGap = Math.max(0, input.spend - input.netPension);
+    const draw = Math.min(openingPoolA, Math.max(mandatoryDraw, lifestyleGap));
+    const netIncome = input.netPension + draw;
+    const fundedSpend = Math.min(input.spend, netIncome);
+    const shortfall = Math.max(0, input.spend - netIncome);
+    const reinvestment = Math.max(0, netIncome - input.spend);
+    const externalTaxDrag = openingPoolC * poolCDrag;
+    const investmentGrowth = (openingPoolA + openingPoolC) * annualReturn - externalTaxDrag;
+    poolA = Math.max(0, openingPoolA * (1 + annualReturn) - draw);
+    // Pool C receives surplus in this flat-comparison lens but is never used
+    // to silently meet a lifestyle shortfall.
+    poolC = Math.max(0, openingPoolC * (1 + annualReturn) - externalTaxDrag + reinvestment);
+    rows.push({
+      age,
+      isOpening: false,
+      annualReturn,
+      openingPoolA,
+      openingPoolC,
+      opening: openingPoolA + openingPoolC,
+      pension: input.netPension,
+      mandatoryDraw,
+      lifestyleGap,
+      draw,
+      spend: input.spend,
+      fundedSpend,
+      shortfall,
+      reinvestment,
+      externalTaxDrag,
+      investmentGrowth,
+      netIncome,
+      poolA,
+      poolC,
+      ending: poolA + poolC,
+    });
+  }
+  return rows;
 }

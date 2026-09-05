@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { validateLedgerMigration } from "./validate-ledger-migration.mjs";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
@@ -10,6 +11,8 @@ const browserEngineSource = normalise(await readFile(new URL("../public/retireme
 const atlasHtml = normalise(await readFile(new URL("../public/atlas.html", import.meta.url), "utf8"));
 const atlasSource = normalise(await readFile(new URL("../public/atlas.js", import.meta.url), "utf8"));
 const v23Source = normalise(await readFile(new URL("../public/deep-model.html", import.meta.url), "utf8"));
+assert.match(atlasHtml, /id="tradeAssumptions" aria-live="polite"/, "Trade-off context is announced accessibly");
+assert.match(atlasSource, /\$\("tradeAssumptions"\)\.textContent = .*pct\(state\.realReturn\)/, "Trade-off context uses the active real return");
 
 function compile(source, options = {}) {
   return ts.transpileModule(source, {
@@ -31,8 +34,8 @@ vm.runInContext(browserEngineSource, browserEngineContext);
 const browserEngine = browserEngineContext.RetirementEngine;
 assert.ok(browserEngine, "Browser retirement engine must register on globalThis");
 assert.equal(browserEngine.RETIREMENT_ENGINE_VERSION, core.RETIREMENT_ENGINE_VERSION, "Browser retirement engine version");
-assert.match(atlasHtml, /<script src="\.\/retirement-engine\.js\?v=1"><\/script>/, "Atlas loads the canonical browser engine beside its legacy calculations");
-assert.match(v23Source, /<script src="\.\/retirement-engine\.js\?v=1"><\/script>/, "V23 loads the canonical browser engine beside its legacy calculations");
+assert.match(atlasHtml, /<script src="\.\/retirement-engine\.js\?v=2"><\/script>/, "Atlas loads the canonical browser engine beside its legacy calculations");
+assert.match(v23Source, /<script src="\.\/retirement-engine\.js\?v=2"><\/script>/, "V23 loads the canonical browser engine beside its legacy calculations");
 const reactStub = { useEffect: () => undefined, useMemo: (factory) => factory(), useRef: () => ({ current: null }), useState: (value) => [value, () => undefined] };
 const dashboard = runCommonJs(
   compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_PRUDENT_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, VR_AGES, VR_AGE_FACTORS, normaliseProjectionBasis, normaliseElectionForBasis, railBForElection, definedBenefitAt60, vrScenarioPath, washOutcome, operationalLedger, monteCarloFan };`),
@@ -338,4 +341,5 @@ const v23PageIds = [...v23NavSource.matchAll(/data-page="([^"]+)"/g)].map((match
 assert.equal(v23PageIds.length, 33, "V23 retains all 33 navigable analysis pages");
 assert.equal(new Set(v23PageIds).size, v23PageIds.length, "V23 navigation contains no duplicated destinations");
 assert.match(v23NavSource, /<details class="nav-advanced"/, "V23 uses progressive disclosure for specialist analysis");
+validateLedgerMigration({ core, browserEngine, dashboard, atlasSource, compile, runCommonJs });
 console.log("Retirement dual-basis registry, canonical PSS-opening engine, age-band preservation, control synchronisation, plain-English funding measures, navigation disclosure, source-limited wash, surplus routing and zero-volatility invariants passed across Command Centre, Atlas and V23.");

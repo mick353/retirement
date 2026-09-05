@@ -5,7 +5,9 @@ import RetirementAi from "./retirement-ai";
 import {
   HOSTPLUS_BASELINE_RETURN,
   HOSTPLUS_STARTING_BALANCE,
+  POOL_C_MODELLED_DRAG,
   abpMinimumRateAtAgeOn1July,
+  calculateFlatRetirementLedger as calculateCanonicalFlatRetirementLedger,
   calculateWashOutcome as calculateCanonicalWashOutcome,
   firstFinancialYearMinimum,
   normaliseElectionForBasis as normaliseCanonicalElectionForBasis,
@@ -150,7 +152,7 @@ type VrScenario = {
 const TBC = 2_100_000;
 const TSB_BUFFER = 5_000;
 const HOME_BASELINE = 500_000;
-const POOL_C_DRAG = 0.0035;
+const POOL_C_DRAG = POOL_C_MODELLED_DRAG;
 const MAX_FLAT_SPEND = 300_000;
 const ASFA_MARCH_2026 = {
   asAt: "March quarter 2026",
@@ -490,7 +492,11 @@ function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear
       const sampledReturn = clamp(mean + volatility * normalSample(random), -0.55, 0.45);
       annualReturns.push(sampledReturn);
     }
-    const path = operationalLedger(rail, spend, mean, taxYear, annualReturns).map((row) => row.ending);
+    // Risk paths need balances, not the table's salary-equivalent formatting.
+    const path = calculateCanonicalFlatRetirementLedger({
+      poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension,
+      spend, realReturn: mean, poolCDrag: POOL_C_DRAG, annualReturns,
+    }).map((row) => row.ending);
     path.forEach((capital, year) => paths[year].push(capital));
   }
   return {
@@ -539,70 +545,65 @@ function drawRate(age: number) {
 }
 
 function operationalLedger(rail: Rail, spend: number, realReturn: number, taxYear: TaxYear, annualReturns?: number[]) {
-  let poolA = rail.poolA;
-  let poolC = rail.poolC;
-  const rows = [{
-    year: "Opening position",
-    period: "21 Dec 2033",
-    ageLabel: "60",
-    age: 60,
-    isOpening: true,
-    opening: poolA + poolC,
-    pension: 0,
-    accumulation: 0,
-    abp: poolA,
-    poolC,
-    draw: 0,
-    spend: 0,
-    fundedSpend: 0,
-    shortfall: 0,
-    reinvestment: 0,
-    tax: 0,
-    investmentGrowth: 0,
-    netIncome: 0,
-    grossEquivalent: 0,
-    ending: poolA + poolC,
-  }];
-  for (let age = 61; age <= 95; age += 1) {
-    const annualReturn = annualReturns?.[age - 61] ?? realReturn;
-    const openingA = poolA;
-    const openingC = poolC;
-    const mandatory = openingA * drawRate(age);
-    const lifestyleGap = Math.max(0, spend - rail.netPension);
-    const draw = Math.min(openingA, Math.max(mandatory, lifestyleGap));
-    const netIncome = rail.netPension + draw;
-    const fundedSpend = Math.min(spend, netIncome);
-    const shortfall = Math.max(0, spend - netIncome);
-    const reinvestment = Math.max(0, netIncome - spend);
-    const externalTaxDrag = openingC * POOL_C_DRAG;
-    const investmentGrowth = (openingA + openingC) * annualReturn - externalTaxDrag;
-    poolA = Math.max(0, openingA * (1 + annualReturn) - draw);
-    poolC = Math.max(0, openingC * (1 + annualReturn) - externalTaxDrag + reinvestment);
-    const startYear = 2033 + age - 61;
-    rows.push({
-      year: `Year ${age - 60}`,
+  return calculateCanonicalFlatRetirementLedger({
+    poolA: rail.poolA,
+    poolC: rail.poolC,
+    netPension: rail.netPension,
+    spend,
+    realReturn,
+    poolCDrag: POOL_C_DRAG,
+    startAge: 60,
+    endAge: 95,
+    annualReturns,
+  }).map((row) => {
+    if (row.isOpening) {
+      return {
+        year: "Opening position",
+        period: "21 Dec 2033",
+        ageLabel: "60",
+        age: row.age,
+        isOpening: true,
+        opening: row.opening,
+        pension: 0,
+        accumulation: 0,
+        abp: row.poolA,
+        poolC: row.poolC,
+        draw: 0,
+        spend: 0,
+        fundedSpend: 0,
+        shortfall: 0,
+        reinvestment: 0,
+        tax: 0,
+        investmentGrowth: 0,
+        netIncome: 0,
+        grossEquivalent: 0,
+        ending: row.ending,
+      };
+    }
+    const startYear = 2033 + row.age - 61;
+    return {
+      year: `Year ${row.age - 60}`,
       period: `21 Dec ${startYear} → 21 Dec ${startYear + 1}`,
-      ageLabel: `${age - 1}→${age}`,
-      age,
+      ageLabel: `${row.age - 1}→${row.age}`,
+      age: row.age,
       isOpening: false,
-      opening: openingA + openingC,
-      pension: rail.netPension,
+      opening: row.opening,
+      pension: row.pension,
       accumulation: 0,
-      abp: poolA,
-      poolC,
-      draw,
-      spend,
-      fundedSpend,
-      shortfall,
-      reinvestment,
-      tax: externalTaxDrag,
-      investmentGrowth,
-      netIncome,
-      grossEquivalent: grossForNet(netIncome, taxYear),
-      ending: poolA + poolC,
-    });
-  }
-  return rows;
+      abp: row.poolA,
+      poolC: row.poolC,
+      draw: row.draw,
+      spend: row.spend,
+      fundedSpend: row.fundedSpend,
+      shortfall: row.shortfall,
+      reinvestment: row.reinvestment,
+      tax: row.externalTaxDrag,
+      investmentGrowth: row.investmentGrowth,
+      netIncome: row.netIncome,
+      grossEquivalent: grossForNet(row.netIncome, taxYear),
+      ending: row.ending,
+    };
+  });
 }
 
 function ledgerEndingAtAge(rail: Rail, spend: number, realReturn: number, targetAge: number, taxYear: TaxYear = "2026-27", annualReturns?: number[]) {
