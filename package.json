@@ -15,7 +15,7 @@
     "validate:visuals": "node --check public/atlas.js && node tools/validate-atlas-visuals.mjs",
     "validate:mobile": "node tools/validate-mobile-layout.mjs",
     "build": "npm run build:pages",
-    "build:pages": "npm run validate:model && npm run validate:visuals && npm run validate:mobile && vite build --config vite.pages.config.ts",
+    "build:pages": "npm run validate:model && npm run validate:visuals && npm run validate:mobile && node tools/validate-integrated-explorer.mjs && vite build --config vite.pages.config.ts",
     "preview": "vite preview --config vite.pages.config.ts",
     "preview:pages": "vite preview --config vite.pages.config.ts"
   },

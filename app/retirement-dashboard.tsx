@@ -23,6 +23,7 @@ type TaxYear = "2026-27" | "2027-28";
 type SectionKey =
   | "overview"
   | "scenario"
+  | "visuals"
   | "compare"
   | "pre60"
   | "pss"
@@ -33,6 +34,8 @@ type SectionKey =
   | "benchmark"
   | "review"
   | "evidence";
+
+type ScenarioTool = "lab" | "explore" | "compare" | "frontier" | "risk";
 
 type ScenarioState = {
   rail: RailKey;
@@ -293,10 +296,7 @@ function washOutcome(rail: Rail, cycles: number, annualAmount = 130_000) {
 
 const NAV: { key: SectionKey; label: string; group: string }[] = [
   { key: "overview", label: "Command centre", group: "Decide" },
-  { key: "scenario", label: "Scenario lab", group: "Decide" },
-  { key: "compare", label: "Scenario compare", group: "Decide" },
-  { key: "frontier", label: "Spending frontier", group: "Decide" },
-  { key: "risk", label: "Risk studio", group: "Decide" },
+  { key: "scenario", label: "Scenario", group: "Decide" },
   { key: "pre60", label: "Present → 60", group: "Build" },
   { key: "pss", label: "PSS & three pools", group: "Build" },
   { key: "estate", label: "Tax & estate", group: "Protect" },
@@ -304,6 +304,14 @@ const NAV: { key: SectionKey; label: string; group: string }[] = [
   { key: "benchmark", label: "Global position", group: "Context" },
   { key: "review", label: "Annual review", group: "Context" },
   { key: "evidence", label: "Evidence & audit", group: "Context" },
+];
+
+const SCENARIO_TOOLS: { key: ScenarioTool; label: string; hint: string }[] = [
+  { key: "lab", label: "Lab", hint: "Adjust one plan and see its immediate income, capital and estate effects." },
+  { key: "explore", label: "Explore", hint: "See the plan as six interactive illustrations, annual income, return paths or a strategy map." },
+  { key: "compare", label: "Compare", hint: "Compare the balanced, lifestyle-led and estate-first presets on like-for-like assumptions." },
+  { key: "frontier", label: "Frontier", hint: "Trade annual spending against later investment capital and estate." },
+  { key: "risk", label: "Risk", hint: "Stress sequence, volatility and capital-routing outcomes." },
 ];
 
 const FRONTIER_SPENDS = [90_000, 100_000, 110_000, 120_000, 130_000];
@@ -643,169 +651,6 @@ function LineChart({ labels, series, height = 280 }: { labels: (string | number)
   );
 }
 
-function HorizonTerrainCanvas({ rows, rail, spend, realReturn, taxYear, selectedIndex, perspective, onSelect }: { rows: ReturnType<typeof operationalLedger>; rail: Rail; spend: number; realReturn: number; taxYear: TaxYear; selectedIndex: number; perspective: boolean; onSelect: (index: number) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const geometryRef = useRef({ left: 62, width: 800 });
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const appRoot = canvas.closest(".retirement-app") as HTMLElement | null;
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const width = Math.max(420, Math.round(rect.width));
-      const height = Math.max(350, Math.round(rect.height));
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const style = getComputedStyle(appRoot || document.documentElement);
-      const dark = !appRoot?.classList.contains("light");
-      const palette = {
-        bg: dark ? "#061321" : "#eef5ff",
-        text: style.getPropertyValue("--text").trim() || (dark ? "#eaf2ff" : "#11203a"),
-        muted: style.getPropertyValue("--muted").trim() || "#7186a6",
-        blue: style.getPropertyValue("--blue").trim() || "#5f8dff",
-        green: style.getPropertyValue("--green").trim() || "#45d5a4",
-        amber: style.getPropertyValue("--amber").trim() || "#f0aa54",
-        violet: style.getPropertyValue("--violet").trim() || "#b878ff",
-        line: style.getPropertyValue("--line").trim() || "rgba(90,130,190,.22)",
-      };
-      const alpha = (hex: string, opacity: number) => /^#[0-9a-f]{6}$/i.test(hex) ? `${hex}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` : hex;
-      const pad = { l: width < 680 ? 52 : 70, r: width < 680 ? 34 : 75, t: 42, b: 72 };
-      const capitalBottom = height - 116;
-      const cashflowTop = height - 92;
-      const plotWidth = width - pad.l - pad.r;
-      geometryRef.current = { left: pad.l, width: plotWidth };
-      const x = (index: number) => pad.l + index / Math.max(1, rows.length - 1) * plotWidth;
-      const rates = [...new Set([Math.max(.02, realReturn - .03), Math.max(.02, realReturn - .015), realReturn, Math.min(.075, realReturn + .01), .075].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
-      const paths = rates.map((rate) => operationalLedger(rail, spend, rate, taxYear));
-      const maximum = Math.max(...paths.flatMap((path) => path.map((row) => row.ending)), 1) * 1.06;
-      const y = (value: number, index = 0, layer = 0) => pad.t + (1 - value / maximum) * (capitalBottom - pad.t) - (perspective ? layer * 5 + index * .06 : 0);
-      const gradient = context.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, dark ? "#0a2440" : "#f8fbff");
-      gradient.addColorStop(1, palette.bg);
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, width, height);
-
-      context.strokeStyle = alpha(palette.blue, dark ? .16 : .12);
-      context.lineWidth = 1;
-      for (let grid = 0; grid <= 7; grid += 1) {
-        const xx = pad.l + grid / 7 * plotWidth;
-        context.beginPath(); context.moveTo(xx, capitalBottom); context.lineTo(width / 2 + (xx - width / 2) * (perspective ? .76 : 1), capitalBottom - (perspective ? 45 : 0)); context.stroke();
-      }
-      for (let tick = 0; tick <= 3; tick += 1) {
-        const yy = pad.t + tick / 3 * (capitalBottom - pad.t);
-        context.beginPath(); context.moveTo(pad.l, yy); context.lineTo(width - pad.r, yy); context.stroke();
-        context.fillStyle = palette.muted; context.font = "700 9px Arial, sans-serif"; context.textAlign = "right"; context.fillText(compactMoney(maximum * (1 - tick / 3)), pad.l - 8, yy + 3);
-      }
-
-      const trace = (values: number[], layer: number) => {
-        context.beginPath(); values.forEach((value, index) => index ? context.lineTo(x(index), y(value, index, layer)) : context.moveTo(x(index), y(value, index, layer)));
-      };
-      const values = paths.map((path) => path.map((row) => row.ending));
-      for (let layer = 0; layer < values.length - 1; layer += 1) {
-        context.beginPath();
-        values[layer + 1].forEach((value, index) => index ? context.lineTo(x(index), y(value, index, layer)) : context.moveTo(x(index), y(value, index, layer)));
-        for (let index = values[layer].length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(values[layer][index], index, layer));
-        context.closePath(); context.fillStyle = alpha(layer % 2 ? palette.blue : palette.violet, dark ? .13 + layer * .03 : .09 + layer * .025); context.fill();
-      }
-      values.forEach((path, layer) => {
-        const active = rates[layer] === realReturn;
-        trace(path, layer);
-        context.strokeStyle = active ? palette.green : [palette.violet, palette.blue, palette.blue, palette.amber, palette.violet][layer];
-        context.lineWidth = active ? 4 : 1.5; context.globalAlpha = active ? 1 : .58; context.shadowColor = active ? palette.green : "transparent"; context.shadowBlur = active ? 12 : 0; context.stroke(); context.shadowBlur = 0; context.globalAlpha = 1;
-        const last = path.length - 1; context.fillStyle = active ? palette.green : palette.muted; context.font = active ? "900 9px Arial, sans-serif" : "700 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText(`${pct(rates[layer], 1)}${active ? " active" : ""}`, x(last) + 6, y(path[last], last, layer) + 3);
-      });
-
-      const selectedX = x(selectedIndex);
-      const selectedPathLayer = Math.max(0, rates.indexOf(realReturn));
-      context.fillStyle = alpha(palette.blue, .12); context.fillRect(selectedX - 5, pad.t, 10, height - pad.t - pad.b);
-      context.strokeStyle = palette.blue; context.lineWidth = 2; context.beginPath(); context.moveTo(selectedX, pad.t); context.lineTo(selectedX, height - pad.b); context.stroke();
-      context.beginPath(); context.arc(selectedX, y(rows[selectedIndex].ending, selectedIndex, selectedPathLayer), 7, 0, Math.PI * 2); context.fillStyle = palette.green; context.shadowColor = palette.green; context.shadowBlur = 14; context.fill(); context.shadowBlur = 0;
-
-      const cashMax = Math.max(spend, rail.netPension, ...rows.map((row) => row.draw), 1) * 1.08;
-      const cashY = (value: number) => height - pad.b - value / cashMax * (height - pad.b - cashflowTop);
-      const pss = rows.map(() => rail.netPension);
-      const draws = rows.map((row) => row.isOpening ? Math.max(0, spend - rail.netPension) : row.draw);
-      const traceCash = (series: number[], color: string, dashed = false) => { context.beginPath(); series.forEach((value, index) => index ? context.lineTo(x(index), cashY(value)) : context.moveTo(x(index), cashY(value))); context.strokeStyle = color; context.lineWidth = 2; if (dashed) context.setLineDash([6, 5]); context.stroke(); context.setLineDash([]); };
-      traceCash(pss, palette.violet); traceCash(draws, palette.amber, true);
-      context.fillStyle = palette.muted; context.font = "800 8px Arial, sans-serif"; context.textAlign = "left"; context.fillText("ANNUAL CASHFLOW · SEPARATE SCALE", pad.l, cashflowTop - 8);
-      context.textAlign = "center"; rows.forEach((row, index) => { if (row.age % 5 === 0 || row.age === 95) context.fillText(String(row.age), x(index), height - 17); });
-    };
-    draw();
-    const observer = new ResizeObserver(draw);
-    observer.observe(canvas);
-    const themeObserver = new MutationObserver(draw);
-    if (appRoot) themeObserver.observe(appRoot, { attributes: true, attributeFilter: ["class"] });
-    return () => { observer.disconnect(); themeObserver.disconnect(); };
-  }, [rows, rail, spend, realReturn, taxYear, selectedIndex, perspective]);
-
-  const selectFromClientX = (clientX: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const index = Math.round(((clientX - rect.left) / Math.max(1, rect.width) * rect.width - geometryRef.current.left) / Math.max(1, geometryRef.current.width) * (rows.length - 1));
-    onSelect(clamp(index, 0, rows.length - 1));
-  };
-
-  return <canvas ref={canvasRef} className="horizon-terrain-canvas" role="slider" tabIndex={0} aria-label="Interactive three-dimensional retirement capital horizon" aria-valuemin={60} aria-valuemax={95} aria-valuenow={rows[selectedIndex]?.age ?? 60} aria-valuetext={`Age ${rows[selectedIndex]?.age ?? 60}: ${money(rows[selectedIndex]?.ending ?? 0)} investments using ${pct(realReturn, 1)} real return`} onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); selectFromClientX(event.clientX); }} onPointerMove={(event) => { if (event.buttons === 1) selectFromClientX(event.clientX); }} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); onSelect(clamp(selectedIndex - 1, 0, rows.length - 1)); } if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); onSelect(clamp(selectedIndex + 1, 0, rows.length - 1)); } if (event.key === "Home") { event.preventDefault(); onSelect(0); } if (event.key === "End") { event.preventDefault(); onSelect(rows.length - 1); } }} />;
-}
-
-function HorizonExplorer({ rows, rail, railBElectionLabel, spend, realReturn, targetAge, homeValue, taxYear, atlasUrl, onRailChange, onReturnChange }: { rows: ReturnType<typeof operationalLedger>; rail: Rail; railBElectionLabel: string; spend: number; realReturn: number; targetAge: number; homeValue: number; taxYear: TaxYear; atlasUrl: string; onRailChange: (rail: RailKey) => void; onReturnChange: (value: number) => void }) {
-  const targetIndex = clamp(targetAge - 60, 0, rows.length - 1);
-  const [selectedIndex, setSelectedIndex] = useState(targetIndex);
-  const [perspective, setPerspective] = useState(true);
-  const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    document.body.classList.toggle("horizon-focus-open", focused);
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setFocused(false); };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => { document.body.classList.remove("horizon-focus-open"); window.removeEventListener("keydown", closeOnEscape); };
-  }, [focused]);
-  const selected = rows[selectedIndex] ?? rows[0];
-  const milestoneAges = [...new Set([60, 61, targetAge, 85, 95])].filter((age) => age >= 60 && age <= 95).sort((a, b) => a - b);
-  const selectAge = (age: number) => setSelectedIndex(clamp(age - 60, 0, rows.length - 1));
-  const higherSpend = Math.min(MAX_FLAT_SPEND, spend + 10_000);
-  const lowerSpend = Math.max(76_000, spend - 10_000);
-  const higherSpendCapital = ledgerEndingAtAge(rail, higherSpend, realReturn, selected.age, taxYear);
-  const lowerSpendCapital = ledgerEndingAtAge(rail, lowerSpend, realReturn, selected.age, taxYear);
-  const targetCapital = rows[targetIndex]?.ending ?? selected.ending;
-  const targetEstate = ledgerEndingAtAge(rail, spend, realReturn, 95, taxYear) + homeValue;
-  const stageCopy = selected.isOpening
-    ? "Opening capital on retirement day. Annual pension and drawdown begin in the next planning year."
-    : `The age ${selected.age - 1}→${selected.age} planning year closes with the capital shown here.`;
-  const atlasVisualUrl = `${atlasUrl}${atlasUrl.includes("?") ? "&" : "?"}view=horizon#trajectory`;
-  return (
-    <section className={`panel horizon-explorer ${focused ? "focused" : ""}`} aria-labelledby="horizon-title">
-      <div className="horizon-header">
-        <div><Badge tone="good">Interactive retirement observatory</Badge><h3 id="horizon-title">See the whole plan move—not just its end point.</h3><p>This Command Centre lens holds {money(spend)} spending flat in real dollars. The selected PSS election sets the pension floor and starting capital; the illuminated path uses your active {pct(realReturn, 1)} real-return assumption.</p></div>
-        <div className="horizon-header-actions"><button type="button" className={`secondary horizon-focus-toggle ${focused ? "active" : ""}`} aria-pressed={focused} onClick={() => setFocused(!focused)}>{focused ? "Close focus" : "Focus view"}</button><div className="horizon-view-toggle" role="group" aria-label="Horizon dimension"><button type="button" className={perspective ? "active" : ""} aria-pressed={perspective} onClick={() => setPerspective(true)}>3D</button><button type="button" className={!perspective ? "active" : ""} aria-pressed={!perspective} onClick={() => setPerspective(false)}>2D</button></div><a className="secondary" href={atlasVisualUrl} target="_blank" rel="noreferrer">Open six-view Atlas ↗</a></div>
-      </div>
-      <div className="horizon-focus-metrics" aria-label="Active Horizon assumptions and outcomes"><div><span>Starting capital</span><b>{money(rail.capital)}</b></div><div><span>Net spending</span><b>{money(spend)} p.a.</b></div><div><span>Real return used</span><b>{pct(realReturn, 1)} p.a.</b></div><div><span>Target age</span><b>{targetAge}</b></div><div><span>Home, real</span><b>{money(homeValue)}</b></div><div><span>Indexed PSS floor</span><b>{money(rail.netPension)} p.a.</b></div></div>
-      <div className="horizon-command-bar" aria-label="Horizon scenario controls">
-        <div className="horizon-rail-control"><span>Rail</span><div role="group" aria-label="Horizon rail"><button type="button" className={rail.key === "A" ? "active" : ""} aria-pressed={rail.key === "A"} onClick={() => onRailChange("A")}>Rail A · March control</button><button type="button" className={rail.key === "B" ? "active" : ""} aria-pressed={rail.key === "B"} onClick={() => onRailChange("B")}>Rail B · {railBElectionLabel}</button></div></div>
-        <div className="horizon-return-control"><span>Active real return</span><div><button type="button" aria-label="Decrease real return" onClick={() => onReturnChange(clamp(Number((realReturn - .005).toFixed(4)), .02, .075))}>−</button><b>{pct(realReturn, 1)} real p.a.</b><button type="button" aria-label="Increase real return" onClick={() => onReturnChange(clamp(Number((realReturn + .005).toFixed(4)), .02, .075))}>+</button></div><small>After inflation · all Horizon figures recalculate</small></div>
-        <div className="horizon-method"><span>Live scenario</span><b>{rail.key === "B" ? `Rail B · ${rail.electionLabel}` : "Rail A · March 2026 control"} · {money(spend)} flat real spend</b><small>Rail, PSS election and return open in Atlas. Atlas keeps this flat comparison; V23 keeps its age-band spending plan.</small></div>
-      </div>
-      <div className="horizon-main">
-        <div>
-          <div className="horizon-chart"><HorizonTerrainCanvas rows={rows} rail={rail} spend={spend} realReturn={realReturn} taxYear={taxYear} selectedIndex={selectedIndex} perspective={perspective} onSelect={setSelectedIndex} /></div>
-          <div className="horizon-legend"><span><i className="capital" />Active capital path · {pct(realReturn, 1)} real</span><span><i className="scenario" />Alternative return slices · not probabilities</span><span><i className="draw" />Planning draw · annual lane</span><span><i className="floor" />Indexed PSS floor · annual lane</span></div>
-        </div>
-        <aside className="horizon-whatif" aria-live="polite"><span>At age {selected.age}</span><h4>What if annual spending changes by $10,000?</h4><div><i className="up">↑</i><p><b>Spend $10,000 more</b><small>{money(higherSpend)} / year</small></p><strong>{higherSpendCapital >= selected.ending ? "+" : "−"}{money(Math.abs(higherSpendCapital - selected.ending))}</strong></div><div><i className="down">↓</i><p><b>Spend $10,000 less</b><small>{money(lowerSpend)} / year</small></p><strong>+{money(Math.max(0, lowerSpendCapital - selected.ending))}</strong></div><small className="horizon-whatif-note">Change in investment capital versus the active plan, using the same {pct(realReturn, 1)} real return.</small></aside>
-      </div>
-      <div className="horizon-controls">
-        <label><span>Move through retirement</span><input aria-label="Select retirement horizon age" type="range" min="60" max="95" step="1" value={selected.age} onChange={(event) => selectAge(Number(event.target.value))} /></label>
-        <div className="horizon-milestones" role="group" aria-label="Retirement horizon milestones">{milestoneAges.map((age) => <button type="button" key={age} className={age === selected.age ? "active" : ""} aria-pressed={age === selected.age} onClick={() => selectAge(age)}>Age {age}</button>)}</div>
-      </div>
-      <div className="horizon-bottom-grid"><div className="horizon-insight" aria-live="polite"><div><span>At age {selected.age}</span><b>{stageCopy}</b></div><small>The active scenario holds {money(spend)} spending flat in real dollars; V23 remains the place to set different age-band gaps.</small></div><div className="horizon-outcomes"><div><span>Capital at target age {targetAge}</span><b>{money(targetCapital)}</b></div><div><span>Estate at 95</span><b>{money(targetEstate)}</b></div><div><span>PSS coverage</span><b>{pct(rail.netPension / spend, 1)}</b></div></div></div>
-    </section>
-  );
-}
 
 function FanChart({ fan, targetAge }: { fan: ReturnType<typeof monteCarloFan>; targetAge: number }) {
   const width = 920;
@@ -943,8 +788,68 @@ function CollapsiblePanel({ title, copy, meta, badge, children, className = "" }
   </details>;
 }
 
+function PlanNumberInput({value,min,max,step=1,onChange}: {value:number;min:number;max:number;step?:number;onChange:(n:number)=>void}) {
+  const [draft,setDraft]=useState(String(value));
+  useEffect(()=>setDraft(String(value)),[value]);
+  const n=Number(draft);
+  const valid=draft.trim()!=="" && Number.isFinite(n) && n>=min && n<=max && (step<1 || Number.isInteger(n));
+  return <><input type="number" min={min} max={max} step={step} value={draft} aria-invalid={!valid}
+    onChange={event=>{const text=event.target.value;setDraft(text);const number=Number(text);if(text!=="" && Number.isFinite(number) && number>=min && number<=max && (step<1 || Number.isInteger(number)))onChange(number);}}
+    onBlur={()=>{if(!valid)setDraft(String(value));}} />
+    {!valid && <small role="status">Enter {min.toLocaleString("en-AU")}–{max.toLocaleString("en-AU")}. The plan keeps its last valid value.</small>}</>;
+}
+
+type ExplorerPanel = "studio" | "cashflow" | "returns" | "map" | "trade";
+const EXPLORER_PANELS: { key: ExplorerPanel; label: string; copy: string }[] = [
+  {key:"studio",label:"Visual studio",copy:"Six illustrations of the same plan. Change the illustration or inspect an age without changing your assumptions."},
+  {key:"cashflow",label:"Income by year",copy:"See pension income, portfolio draws, funded spending and any shortfall year by year."},
+  {key:"returns",label:"Return comparison",copy:"Compare real-return paths with the same pension election and spending. This is sensitivity analysis, not a probability forecast."},
+  {key:"map",label:"How it fits together",copy:"Follow the pension, investment pools, objectives and retirement milestones."},
+];
+function VisualExplorerPanel({scenario, theme, panel, view, onSpend, onView}: {
+  scenario: ScenarioState; theme: Theme; panel: ExplorerPanel; view: string;
+  onSpend: (value:number)=>void; onView: (value:string)=>void;
+}) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [height,setHeight]=useState(900);
+  const [ready,setReady]=useState(false);
+  const [expanded,setExpanded]=useState(false);
+  const [source]=useState(()=>sharedPageUrl(`atlas.html?embedded=1&panel=${panel}&view=${view}`,scenario,theme));
+  const sendScenario=()=>frameRef.current?.contentWindow?.postMessage({channel:"retirement-explorer-v1",type:"scenario",scenario,theme},window.location.origin);
+  useEffect(()=>{
+    const receive=(event:MessageEvent)=>{
+      if(event.origin!==window.location.origin || event.source!==frameRef.current?.contentWindow || event.data?.channel!=="retirement-explorer-v1")return;
+      const data=event.data;
+      if(data.type==="ready"){setReady(true);sendScenario();}
+      if(data.type==="close-focus")setExpanded(false);
+      if(data.type==="height" && Number.isFinite(data.height))setHeight(clamp(Math.ceil(data.height),240,14000));
+      if(data.type==="spend" && Number.isFinite(data.spend))onSpend(clamp(data.spend,76000,MAX_FLAT_SPEND));
+      if(data.type==="view" && ["horizon","river","orbit","waterfall","sunburst","table"].includes(data.view))onView(data.view);
+    };
+    window.addEventListener("message",receive);
+    sendScenario();
+    return()=>window.removeEventListener("message",receive);
+  },[scenario,theme,onSpend,onView]);
+  useEffect(()=>{
+    if(!expanded)return;
+    const previous=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const escape=(event:KeyboardEvent)=>{if(event.key==="Escape")setExpanded(false);};
+    window.addEventListener("keydown",escape);
+    return()=>{document.body.style.overflow=previous;window.removeEventListener("keydown",escape);};
+  },[expanded]);
+  return <section className={`integrated-explorer ${expanded?"expanded":""}`} aria-label="Interactive plan explorer">
+    <div className="explorer-frame-toolbar"><span>{ready?"Uses your active Command Centre plan":"Loading the interactive view…"}<br/><b>Rail {scenario.rail} · {scenario.rail==="A"?"March control":scenario.pssElection==="100"?"100% pension":scenario.pssElection} · {money(scenario.spend)}/yr · {pct(scenario.realReturn,1)} real return · target age {scenario.targetAge}</b></span><button className="secondary" type="button" aria-pressed={expanded} onClick={()=>setExpanded(!expanded)}>{expanded?"Close focus view":"Focus view"}</button></div>
+    <iframe ref={frameRef} src={source} title={`Retirement ${panel==="studio"?"six-view visual studio":panel}`} style={{height}} onLoad={sendScenario} />
+    {!ready && <p className="explorer-loading">Your scenario is being applied. If this stays here, <button type="button" className="secondary" onClick={()=>{const frame=frameRef.current;if(frame)frame.src=source;}}>retry the view</button>.</p>}
+  </section>;
+}
+
 export default function RetirementDashboard() {
   const [section, setSection] = useState<SectionKey>("overview");
+  const [scenarioTool,setScenarioTool]=useState<ScenarioTool>("lab");
+  const [explorerPanel,setExplorerPanel]=useState<ExplorerPanel>("studio");
+  const [visualView,setVisualView]=useState("horizon");
   const [railKey, setRailKey] = useState<RailKey>("B");
   const [pssElection, setPssElection] = useState<PssElectionKey>("60-40");
   const [pssProjectionBasis, setPssProjectionBasis] = useState<PssProjectionBasisKey>("source-825");
@@ -1040,7 +945,7 @@ export default function RetirementDashboard() {
   const selectedVrPreserve = vrPreservePaths.find((row) => row.age === vrAge)!;
   const selectedVrPath = vrMode === "immediate" ? selectedVrImmediate : selectedVrPreserve;
   const v23SpendPlanUrl = sharedPageUrl("deep-model.html?page=income", currentScenario, theme);
-  const atlasUrl = sharedPageUrl("atlas.html", currentScenario, theme);
+  const atlasUrl = sharedPageUrl("?section=scenario&tool=explore", currentScenario, theme);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
   const wash = washOutcome(rail, washCycles);
@@ -1159,6 +1064,15 @@ export default function RetirementDashboard() {
     const timer = setTimeout(() => {
       try {
         const params = new URLSearchParams(window.location.search);
+        const requestedSection=params.get("section");
+        const legacyTool:Partial<Record<SectionKey,ScenarioTool>>={scenario:"lab",visuals:"explore",compare:"compare",frontier:"frontier",risk:"risk"};
+        if(requestedSection && legacyTool[requestedSection as SectionKey]){
+          setSection("scenario");
+          const requestedTool=params.get("tool");
+          setScenarioTool(SCENARIO_TOOLS.some(item=>item.key===requestedTool)?requestedTool as ScenarioTool:legacyTool[requestedSection as SectionKey]!);
+        }else if(NAV.some(item=>item.key===requestedSection))setSection(requestedSection as SectionKey);
+        if(EXPLORER_PANELS.some(item=>item.key===params.get("panel")))setExplorerPanel(params.get("panel") as ExplorerPanel);
+        if(["horizon","river","orbit","waterfall","sunburst","table"].includes(params.get("view")||""))setVisualView(params.get("view")!);
         const activeScenario = localStorage.getItem("robinson-retirement-shared-scenario");
         const raw = localStorage.getItem("robinson-retirement-scenarios");
         const snapshot = localStorage.getItem("robinson-retirement-review-snapshot");
@@ -1198,7 +1112,14 @@ export default function RetirementDashboard() {
     try {
       localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify({ version: 7, updatedAt: new Date().toISOString(), ...currentScenario }));
     } catch { /* local preference only */ }
-  }, [currentScenario, scenarioHydrated]);
+    const query=new URLSearchParams(sharedScenarioParams(currentScenario,theme));
+    query.set("section",section);
+    if(section==="scenario"){
+      query.set("tool",scenarioTool);
+      if(scenarioTool==="explore"){query.set("panel",explorerPanel);query.set("view",visualView);}
+    }
+    window.history.replaceState(null,"",`${window.location.pathname}?${query}`);
+  }, [currentScenario, scenarioHydrated, theme, section, scenarioTool, explorerPanel, visualView]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); };
@@ -1207,9 +1128,18 @@ export default function RetirementDashboard() {
   }, []);
 
   const go = (key: SectionKey) => {
-    setSection(key);
+    const tools:Partial<Record<SectionKey,ScenarioTool>>={scenario:"lab",visuals:"explore",compare:"compare",frontier:"frontier",risk:"risk"};
+    if(tools[key]){setScenarioTool(tools[key]!);setSection("scenario");}
+    else setSection(key);
     setNavOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openScenarioTool=(tool:ScenarioTool)=>{
+    setScenarioTool(tool);
+    setSection("scenario");
+    setNavOpen(false);
+    window.scrollTo({top:0,behavior:"smooth"});
   };
 
   const saveSlot = (slot: string) => {
@@ -1318,7 +1248,7 @@ export default function RetirementDashboard() {
             <button className="primary" onClick={() => go("scenario")}>Run a scenario</button>
             <button className="secondary" onClick={() => go("frontier")}>Inspect the frontier</button>
             <a className="secondary" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age-band spending in V23 ↗</a>
-            <a className="secondary" href={atlasUrl} target="_blank" rel="noreferrer">Explore Atlas ↗</a>
+            <button className="secondary" onClick={() => go("visuals")}>Explore the plan</button>
           </div>
         </div>
         <div className="hero-rail">
@@ -1351,7 +1281,7 @@ export default function RetirementDashboard() {
         <div className="comparison-stat positive"><span>Cashflow uplift</span><strong>+{fmt1.format(retirementPf - currentPf)} / pf</strong><small>{pct(retirementPf / currentPf - 1)} above current after-expense cashflow</small></div>
       </section>
 
-      <HorizonExplorer key={`horizon-${targetAge}`} rows={ledger} rail={rail} railBElectionLabel={railBForElection(effectivePssElection, pssProjectionBasis).electionLabel} spend={spend} realReturn={realReturn} targetAge={targetAge} homeValue={homeValue} taxYear={taxYear} atlasUrl={atlasUrl} onRailChange={setRailKey} onReturnChange={setRealReturn} />
+      <section className="panel explorer-intro"><div><Badge tone="good">Now together in Command Centre</Badge><h3>Your whole plan, six ways to see it.</h3><p>Explore the 3D horizon, financial river, legacy orbit, waterfall, sunburst and exact annual table. They use this same {pct(realReturn,1)} real return and {money(spend)} flat annual spend.</p></div><button type="button" className="primary" onClick={()=>go("visuals")}>Open interactive explorer</button></section>
 
       <section className="panel spending-handoff" aria-labelledby="spending-handoff-title">
         <div className="spending-handoff-copy">
@@ -1373,26 +1303,9 @@ export default function RetirementDashboard() {
         <button onClick={() => go("review")}><span>3</span><div><b>Complete annual review</b><small>Changes · sources · action checklist</small></div></button>
       </section>
 
-      <section className="panel">
-        <div className="panel-head"><div><h3>Spending choice → investment capital</h3><p>Reconciled annual three-pool frontier, selected rail; home excluded from the lines.</p></div><div className="quick-spend">{FRONTIER_SPENDS.map((v) => <button key={v} className={spend === v ? "active" : ""} onClick={() => setSpend(v)}>${v / 1000}k</button>)}</div></div>
+      <CollapsiblePanel title="Quick capital comparison" copy={`Same spending · ${pct(realReturn,1)} real active return · home excluded`} meta="Open return paths">
         <LineChart labels={trajectoryLabels} series={trajectorySeries} />
-      </section>
-
-      <section className="panel">
-        <div className="panel-head"><div><h3>Eight-objective decision test</h3><p>Current selected scenario against the retirement framework.</p></div><Badge tone="modelled">Modelled assessment</Badge></div>
-        <div className="objective-grid">
-          {[
-            ["Income security", rail.netPension / spend, "Pension coverage"],
-            ["Spending power", Math.min(1, spend / 110_000), "Lifestyle capacity"],
-            ["Capital", Math.min(1, endCapital / 1_500_000), `Investments @${targetAge}`],
-            ["Age-75 wealth", Math.min(1, ledgerEndingAtAge(rail, spend, realReturn, 75, taxYear) / 1_500_000), "Investment target"],
-            ["Age-85 wealth", Math.min(1, ledgerEndingAtAge(rail, spend, realReturn, 85, taxYear) / 1_500_000), "Longevity capital"],
-            ["Estate", Math.min(1, estate / 2_000_000), "Property-inclusive"],
-            ["Tax efficiency", rail.lumpSum === 0 ? 0.72 : wash.applied.length >= wash.maxCycles ? 0.92 : 0.65, rail.lumpSum === 0 ? "No PSS lump to wash" : "Source-limited NCC wash"],
-            ["Optionality", spend <= 120_000 ? 0.9 : 0.68, "Liquidity / reversibility"],
-          ].map(([name, score, detail]) => <div className="objective" key={String(name)}><div><span>{name}</span><b>{Math.round(Number(score) * 100)}</b></div><div className="meter"><i style={{ width: `${Math.min(100, Number(score) * 100)}%` }} /></div><small>{detail}</small></div>)}
-        </div>
-      </section>
+      </CollapsiblePanel>
     </>
   );
 
@@ -1589,10 +1502,11 @@ export default function RetirementDashboard() {
         <div className="panel-head"><div><h3>Interactive efficient frontier</h3><p>Drag spending or select a point. Each point is a flat real annual-spend comparison; colour shows the investment buffer at age {targetAge}: green ≥ $1m, amber ≥ $500k, red below the floor.</p></div><Badge tone="modelled">{pct(realReturn, 1)} real · age {targetAge}</Badge></div>
         <FrontierCurve rail={rail} selectedSpend={spend} homeValue={homeValue} realReturn={realReturn} targetAge={targetAge} taxYear={taxYear} onSelect={setSpend} />
       </section>
-      <section className="panel">
+      <VisualExplorerPanel scenario={currentScenario} theme={theme} panel="trade" view="table" onSpend={setSpend} onView={setVisualView}/>
+      <CollapsiblePanel title="Detailed return comparison matrix" copy="Fixed comparison rates alongside the active scenario" meta={`Active ${pct(realReturn,1)} real · age ${targetAge}`}>
         <div className="panel-head"><div><h3>Full age-{targetAge} outcome matrix</h3><p>Birthday-year planning path using current ABP rate bands and Pool C drag. The fund calculates legal financial-year payments; current selected rail: {rail.short}.</p></div><Badge tone="modelled">Active {pct(realReturn, 1)} real</Badge></div>
         <div className="table-wrap"><table><thead><tr><th>Net spend</th><th>Per fortnight</th><th>Gross equivalent</th><th>Portfolio draw</th>{RETURNS.map((r) => <th key={r}>Investments · {pct(r, 1)}</th>)}<th>Estate · active {pct(realReturn, 1)}</th></tr></thead><tbody>{rows.map((r) => <tr key={r.spend} className={spend === r.spend ? "selected-row" : ""} onClick={() => setSpend(r.spend)}><td><b>{money(r.spend)}</b></td><td>{fmt1.format(r.spend / 26)}</td><td>{money(r.gross)}</td><td>{money(r.draw)}</td>{r.values.map((v, i) => <td key={i}>{money(v)}</td>)}<td><b>{money(r.activeCapital + homeValue)}</b></td></tr>)}</tbody></table></div>
-      </section>
+      </CollapsiblePanel>
       <section className="panel tradeoff">
         <div><Badge tone="warn">Marginal cost</Badge><h3>Each extra $10,000 of annual spending</h3><p>Reduces age-{targetAge} investment capital by approximately {money(marginalCost[0])} at 4%, {money(marginalCost[1])} at 5%, and {money(marginalCost[2])} at 6.5% on the selected rail.</p></div>
         <div className="tradeoff-bars">{RETURNS.map((r, i) => { const cost = marginalCost[i]; return <div key={r}><span>{pct(r, 1)}</span><i style={{ width: `${cost / marginalScale * 100}%` }} /><b>{money(cost)}</b></div>; })}</div>
@@ -1751,7 +1665,7 @@ export default function RetirementDashboard() {
         {[ ["Longevity", "Transferred", "Indexed PSS pension payable for life"], ["Sequence risk", "Income neutralised", "Markets affect optionality and bequest more than the floor"], ["Inflation", "Strong hedge", "PSS floor indexed; growth capital targets real returns"], ["Depletion", "Floor protected", "Capital is not required to sustain basic income"], ["Estate tax", "Actively managed", "NCC wash targets taxable super components"], ["Liquidity", liquidityGap > 0 ? "Policy gap" : "Policy aligned", `Pool C is invested, not cash. ${liquidityMonths}-month starting-gap target is ${money(liquidityTarget)}; current Pool C is ${money(rail.poolC)}.`] ].map(([name, state, copy]) => <article key={name}><div><span>{name}</span><Badge tone={state === "Policy gap" ? "warn" : "good"}>{state}</Badge></div><p>{copy}</p></article>)}
       </section>
       <section className="panel calibration-panel"><div className="panel-head"><div><h3>Independent spending calibration</h3><p>Context only, not a target, recommendation or substitute for your own tracked spending.</p></div><Badge tone="estimated">ASFA · {ASFA_MARCH_2026.asAt}</Badge></div><div className="calibration-grid"><article><span>Single, comfortable</span><b>{money(ASFA_MARCH_2026.singleComfortable)} p.a.</b><small>Homeowner aged 65–84</small></article><article><span>Couple, comfortable</span><b>{money(ASFA_MARCH_2026.coupleComfortable)} p.a.</b><small>Homeowner aged 65–84</small></article><article><span>Your active flat lens</span><b>{money(spend)} p.a.</b><small>Net, real dollars; use V23 for changing age bands</small></article></div><p className="calibration-footnote">ASFA is a population spending benchmark with its own household assumptions. It does not include the particular pension, capital, health, housing or lifestyle choices in this plan.</p></section>
-      <section className="panel"><div className="panel-head"><div><h3>Retirement income versus current working cashflow</h3><p>The comparison must be made after current deductions and savings behaviour, not against headline salary alone.</p></div><Badge tone="estimated">Cashflow context</Badge></div><div className="cashflow-bars"><div><span>Current visible bank receipt</span><i style={{ width: `${(currentPf / 5_000) * 100}%` }} /><b>{fmt1.format(currentPf)} / pf</b></div>{[90_000, 100_000, 110_000, 120_000, 130_000].map((v) => <div key={v}><span>{money(v)} retirement spend</span><i style={{ width: `${(v / 26 / 5_000) * 100}%` }} /><b>{fmt1.format(v / 26)} / pf</b></div>)}</div></section>
+      <section className="panel"><div className="panel-head"><div><h3>Retirement income versus current working cashflow</h3><p>The comparison must be made after current deductions and savings behaviour, not against headline salary alone.</p></div><Badge tone="estimated">Cashflow context</Badge></div><div className="cashflow-bars"><div><span>Current cash after all expenses</span><i style={{ width: `${(currentPf / 5_000) * 100}%` }} /><b>{fmt1.format(currentPf)} / pf</b></div>{[90_000, 100_000, 110_000, 120_000, 130_000].map((v) => <div key={v}><span>{money(v)} retirement spend</span><i style={{ width: `${(v / 26 / 5_000) * 100}%` }} /><b>{fmt1.format(v / 26)} / pf</b></div>)}</div></section>
       <div className="note"><b>Interpretation:</b> the pension’s replacement value is not an estate asset. It finances consumption for life. The portfolio and home create the transferable estate separately.</div>
     </>
   );
@@ -1834,7 +1748,46 @@ export default function RetirementDashboard() {
     </>
   );
 
-  const content = section === "overview" ? renderOverview() : section === "scenario" ? renderScenario() : section === "compare" ? renderCompare() : section === "pre60" ? renderPre60() : section === "pss" ? renderPss() : section === "frontier" ? renderFrontier() : section === "risk" ? renderRisk() : section === "estate" ? renderEstate() : section === "vr" ? renderVr() : section === "benchmark" ? renderBenchmark() : section === "review" ? renderReview() : renderEvidence();
+  const renderExplorer=()=> <>
+    <SectionHeading eyebrow="Explore the plan" title="One plan. Different ways to understand it." copy="The former Atlas illustrations now live here. All views use the active plan above; only the way you inspect it changes. V23 remains your age-band workbench." />
+    <div className="explorer-panel-tabs" role="group" aria-label="Choose plan exploration">
+      {EXPLORER_PANELS.map(item=><button type="button" key={item.key} aria-pressed={explorerPanel===item.key} className={explorerPanel===item.key?"active":""} onClick={()=>setExplorerPanel(item.key)}>{item.label}</button>)}
+    </div>
+    <p className="explorer-panel-copy">{EXPLORER_PANELS.find(item=>item.key===explorerPanel)?.copy}</p>
+    <VisualExplorerPanel key={explorerPanel} scenario={currentScenario} theme={theme} panel={explorerPanel} view={visualView} onSpend={setSpend} onView={setVisualView}/>
+  </>;
+
+  const renderScenarioWorkspace=()=>{
+    const selected=SCENARIO_TOOLS.find(item=>item.key===scenarioTool)!;
+    const body=scenarioTool==="explore"?renderExplorer():scenarioTool==="compare"?renderCompare():scenarioTool==="frontier"?renderFrontier():scenarioTool==="risk"?renderRisk():renderScenario();
+    return <>
+      <section className="scenario-hub" aria-labelledby="scenario-hub-title">
+        <div><span>Scenario workspace</span><h2 id="scenario-hub-title">One active plan. Five ways to work with it.</h2><p>{selected.hint} The active comparison plan above applies to every tab.</p></div>
+        <div className="scenario-hub-tabs" role="tablist" aria-label="Scenario tools">
+          {SCENARIO_TOOLS.map(item=><button type="button" role="tab" aria-selected={scenarioTool===item.key} className={scenarioTool===item.key?"active":""} key={item.key} onClick={()=>openScenarioTool(item.key)}><b>{item.label}</b><small>{item.hint}</small></button>)}
+        </div>
+      </section>
+      <div role="tabpanel" aria-label={`Scenario ${selected.label}`}>{body}</div>
+    </>;
+  };
+
+  const planControls=<details className="shared-plan-controls">
+    <summary><span className="plan-summary-title">Active comparison plan <small>Expand to adjust · applies to every Command Centre view</small></span><span className="plan-summary-values"><b>Rail {railKey} · {railKey==="B"?rail.electionLabel:"March control"}</b><b>{money(spend)}/yr</b><b>{pct(realReturn,1)} real return</b><b>Target {targetAge}</b></span></summary>
+    <div className="shared-plan-fields">
+      <label>Modelling rail<select value={railKey} onChange={e=>setRailKey(e.target.value as RailKey)}><option value="B">Rail B · current CSC elections</option><option value="A">Rail A · March control</option></select></label>
+      <label>CSC projection basis<select value={pssProjectionBasis} disabled={railKey==="A"} onChange={e=>chooseProjectionBasis(e.target.value as PssProjectionBasisKey)}><option value="source-825">8.2% fund / 5% salary / 2.5% CPI</option><option value="prudent-630">6% fund / 5% salary / 3% CPI</option></select></label>
+      <label>PSS election<select value={effectivePssElection} disabled={railKey==="A"} onChange={e=>setPssElection(e.target.value as PssElectionKey)}>{activePssElectionKeys.map(key=><option key={key} value={key}>{activePssElections[key]!.label}</option>)}</select></label>
+      <label>Flat net spending / year<PlanNumberInput value={spend} min={76000} max={MAX_FLAT_SPEND} step={1000} onChange={setSpend}/></label>
+      <label>Real return after inflation (%)<PlanNumberInput value={Number((realReturn*100).toFixed(2))} min={2} max={7.5} step={0.25} onChange={n=>setRealReturn(n/100)}/></label>
+      <label>Target age<PlanNumberInput value={targetAge} min={70} max={95} onChange={setTargetAge}/></label>
+      <label>Real home value<PlanNumberInput value={homeValue} min={300000} max={1000000} step={10000} onChange={setHomeValue}/></label>
+    </div>
+    <p>These outputs hold total spending flat in today’s dollars. For changing spending by age, <a href={v23SpendPlanUrl}>open Income &amp; draws in V23</a>. Your saved V23 age bands remain separate. The CSC basis is before retirement; the real-return control applies afterwards.</p>
+  </details>;
+
+  if(!scenarioHydrated)return <div className={`retirement-app ${theme}`}><main className="panel" role="status"><h1>Robinson Retirement</h1><p>Loading your saved plan and shared assumptions…</p><noscript>Enable JavaScript for the interactive model, or <a href="./model-reference.html">read the model reference</a>.</noscript></main></div>;
+
+  const content = section === "overview" ? renderOverview() : section === "scenario" ? renderScenarioWorkspace() : section === "pre60" ? renderPre60() : section === "pss" ? renderPss() : section === "estate" ? renderEstate() : section === "vr" ? renderVr() : section === "benchmark" ? renderBenchmark() : section === "review" ? renderReview() : renderEvidence();
 
   return (
     <div className={`retirement-app ${theme}`}>
@@ -1848,13 +1801,12 @@ export default function RetirementDashboard() {
           <div className="sidebar-context"><span>Retirement date</span><b>21 December 2033</b><small>Age 60 · preservation age 60</small></div>
           <nav>{NAV.map((item, index) => { const showGroup = index === 0 || item.group !== NAV[index - 1].group; return <div key={item.key}>{showGroup && <div className="nav-group">{item.group}</div>}<button aria-current={section === item.key ? "page" : undefined} className={section === item.key ? "active" : ""} onClick={() => go(item.key)}><span>{item.label}</span></button></div>; })}</nav>
           <a className="deep-link spending-deep-link" href={v23SpendPlanUrl} target="_blank" rel="noreferrer"><span>Set spending plan in V23</span><small>Fine-tune age-by-age gaps and drawdown periods. Command Centre spending is a flat comparison lens.</small><b>Open Income &amp; draws ↗</b></a>
-          <a className="deep-link" href={atlasUrl} target="_blank" rel="noreferrer"><span>Retirement Atlas</span><small>Strategy map linking the floor, pools, tax, trajectory and estate</small><b>Open Atlas ↗</b></a>
           <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
-          <div className="version">September 2026 real-basis VR release · v9</div>
+          <div className="version">September 2026 · unified Command Centre + V23</div>
         </aside>
-        <main className="content">{content}</main>
+        <main className="content" id="command-content">{planControls}<details className="workspace-guide"><summary>Help · which workspace and figures am I using?</summary><p><b>Command Centre</b> compares a flat annual net spending target, held constant in real dollars. Every page and illustration here uses the active comparison plan above. Expand that bar to change the pension election, source basis, spending, return or target age.</p><p><b>Scenario</b> is one workspace with five tabs: Lab adjusts one plan; Explore contains all six former Atlas illustrations plus annual income, returns and the strategy map; Compare tests presets; Frontier quantifies spending trade-offs; Risk runs probability and sequence stress tests. Switching tabs does not change the plan.</p><p><b>V23 · Income &amp; draws</b> is where you fine-tune spending gaps by age. Its collapsible Plan controls apply to every V23 page. Your saved age-band plan is not replaced by Command Centre’s flat comparison.</p><p><b>Returns and dollars:</b> the provider’s pre-retirement fund, salary and CPI assumptions create the retirement-day opening figures. The active real return shown here applies after retirement, after inflation. A flat indexed pension in real dollars can still rise in nominal dollars.</p><p><b>Inspect a graph:</b> select an age using the chart or age slider; use Explore → Table for exact annual figures. Explore → Return comparison is sensitivity analysis, while Scenario → Risk contains the Monte Carlo probability fan. Old Atlas bookmarks now open the matching Scenario tab.</p><a href={v23SpendPlanUrl}>Open V23 Income &amp; draws ↗</a></details>{content}</main>
       </div>
-      <nav className="mobile-dock" aria-label="Primary mobile navigation">{[["overview", "Home"], ["scenario", "Adjust"], ["compare", "Compare"], ["risk", "Risk"], ["review", "Review"]].map(([key, label]) => <button key={key} aria-current={section === key ? "page" : undefined} className={section === key ? "active" : ""} onClick={() => go(key as SectionKey)}>{label}</button>)}</nav>
+      <nav className="mobile-dock" aria-label="Primary mobile navigation">{[["overview", "Home"], ["scenario", "Scenario"], ["pss", "PSS"], ["estate", "Estate"], ["review", "Review"]].map(([key, label]) => <button key={key} aria-current={section === key ? "page" : undefined} className={section === key ? "active" : ""} onClick={() => go(key as SectionKey)}>{label}</button>)}</nav>
       <RetirementAi context={aiContext} />
     </div>
   );

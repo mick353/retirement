@@ -279,7 +279,7 @@ export function calculateWashOutcome(
  *
  * This is deliberately narrower than V23: it has a flat real annual spend,
  * two retirement pools, mandatory ABP draw rules and deposit-only Pool C.
- * It gives Command Centre and Atlas one audited result for equivalent
+ * It gives Command Centre and its visual explorer one audited result for equivalent
  * scenarios without pretending to replace V23's age-banded workbench.
  */
 export type FlatRetirementLedgerInput = {

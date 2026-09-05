@@ -4,7 +4,7 @@ Current release: 3 September 2026 real-basis VR correction
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
-- Retirement Atlas: ./atlas.html
+- Visual explorer (formerly Atlas), inside Scenario: ./?section=scenario&tool=explore
 - Full V23 workbench: ./deep-model.html
 - HTML model reference: ./model-reference.html
 
@@ -70,7 +70,7 @@ closingPoolC = max(0, openingPoolC x (1 + realReturn) - poolCDrag + reinvestment
 This treatment matters for 100% pension. At net spending targets of $90k, $100k, $110k or $130k, voluntary portfolio draw is $0 and the PSS surplus is respectively $53,104.26, $43,104.26, $33,104.26 or $13,104.26 a year before other events. The surplus is invested in Pool C; it is not silently classified as spending.
 
 V23 has two spending contexts:
-1. A Command Centre / Atlas shared target is total net spending. V23 derives either the portfolio gap or the PSS surplus.
+1. A Command Centre shared target (including its visual explorer) is total net spending. V23 derives either the portfolio gap or the PSS surplus.
 2. Manual V23 age bands are gap-above-PSS controls. Editing a band clears the imported total target. Each band maps to its own lifestyle phase, and the display subdivides a phase whenever its funding routine changes.
 
 The birthday-year planning rows apply the ABP minimum rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. The provider calculates actual financial-year minima and first-year pro-rating.

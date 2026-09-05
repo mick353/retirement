@@ -938,7 +938,7 @@ main{min-width:0;}
 </style>
 </head>
 <body>
-<nav class="v23-page-links" aria-label="Main retirement pages"><a id="v23-command-link" href="./">Command Centre</a><a id="v23-atlas-link" href="./atlas.html">Atlas</a></nav>
+<nav class="v23-page-links" aria-label="Main retirement pages"><a id="v23-command-link" href="./">Command Centre</a><a id="v23-atlas-link" href="./?section=scenario&amp;tool=explore">Visual explorer</a></nav>
 <header>
   <div class="brand">
     <div class="logo">R</div>
@@ -1020,7 +1020,7 @@ main{min-width:0;}
   </nav>
 
   <main>
-    <div class="v23-plan-authority" id="v23-plan-authority" role="status" aria-live="polite"><div><b>Detailed V23 spending plan</b><span id="v23-plan-authority-copy">Loading the active age-band plan…</span></div><small id="v23-plan-authority-basis">V23 uses the detailed plan. Command Centre and Atlas remain flat-spend comparison lenses.</small></div>
+    <div class="v23-plan-authority" id="v23-plan-authority" role="status" aria-live="polite"><div><b>Detailed V23 spending plan</b><span id="v23-plan-authority-copy">Loading the active age-band plan…</span></div><small id="v23-plan-authority-basis">V23 uses the detailed plan. Command Centre and its visual explorer use a flat-spending comparison, not this age-band schedule.</small></div>
     <!-- PROFILE BAR -->
     <div class="profile-bar collapsed" id="profile-controls">
       <div class="control-bar-head">
@@ -4421,7 +4421,7 @@ function updateLabels(){
         ? `Active age bands: ${bandsToString(STATE.gapBands)}. Every V23 calculation and chart uses this schedule.`
         : `${STATE.spendMode==="returnPct"?"Investment-earnings":"Mandatory-draw"} override active at ${fmtPctClean(STATE.spendReturnPct,0)}; saved age bands are temporarily ignored.`);
   }
-  if(planBasis)planBasis.textContent=`Active V23 basis: ${fmtPct(STATE.likely)} post-retirement real return · target age ${STATE.targetAge}. Command Centre and Atlas remain flat-spend comparison lenses.`;
+  if(planBasis)planBasis.textContent=`Active V23 basis: ${fmtPct(STATE.likely)} post-retirement real return · target age ${STATE.targetAge}. Command Centre and its visual explorer use a flat-spending comparison, not this age-band schedule.`;
   window.syncV23AssumptionLedger?.();
 }
 
@@ -5210,16 +5210,17 @@ function renderGuide(tab){
       <p class="v23-kicker" style="margin-top:16px">Engine provenance</p>
       <p>DBT engine: active-rail opening taxable assumption · DBT rate <b>17%</b> · separate-interest wash-only schedule. All figures are <b>real (today's dollars)</b>. Confirm provider execution and refresh actual components annually.</p>`;
   }else if(tab==="controls"){
-    h.textContent="Global controls (left panel)";
-    b.innerHTML=`<p>These settings drive every page. The ledger strip under the header mirrors the live values; tap a chip to jump to its control.</p>${dl(CONTROLS)}`;
+    h.textContent="Shared V23 plan controls";
+    b.innerHTML=`<p>These settings drive every V23 page. Expand Plan controls to edit; the age-band summary remains visible when collapsed. The ledger strip under the header mirrors the live values; tap a chip to jump to its control. Command Centre’s Scenario workspace is a separate flat-spending comparison: it does not replace your saved V23 age bands.</p>${dl(CONTROLS)}`;
   }else if(tab==="gloss"){
     h.textContent="Glossary";
     b.innerHTML=`<p>Cross-cutting terms used throughout the dashboard.</p>${dl(GLOSSARY)}`;
   }else if(tab==="quick"){
     h.textContent="Quick start";
     b.innerHTML=`<div class="v23-steps">
-      <div><p><b>Keep the locked profile</b> unless deliberately testing alternatives — the Robinson defaults carry the settled figures.</p></div>
-      <div><p><b>Set assumptions</b> in the left panel: likely return, volatility, spending bands. The ledger strip above mirrors them live.</p></div>
+      <div><p><b>Choose your source and pension election</b> in Profile. Each available election uses its own verified source figures. Check the active basis before comparing results.</p></div>
+      <div><p><b>Set spending in Income &amp; draws.</b> Expand Plan controls to choose gaps by age, real return and volatility. These controls drive every V23 page; collapse them to keep the age-band summary without the full editor.</p></div>
+      <div><p><b>Two workspaces:</b> Command Centre compares a flat annual net spending target. Its single <b>Scenario</b> workspace contains Lab, Explore, Compare, Frontier and Risk; Explore includes all six former Atlas illustrations. V23 is your detailed age-band workbench. A shared link carries headline assumptions; it does not silently overwrite an existing V23 age-band plan.</p></div>
       <div><p><b>Read Executive → Decision brief</b> for the verdict, then deep-dive the risk pages (Monte Carlo, Sequence, Stress).</p></div>
       <div><p><b>At each annual review:</b> Recalibration → What changed? → Triggers → Checklist, then <b>Export settings</b> as the new baseline.</p></div>
       <div><p><b>Back up:</b> Export settings (JSON) and CSV of the simulation; Print packs for file copies.</p></div>
@@ -5499,7 +5500,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
   function updateNavigation(){
     const command=navigationUrl("./");
-    const atlas=navigationUrl("./atlas.html");
+    const atlas=navigationUrl("./")+"&section=scenario&tool=explore";
     ["v23-command-link","v23-shared-command-link","v23-mobile-command-link"].forEach(id=>{const link=document.getElementById(id);if(link)link.href=command;});
     const atlasLink=document.getElementById("v23-atlas-link");if(atlasLink)atlasLink.href=atlas;
   }

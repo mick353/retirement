@@ -633,3 +633,45 @@ footer { min-height: 70px; padding: 18px clamp(16px, 3.2vw, 44px); display: flex
   .hero { min-height: auto; grid-template-columns: 1fr; }
   .scenario-card, .panel, .metric, .objective-card { box-shadow: none; }
 }
+/* Rendering module: one host navigation, one scenario editor, one theme. */
+html[data-embedded="true"] {scroll-behavior:auto; background:transparent;}
+html[data-embedded="true"] body {min-width:0;min-height:0;margin:0;padding:0;background:transparent;overflow:hidden;}
+html[data-embedded="true"] body>header,
+html[data-embedded="true"] body>footer,
+html[data-embedded="true"] .mobile-nav,
+html[data-embedded="true"] .skip-link,
+html[data-embedded="true"] #toast {display:none!important;}
+html[data-embedded="true"] main {width:100%;max-width:none;margin:0;padding:0;}
+html[data-embedded="true"] main>.section,
+html[data-embedded="true"] main>.metric-strip {display:none!important;}
+html[data-embedded="true"] .section {margin:0;padding:0;border:0;}
+html[data-embedded="true"] .section>.section-heading {display:none;}
+html[data-embedded="true"] #visualFocusToggle {display:none;}
+html[data-embedded="true"] .visual-v23-link {display:none;}
+html[data-embedded="true"] .visual-studio-head h3 {font-size:24px;}
+html[data-embedded="true"] .visual-live-basis {display:none;}
+html[data-embedded="true"] .visual-studio {margin:0;}
+html[data-embedded="true"] .visual-mode-tabs {flex-wrap:wrap;}
+html[data-embedded="true"] .visual-mode-tabs button {min-height:48px;}
+html[data-embed-panel="studio"] #trajectory,
+html[data-embed-panel="returns"] #trajectory,
+html[data-embed-panel="cashflow"] #cashflow,
+html[data-embed-panel="map"] #architecture,
+html[data-embed-panel="map"] #objectives,
+html[data-embed-panel="map"] #lifecycle,
+html[data-embed-panel="trade"] #frontier {display:block!important;}
+html[data-embed-panel="studio"] #trajectory>.chart-panel,
+html[data-embed-panel="returns"] .visual-studio {display:none;}
+html[data-embed-panel="map"] #objectives,
+html[data-embed-panel="map"] #lifecycle {margin-top:24px;}
+html[data-embed-panel="trade"] .frontier-grid {display:block;}
+html[data-embed-panel="trade"] .frontier-grid>.panel:first-child {display:none;}
+html[data-embedded="true"] .panel {max-width:100%;box-sizing:border-box;}
+@media(max-width:650px){
+ html[data-embedded="true"] .visual-studio-head {padding:16px;}
+ html[data-embedded="true"] .visual-studio-head h3 {font-size:22px;}
+ html[data-embedded="true"] .visual-studio-head p {font-size:13px;}
+ html[data-embedded="true"] .visual-mode-tabs {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;}
+ html[data-embedded="true"] .visual-mode-tabs button {min-width:0;white-space:normal;}
+ html[data-embedded="true"] .visual-mode-tabs button small {font-size:10px;}
+}

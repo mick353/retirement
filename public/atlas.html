@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="en-AU" data-theme="light">
 <head>
+  <script src="./atlas-entry.js?v=27"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#eef3fb">
   <meta name="description" content="Interactive Robinson Retirement strategy atlas: income floor, capital trajectory, spending-estate frontier, tax controls and governed scenario handoff.">
   <title>Retirement Atlas — Robinson Retirement</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./atlas.css?v=17">
+  <link rel="stylesheet" href="./atlas.css?v=27">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to analysis</a>
@@ -161,7 +162,7 @@
           <div class="tbc-legend">
             <div><span>DB special value</span><b id="dbSpecial">$1,320,814</b><small>PSS gross pension × 16</small></div>
             <div><span>Pool A pension phase</span><b id="tbcPoolA">$774,186</b><small>0% earnings tax under current law</small></div>
-            <div><span>Structural buffer</span><b>$5,000</b><small>Below the current $2.10m cap; recheck for 2033</small></div>
+            <div><span>Planning buffer</span><b>$5,000</b><small>This buffer reduces new ABP allocation only where headroom exists. It does not remove a defined-benefit excess.</small></div>
           </div>
           <div class="control-note"><b id="tbcTotal">$2,095,000 total super-balance structure</b><span>Pool C remains outside super and does not consume transfer-balance space.</span></div>
         </article>
@@ -186,7 +187,8 @@
           <div><span>Funded spend</span><b id="selectedFundedSpend">$110,000</b></div>
           <div><span>Unfunded target</span><b id="selectedShortfall">—</b></div>
           <div><span>Reinvested surplus</span><b id="selectedReinvestment">$0</b></div>
-          <div><span>Gross equivalent of net income</span><b id="selectedGross">$156,175</b></div>
+          <div><span>Gross salary equivalent · receipts before reinvestment</span><b id="selectedGross">$156,175</b></div>
+          <div><span>Gross salary equivalent · funded spending only</span><b id="selectedSpendGross">$0</b></div>
         </div>
       </div>
     </section>
@@ -247,7 +249,8 @@
               <div><dt>Portfolio draw</dt><dd id="visualInspectorDraw">$0 p.a.</dd></div>
               <div><dt>Reinvested surplus</dt><dd id="visualInspectorReinvestment">$0 p.a.</dd></div>
               <div><dt>External tax drag</dt><dd id="visualInspectorDrag">$0 p.a.</dd></div>
-              <div><dt>Gross salary equivalent</dt><dd id="visualInspectorGross">$0 p.a.</dd></div>
+              <div><dt>Gross equivalent · receipts before reinvestment</dt><dd id="visualInspectorGross">$0 p.a.</dd></div>
+              <div><dt>Gross equivalent · funded spending</dt><dd id="visualSpendGross">$0 p.a.</dd></div>
               <div><dt>PSS coverage</dt><dd id="visualInspectorCoverage">0%</dd></div>
             </dl>
             <div class="visual-composition" aria-label="Selected estate composition">
@@ -370,7 +373,7 @@
       </div>
       <div class="timeline" id="timeline">
         <button type="button" data-age="60"><span>2033 · age 60</span><b>Launch</b><small>PSS pension, lump sum and three-pool commencement.</small></button>
-        <button type="button" data-age="61"><span>Age 61</span><b>Wash window</b><small>First NCC wash attempt subject to prior 30 June TSB.</small></button>
+        <button type="button" data-age="61"><span>Age 61</span><b>Contribution review</b><small>Review NCC eligibility and source-limited wash capacity; a 100% PSS pension has no PSS lump to wash.</small></button>
         <button type="button" data-age="75" class="active"><span>Age 75</span><b>Primary wealth test</b><small>Lifestyle/estate frontier and original benchmark comparison.</small></button>
         <button type="button" data-age="85"><span>Age 85</span><b>Long-range estate</b><small>Higher minimum draw rate; capital still measured separately.</small></button>
         <button type="button" data-age="95"><span>Age 95</span><b>Longevity guardrail</b><small>PSS remains the indexed lifetime income floor.</small></button>
@@ -433,6 +436,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./vendor/chart.umd.js"></script>
   <script src="./retirement-engine.js?v=2"></script>
-  <script src="./atlas.js?v=26"></script>
+  <script src="./atlas.js?v=27"></script>
 </body>
 </html>

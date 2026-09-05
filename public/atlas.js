@@ -97,6 +97,9 @@
   const activeTheme = () => document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 
   const params = new URLSearchParams(location.search);
+  const embedded = typeof window !== "undefined" && params.get("embedded") === "1" && window.parent !== window;
+  const embedPanel = params.get("panel") || "studio";
+  const sendHost = (message) => { if (embedded) window.parent.postMessage({channel:"retirement-explorer-v1",...message},location.origin); };
   const parsedReturn = Number(params.get("return"));
   const parsedElection = Object.hasOwn(PSS_ELECTIONS, params.get("pss")) ? params.get("pss") : "60-40";
   const parsedBasis = normaliseProjectionBasis(params.get("basis"));
@@ -201,6 +204,7 @@
   }
 
   function persistScenario() {
+    if (embedded) return; // Command Centre alone owns scenario storage and its URL.
     const payload = { version: 7, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, pssProjectionBasis: state.pssProjectionBasis, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
@@ -292,6 +296,7 @@
     $("selectedShortfall").textContent = row.shortfall > 0 ? money0.format(row.shortfall) : "—";
     $("selectedReinvestment").textContent = money0.format(row.reinvestment);
     $("selectedGross").textContent = money0.format(row.grossEquivalent);
+    $("selectedSpendGross").textContent = money0.format(grossForNet(row.fundedSpend));
   }
 
   function withAlpha(color, alpha) {
@@ -709,6 +714,7 @@
     $("visualInspectorReinvestment").textContent = `${money0.format(row.reinvestment)} p.a.`;
     $("visualInspectorDrag").textContent = `${money0.format(row.externalTaxDrag)} p.a.`;
     $("visualInspectorGross").textContent = isOpening ? "Begins in year 1" : `${money0.format(row.grossEquivalent)} p.a.`;
+    $("visualSpendGross").textContent = isOpening ? "Begins in year 1" : `${money0.format(grossForNet(row.fundedSpend))} p.a.`;
     $("visualInspectorCoverage").textContent = pct(rail.netPension / Math.max(1, state.spend));
     $("visualShareA").textContent = pct(row.poolA / total);
     $("visualShareC").textContent = pct(row.poolC / total);
@@ -914,7 +920,7 @@
         <td>${money0.format(point.spend)}</td><td>${money0.format(point.draw)}</td><td>${money0.format(point.capital)}</td><td>${money0.format(point.estate)}</td>
       </tr>`).join("");
     $("tradeRows").querySelectorAll("tr").forEach((row) => {
-      const select = () => { state.spend = Number(row.dataset.spend); $("spend").value = state.spend; renderAll(); };
+      const select = () => { state.spend = Number(row.dataset.spend); $("spend").value = state.spend; sendHost({type:"spend",spend:state.spend}); renderAll(); };
       row.addEventListener("click", select);
       row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
     });
@@ -1070,6 +1076,18 @@
     state.selectedCapitalAge = clamp(state.selectedCapitalAge, 60, 95);
     const points = frontierPoints(rail);
 
+    if (embedded) {
+      renderControls(rail);
+      activeVisualLedger = ledger;
+      if(embedPanel==="studio"){renderVisualStudio(ledger);}
+      if(embedPanel==="cashflow"){renderIncomeChart(ledger);renderSelectedCashflow(rowAt(ledger,state.selectedIncomeAge));}
+      if(embedPanel==="returns"){renderCapitalChart(rail,ledger);renderCapitalReadout(rowAt(ledger,state.selectedCapitalAge));}
+      if(embedPanel==="map"){renderArchitecture(rail);renderObjectives(rail,ledger);renderGuardrails(rail,inspectionRow);
+        document.querySelectorAll("#timeline button").forEach(button=>{const active=Number(button.dataset.age)===state.inspectionAge;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active));});
+      }
+      if(embedPanel==="trade"){renderTradeTable(rail,points);}
+      return;
+    }
     renderControls(rail);
     renderMetrics(rail, targetRow);
     renderArchitecture(rail);
@@ -1135,6 +1153,7 @@
   $("visualMilestones").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => selectCapitalAge(activeVisualLedger, Number(button.dataset.visualAge))));
   $("visualModeTabs").querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
     state.visualMode = button.dataset.visualMode;
+    sendHost({type:"view",view:state.visualMode});
     stopVisualPlay();
     renderAll();
   }));
@@ -1205,6 +1224,7 @@
   });
 
   document.addEventListener("keydown", (event) => {
+    if (embedded && event.key === "Escape") sendHost({type:"close-focus"});
     if (event.key === "Escape" && document.body.classList.contains("visual-focus-open")) {
       document.body.classList.remove("visual-focus-open");
       $("visualFocusToggle").classList.remove("active");
@@ -1213,7 +1233,7 @@
       setTimeout(() => renderVisualStudio(activeVisualLedger), 40);
       return;
     }
-    if ((event.key === "r" || event.key === "R") && !/input|textarea|select/i.test(document.activeElement.tagName)) {
+    if (!embedded && (event.key === "r" || event.key === "R") && !/input|textarea|select/i.test(document.activeElement.tagName)) {
       state.rail = state.rail === "A" ? "B" : "A";
       state.washCycles = washOutcome(currentRail(), 99).maxCycles;
       renderAll();
@@ -1231,11 +1251,42 @@
   })();
   document.documentElement.dataset.theme = initialTheme === "dark" ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = initialTheme === "dark" ? "#03080f" : "#eef3fb";
-  try { localStorage.setItem(THEME_STORAGE_KEY, document.documentElement.dataset.theme); } catch { /* preference only */ }
+  try { if(!embedded) localStorage.setItem(THEME_STORAGE_KEY, document.documentElement.dataset.theme); } catch { /* preference only */ }
   $("themeToggle").textContent = initialTheme === "dark" ? "Light" : "Dark";
   $("themeToggle").setAttribute("aria-label", `Switch to ${initialTheme === "dark" ? "light" : "dark"} theme`);
   $("incomeAgeSelect").innerHTML = Array.from({ length: 35 }, (_, index) => 61 + index).map((age) => `<option value="${age}">Year ${age - 60} · age ${age - 1}→${age}</option>`).join("");
   $("capitalAgeSelect").innerHTML = Array.from({ length: 36 }, (_, index) => 60 + index).map((age) => `<option value="${age}">Age ${age}</option>`).join("");
   state.washCycles = washOutcome(currentRail(), 99).maxCycles;
   renderAll();
+
+  if (embedded) {
+    window.addEventListener("message",(event)=>{
+      if(event.origin!==location.origin || event.source!==window.parent || event.data?.channel!=="retirement-explorer-v1" || event.data.type!=="scenario")return;
+      const input=event.data.scenario;
+      if(!input || !Number.isFinite(input.realReturn) || !Number.isFinite(input.spend))return;
+      const oldTarget=state.targetAge;
+      state.rail=input.rail==="A"?"A":"B";
+      state.pssProjectionBasis=normaliseProjectionBasis(input.pssProjectionBasis);
+      state.pssElection=normaliseElectionForBasis(state.pssProjectionBasis,input.pssElection);
+      state.spend=clamp(input.spend,76000,MAX_FLAT_SPEND);
+      state.realReturn=clamp(input.realReturn,.02,.075);
+      state.targetAge=clamp(Number(input.targetAge)||75,70,95);
+      state.home=clamp(Number(input.homeValue)||500000,300000,1000000);
+      state.taxYear=input.taxYear==="2027-28"?"2027-28":"2026-27";
+      state.liquidityMonths=clamp(Number(input.liquidityMonths)||0,0,24);
+      state.simulationSeed=Number(input.simulationSeed)||20260814;
+      if(oldTarget!==state.targetAge){state.selectedCapitalAge=state.targetAge;state.inspectionAge=state.targetAge;}
+      document.documentElement.dataset.theme=event.data.theme==="dark"?"dark":"light";
+      renderAll();
+    });
+    let previousHeight=0;
+    const reportHeight=()=>{
+      const height=Math.ceil(document.body.getBoundingClientRect().height);
+      if(Math.abs(height-previousHeight)>2){previousHeight=height;sendHost({type:"height",height});}
+    };
+    new ResizeObserver(reportHeight).observe(document.body);
+    sendHost({type:"ready"});
+    reportHeight();
+    document.querySelectorAll('a').forEach(link=>{link.target="_top";});
+  }
 })();
