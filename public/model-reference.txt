@@ -36,6 +36,8 @@ Rail B election        Gross pension   Net pension    PSS lump       Tax-free   
 70% / 30%              $103,332.85     $95,434.30     $487,140.59    $133,481.80    $353,658.78    $441,674.40    $362,913.85    4
 100% pension           $147,713.96     $135,575.70    $0             $0              $0              $0              $317,447.66    0
 
+Prudent 100% payment detail: the 9 September CSC estimate reports $5,681.31 gross per fortnight, $2,718.91 assessable per fortnight, $466.86 tax withheld and $5,214.45 net per fortnight. The model's $135,575.70 annual net equals the displayed provider net multiplied by 26. Annual pension components are $21,140.52 tax-free, $55,868.53 taxable-taxed and $70,704.92 taxable-untaxed; their one-cent excess over displayed gross is provider rounding.
+
 PSS PROVIDER PROJECTION BASES
 Current CSC source basis - ACTIVE: fund earnings 8.2%; salary growth 5%; CPI 2.5%. Equivalent real fund earnings are 5.56% and equivalent real salary growth is 2.44%. Its four election rows come directly from matching CSC PDFs.
 
