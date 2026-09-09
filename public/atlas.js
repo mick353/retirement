@@ -19,9 +19,9 @@
     "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, fas: 168_256.05, grossPension: 152_960.05, netPension: 143_104.26, netPensionPf: 5_504.01, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0 },
   };
   const PSS_PRUDENT_ELECTIONS = {
-    "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 162_380.20, grossPension: 88_571.01, netPension: 80_672.54, netPensionPf: 3_102.79, lumpSum: 649_520.78, lumpTaxFree: 177_975.75, lumpTaxableTaxed: 471_545.03, lumpTaxableUntaxed: 0, source: "i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf" },
-    "65-35": { key: "65-35", label: "65% pension / 35% lump", pensionPercent: 65, lumpPercent: 35, fas: 162_380.20, grossPension: 95_951.93, netPension: 88_053.42, netPensionPf: 3_386.67, lumpSum: 568_330.69, lumpTaxFree: 155_728.77, lumpTaxableTaxed: 412_601.91, lumpTaxableUntaxed: 0, source: "i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf" },
-    "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, fas: 162_380.20, grossPension: 103_332.85, netPension: 95_434.30, netPensionPf: 3_670.55, lumpSum: 487_140.59, lumpTaxFree: 133_481.80, lumpTaxableTaxed: 353_658.78, lumpTaxableUntaxed: 0, source: "i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf" },
+    "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 162_380.20, grossPension: 88_571.01, netPension: 80_672.54, netPensionPf: 3_102.79, lumpSum: 649_520.78, lumpTaxFree: 177_975.75, lumpTaxableTaxed: 471_545.03, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf" },
+    "65-35": { key: "65-35", label: "65% pension / 35% lump", pensionPercent: 65, lumpPercent: 35, fas: 162_380.20, grossPension: 95_951.93, netPension: 88_053.42, netPensionPf: 3_386.67, lumpSum: 568_330.69, lumpTaxFree: 155_728.77, lumpTaxableTaxed: 412_601.91, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf" },
+    "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, fas: 162_380.20, grossPension: 103_332.85, netPension: 95_434.30, netPensionPf: 3_670.55, lumpSum: 487_140.59, lumpTaxFree: 133_481.80, lumpTaxableTaxed: 353_658.78, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf" },
   };
 
   const PSS_PROJECTION_BASES = {

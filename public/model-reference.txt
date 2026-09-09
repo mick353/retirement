@@ -124,7 +124,7 @@ The dashboard applies the displayed resident income-tax schedule plus a 2% Medic
 SOURCE STATUS AND SALARY CONTROL
 - CSC employment history / payroll evidence supports a corrected 21 Dec 2025 birthday super salary of $138,394.
 - The new iEstimators start from the actual current salary shown on the corrected payslip, $143,099, and apply CSC's prospective projection assumptions.
-- Statement 2026.pdf carries the pre-correction super salary and is pending correction/reissue. It remains evidence, not current Rail B estimate authority.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/Statement 2026.pdf carries the pre-correction super salary and is pending correction/reissue. It remains evidence, not current Rail B estimate authority.
 - Do not replace the September election values with the disputed statement.
 
 GOVERNANCE CONTROLS
