@@ -140,20 +140,23 @@ GOVERNANCE CONTROLS
 
 SOURCE REGISTER
 Personal PDFs and workbooks are not republished. Current source roles:
-- i-Estimator-1-9-2026_60-40.pdf: current Rail B 60/40 pension, lump and component source.
-- i-Estimator-1-9-2026_65-35.pdf: current Rail B 65/35 option.
-- i-Estimator-1-9-2026_70-30.pdf: current Rail B 70/30 option.
-- i-Estimator-1-9-2026_100percent.pdf: current Rail B 100% pension option.
-- i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf: prudent Rail B 60/40 option.
-- i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf: prudent Rail B 65/35 option.
-- i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf: prudent Rail B 70/30 option.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026_60-40.pdf: current Rail B 60/40 pension, lump and component source.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026_65-35.pdf: current Rail B 65/35 option.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026_70-30.pdf: current Rail B 70/30 option.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026_100percent.pdf: current Rail B 100% pension option.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf: prudent Rail B 60/40 option.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf: prudent Rail B 65/35 option.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf: prudent Rail B 70/30 option.
 - 6% / 5% / 3% 100% pension iEstimator: not supplied; that single election remains unavailable and no output is inferred.
-- Paystub_2026_08_26.pdf: corrected current salary and backpay evidence.
-- Statement 2026.pdf: disputed annual statement pending reissue.
-- PSS_iEstimator_60-40_2026-03-23.pdf: Rail A historical control and direct components.
-- PSS_Annual_Statement_2025_2025-12-20.pdf: previous annual statement reference.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf: corrected current salary and backpay evidence.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/Statement 2026.pdf: disputed annual statement pending reissue.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/PSS_iEstimator_60-40_2026-03-23.pdf: Rail A historical control and direct components.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/PSS_Annual_Statement_2025_2025-12-20.pdf: previous annual statement reference.
 - Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx: Rail A workbook/cashflow control.
-- Robinson_Retirement_Master_2026-07-18.md: governed narrative, revised by the 1 Sep 2026 release note.
+- 00_READ_FIRST_RETIREMENT_BASELINE_2026-09-09.md: current authority map and file-status boundary.
+- Robinson_Retirement_Master_2026-09-09.md: governed narrative, refreshed 9 Sep 2026.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/README_CURRENT_SOURCE_STATUS_2026-09-09.md: current PSS source and evidence-status guide.
+- 00_SUPPLEMENTARY/Research_Reports/Robinson_Source_Folder_Recheck_2026-09-09.md: current source reconciliation and mismatch audit.
 
 MACHINE-ANALYSIS CONTRACT
 An automated analysis must state the rail, PSS election and provider projection basis; distinguish sourced inputs from modelled outputs; keep the pre-retirement provider basis separate from the post-retirement real return; identify total spending versus portfolio gap or pension surplus; cite the wash source/method; never call a simulated percentile a forecast; and never convert this documentation into personal financial advice.
