@@ -93,7 +93,7 @@
       <section id="baseline">
         <p class="eyebrow">Controlled inputs</p>
         <h2>Dual rails and two source-backed Rail B projection bases</h2>
-        <p>Rail A remains the March 2026 / V5 historical control. Rail B can use either September 2026 CSC provider basis. The current 8.2% / 5% / 2.5% basis has four elections; the prudent 6% / 5% / 3% basis has direct 60/40, 65/35 and 70/30 estimates. Selecting a basis or election changes FAS, pension, lump sum, TBC use, opening pools, drawdown, surplus and wash capacity together.</p>
+        <p>Rail A remains the March 2026 / V5 historical control. Rail B can use either September 2026 CSC provider basis, and both now contain four direct elections. Selecting a basis or election changes FAS, pension, lump sum, TBC use, opening pools, drawdown, surplus and wash capacity together.</p>
         <h3>Current CSC basis · 8.2% fund / 5% salary / 2.5% CPI</h3>
         <div class="table-wrap">
           <table>
@@ -114,17 +114,17 @@
               <tr><td>60% / 40%</td><td>$88,571.01</td><td>$80,672.54</td><td>$649,520.78</td><td>$177,975.75</td><td>$471,545.03</td><td>$677,863.84</td><td>$289,104.60</td><td>5</td></tr>
               <tr><td>65% / 35%</td><td>$95,951.93</td><td>$88,053.42</td><td>$568,330.69</td><td>$155,728.77</td><td>$412,601.91</td><td>$559,769.12</td><td>$326,009.23</td><td>5</td></tr>
               <tr><td>70% / 30%</td><td>$103,332.85</td><td>$95,434.30</td><td>$487,140.59</td><td>$133,481.80</td><td>$353,658.78</td><td>$441,674.40</td><td>$362,913.85</td><td>4</td></tr>
-              <tr><td>100% pension</td><td colspan="8">Unavailable on this basis: matching CSC PDF not supplied; no current-basis value is substituted.</td></tr>
+              <tr><td>100% pension</td><td>$147,713.96</td><td>$135,575.70</td><td>$0</td><td>$0</td><td>$0</td><td>$0</td><td>$317,447.66</td><td>0</td></tr>
             </tbody>
           </table>
         </div>
         <h3>Provider projection basis — before retirement</h3>
         <div class="grid">
           <div class="card"><b>Current CSC source basis · active</b>8.2% fund earnings, 5% salary growth and 2.5% CPI. Equivalent real rates are 5.56% for fund earnings and 2.44% for salary growth. All four elections above are read directly from matching CSC PDFs.</div>
-          <div class="card"><b>Prudent sensitivity · three elections active</b>6% fund earnings, 5% salary growth and 3% CPI. Equivalent real rates are 2.91% for fund earnings and 1.94% for salary growth. The three supplied CSC PDFs directly support 60/40, 65/35 and 70/30; only 100% remains source-gated.</div>
+          <div class="card"><b>Prudent sensitivity · four elections active</b>6% fund earnings, 5% salary growth and 3% CPI. Equivalent real rates are 2.91% for fund earnings and 1.94% for salary growth. All four elections are direct CSC estimates; the 100% pension estimate is the later 9 September source.</div>
           <div class="card"><b>Post-retirement site return</b>The adjustable real-return control begins from the verified retirement-day opening. It is independent of the CSC provider basis and updates capital, cashflow, risk and estate projections everywhere.</div>
         </div>
-        <p><strong>Provider FAS inputs:</strong> $168,256.05 under the 8.2% / 5% / 2.5% basis and $162,380.20 under the 6% / 5% / 3% basis, with a 10% member contribution in both source sets.</p>
+        <p><strong>Provider FAS inputs:</strong> $168,256.05 under the 8.2% / 5% / 2.5% basis. Under 6% / 5% / 3%, the 1 September 60/40, 65/35 and 70/30 estimates use $162,380.20; the later 9 September 100% estimate uses $162,485.36. All source estimates use a 10% member contribution.</p>
         <p><strong>Rail A control:</strong> $78,382.04 gross pension, $76,041.68 net pension, $574,801.66 PSS lump, $141,581.47 tax-free, $433,220.20 taxable-taxed, $840,887.36 Pool A and $51,361.96 Pool C.</p>
         <h3>Shared planning controls</h3>
         <ul>
@@ -140,7 +140,7 @@
       <section id="vr">
         <p class="eyebrow">Scenario-aware early-retirement sensitivity</p>
         <h2>Voluntary retirement / redundancy at ages 57–59</h2>
-        <p>The active Rail B provider basis and pension/lump election now supply the VR page's source-backed age-60 anchor. The current basis supports 60/40, 65/35, 70/30 and 100% pension; the prudent basis supports its three supplied elections. Rail A remains available as the March/V5 historical 60/40 control.</p>
+        <p>The active Rail B provider basis and pension/lump election now supply the VR page's source-backed age-60 anchor. Both bases support 60/40, 65/35, 70/30 and 100% pension. Rail A remains available as the March/V5 historical 60/40 control.</p>
         <div class="note warning"><strong>Source boundary.</strong> The supplied September iEstimator PDFs provide age-60 elections, not formal redundancy estimates at 57, 58 or 59. Every earlier-age result is therefore labelled illustrative and must be replaced by a formal CSC estimate before a decision.</div>
         <h3>Illustrative timing method</h3>
         <pre>age-60 defined benefit = gross age-60 pension × 11 ÷ selected pension share
@@ -258,7 +258,7 @@ deathBenefitTax = taxableComponent × 0.17</pre>
         <h2>Known mismatches and model governance</h2>
         <dl>
           <dt>Do not mix rails, elections or projection bases silently.</dt><dd>Each output and shared link carries Rail A or Rail B, the selected 60/40, 65/35, 70/30 or 100% election, and the verified provider basis.</dd>
-          <dt>Source-gate incomplete elections.</dt><dd>The 6% / 5% / 3% basis is active for its three supplied CSC estimates. Its missing 100% election remains unavailable; no output is interpolated from another basis.</dd>
+          <dt>Keep each provider estimate source-specific.</dt><dd>Both bases have four direct CSC estimates. The prudent 100% estimate is a later 9 September snapshot with FAS $162,485.36; its values are not interpolated from the other basis or the 1 September prudent files.</dd>
           <dt>Do not invent Hostplus components.</dt><dd>Each PSS source uses its exact own component split. Hostplus remains unresolved rather than borrowing a PSS ratio.</dd>
           <dt>Keep gross, net and salary-equivalent values distinct.</dt><dd>Gross pension, modelled net pension, net spending and gross salary equivalence are separate fields.</dd>
           <dt>Keep real and nominal values distinct.</dt><dd>Retirement projections use real dollars. Pre-age-60 compounding is separately labelled nominal.</dd>
@@ -284,8 +284,9 @@ deathBenefitTax = taxableComponent × 0.17</pre>
           <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf</code> — prudent Rail B 60/40 option.</li>
           <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf</code> — prudent Rail B 65/35 option.</li>
           <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf</code> — prudent Rail B 70/30 option.</li>
-          <li><code>6% / 5% / 3% 100% pension iEstimator</code> — not supplied; that single election remains unavailable and no model output is inferred.</li>
-          <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf</code> — corrected current salary and backpay evidence.</li>
+          <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator 2026Aug29_100--6-5-3.pdf</code> — 9 September prudent 100% pension source; the filename retains its Aug29 label.</li>
+          <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_09_09.pdf</code> — latest payroll evidence: $143,099 salary, $138,394 employee superannuation salary and $2,908.56 net after payroll deductions.</li>
+          <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf</code> — prior corrected salary and backpay evidence.</li>
           <li><code>00_SUPPLEMENTARY/PSS_Source_Docs/PSS_iEstimator_60-40_2026-03-23.pdf</code> — Rail A historical control and direct PSS components.</li>
           <li><code>PSS_Defined_Benefit_Calculator_V8_Baseline_2026-07-18.xlsx</code> — historical defined-benefit calculation control.</li>
           <li><code>Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx</code> — conservative Rail A workbook and cash-flow control.</li>

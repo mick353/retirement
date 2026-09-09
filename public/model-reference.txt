@@ -20,7 +20,7 @@ CLASSIFICATIONS
 - SPECULATIVE: unknowable future state.
 
 RAILS AND PSS ELECTIONS
-Rail A remains the March 2026 / V5 historical control. Rail B can use either September 2026 CSC provider basis. The current 8.2% / 5% / 2.5% basis has four elections; the prudent 6% / 5% / 3% basis has direct 60/40, 65/35 and 70/30 estimates. They are never blended.
+Rail A remains the March 2026 / V5 historical control. Rail B can use either September 2026 CSC provider basis. Both bases now have four direct election estimates. They are never blended.
 
 CURRENT CSC BASIS - 8.2% FUND / 5% SALARY / 2.5% CPI
 Rail B election        Gross pension   Net pension    PSS lump       Tax-free       Taxable-taxed  Pool A          Pool C          Max PSS wash cycles
@@ -34,14 +34,14 @@ Rail B election        Gross pension   Net pension    PSS lump       Tax-free   
 60% / 40%              $88,571.01      $80,672.54     $649,520.78    $177,975.75    $471,545.03    $677,863.84    $289,104.60    5
 65% / 35%              $95,951.93      $88,053.42     $568,330.69    $155,728.77    $412,601.91    $559,769.12    $326,009.23    5
 70% / 30%              $103,332.85     $95,434.30     $487,140.59    $133,481.80    $353,658.78    $441,674.40    $362,913.85    4
-100% pension           UNAVAILABLE - matching 6% / 5% / 3% CSC PDF not supplied; no current-basis value is substituted.
+100% pension           $147,713.96     $135,575.70    $0             $0              $0              $0              $317,447.66    0
 
 PSS PROVIDER PROJECTION BASES
 Current CSC source basis - ACTIVE: fund earnings 8.2%; salary growth 5%; CPI 2.5%. Equivalent real fund earnings are 5.56% and equivalent real salary growth is 2.44%. Its four election rows come directly from matching CSC PDFs.
 
-Prudent sensitivity basis - THREE ELECTIONS ACTIVE: fund earnings 6%; salary growth 5%; CPI 3%. Equivalent real fund earnings are 2.91% and equivalent real salary growth is 1.94%. The supplied 60/40, 65/35 and 70/30 PDFs provide exact outputs. Only its missing 100% election remains unavailable.
+Prudent sensitivity basis - FOUR ELECTIONS ACTIVE: fund earnings 6%; salary growth 5%; CPI 3%. Equivalent real fund earnings are 2.91% and equivalent real salary growth is 1.94%. All four elections are direct CSC estimates; the 100% pension estimate is the later 9 September source.
 
-The projected CPI-reduced FAS is $168,256.05 under the current basis and $162,380.20 under the prudent basis; both use a 10% member contribution rate. Provider bases apply before retirement. The sites' adjustable real-return control begins from the verified retirement-day opening and is a separate post-retirement assumption.
+The projected CPI-reduced FAS is $168,256.05 under the current basis. Under the prudent basis, the 1 September 60/40, 65/35 and 70/30 estimates use $162,380.20; the later 9 September 100% estimate uses $162,485.36. All use a 10% member contribution rate. Provider bases apply before retirement. The sites' adjustable real-return control begins from the verified retirement-day opening and is a separate post-retirement assumption.
 
 Rail A control: gross pension $78,382.04; net pension $76,041.68; PSS lump $574,801.66; tax-free component $141,581.47; taxable-taxed component $433,220.20; untaxed $0; Hostplus $317,447.66; Pool A $840,887.36; Pool C $51,361.96.
 
@@ -76,7 +76,7 @@ V23 has two spending contexts:
 The birthday-year planning rows apply the ABP minimum rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. The provider calculates actual financial-year minima and first-year pro-rating.
 
 VOLUNTARY RETIREMENT / REDUNDANCY SENSITIVITY
-The VR page now uses the active Rail B provider basis and pension/lump election as its exact age-60 anchor. The current basis supports 60/40, 65/35, 70/30 and 100% pension; the prudent basis supports its three supplied elections. Rail A remains the March/V5 historical 60/40 control.
+The VR page now uses the active Rail B provider basis and pension/lump election as its exact age-60 anchor. Both bases support 60/40, 65/35, 70/30 and 100% pension. Rail A remains the March/V5 historical 60/40 control.
 
 The September iEstimator PDFs do not provide formal VR estimates at ages 57, 58 or 59. Those ages remain labelled ILLUSTRATIVE and must be replaced by CSC estimates before any decision.
 
@@ -130,7 +130,7 @@ SOURCE STATUS AND SALARY CONTROL
 GOVERNANCE CONTROLS
 - Carry rail, PSS election, PSS provider projection basis, spending, return, target age, home, tax year, reserve months and simulation seed through every shared link and saved scenario.
 - Do not mix Rail A, a Rail B election or a provider basis silently.
-- Keep the 6% / 5% / 3% 100% pension election disabled until its matching CSC PDF is reconciled; its other three elections are direct source-backed estimates. Do not interpolate across bases.
+- Keep every provider estimate source-specific. The prudent 100% estimate is a later 9 September snapshot with FAS $162,485.36; do not interpolate across bases or source dates.
 - Do not borrow PSS component ratios for Hostplus.
 - Keep gross pension, net pension, total spending, portfolio gap, PSS surplus and gross salary equivalent distinct.
 - Keep provider pre-retirement assumptions separate from site post-retirement real returns.
@@ -147,8 +147,9 @@ Personal PDFs and workbooks are not republished. Current source roles:
 - 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf: prudent Rail B 60/40 option.
 - 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf: prudent Rail B 65/35 option.
 - 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf: prudent Rail B 70/30 option.
-- 6% / 5% / 3% 100% pension iEstimator: not supplied; that single election remains unavailable and no output is inferred.
-- 00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf: corrected current salary and backpay evidence.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator 2026Aug29_100--6-5-3.pdf: 9 September prudent 100% pension source; filename retains its Aug29 label.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_09_09.pdf: latest payroll evidence showing $143,099 salary, $138,394 employee superannuation salary and $2,908.56 net after payroll deductions.
+- 00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf: prior corrected salary and backpay evidence.
 - 00_SUPPLEMENTARY/PSS_Source_Docs/Statement 2026.pdf: disputed annual statement pending reissue.
 - 00_SUPPLEMENTARY/PSS_Source_Docs/PSS_iEstimator_60-40_2026-03-23.pdf: Rail A historical control and direct components.
 - 00_SUPPLEMENTARY/PSS_Source_Docs/PSS_Annual_Statement_2025_2025-12-20.pdf: previous annual statement reference.

@@ -20,7 +20,7 @@ V23 retains its richer age-band/Pool B/one-off/Pool C-spending-policy ledger. It
 ## Regression evidence
 tools/fixtures/pass2-legacy-ledgers.mjs freezes the old Command Centre, Atlas and Monte Carlo implementations from published GitHub commit 0a3fe30a33f7e53e63ce8df28119816d7b45e090. These are test-only oracles, excluded from browser execution and deployment assets.
 tools/validate-ledger-migration.mjs checks:
-- 780 cases, with exact full-row comparison across source bases, elections, spending, returns, tax years, exhausted balances and sampled-return paths.
+- 858 cases, with exact full-row comparison across source bases, all eight direct elections, spending, returns, tax years, exhausted balances and sampled-return paths.
 - Source TypeScript and generated browser engine parity.
 - 16 seeded Monte Carlo scenarios: all 480 paths and every percentile match the frozen baseline.
 - Non-negative balances and funded spending plus shortfall reconciliation.
@@ -36,4 +36,3 @@ Inventory and specify V23 policy differences first. Freeze V23 outputs for repre
 
 ## Presentation
 Atlas's Quantified trade-off now states the active real return, election, target age and home assumption in the section itself, and refreshes them with scenario changes.
-

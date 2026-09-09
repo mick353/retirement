@@ -37,12 +37,12 @@ Legacy atlas.html and atlas-prototype.html bookmarks resolve to the correspondin
 
 ## Validation and limits
 
-- Frozen financial comparisons: 780 full-row scenarios unchanged.
+- Frozen financial comparisons: 858 full-row scenarios reconciled across all eight direct provider elections.
 - Seeded risk regression: 16 scenarios, 480 complete paths and all percentiles unchanged.
 - Six visual modes and DOM-binding validator; mobile layout guards.
 - New build-blocking integrated-explorer validator: 16 legacy route cases, scenario preservation, same-origin ownership and module wiring.
 - Existing Sites 25-test suite including V23 navigation, spending policies and scenario matrix.
-- Browser checks: six modes, age inspector, keyboard and pointer activation, focus/Escape, income and return panels, full-pension cashflow, prudent basis fallback, invalid number drafts, all Command Centre navigation destinations, light/dark and 320/390px layouts.
+- Browser checks: six modes, age inspector, keyboard and pointer activation, focus/Escape, income and return panels, full-pension cashflow across both provider bases, invalid number drafts, all Command Centre navigation destinations, light/dark and 320/390px layouts.
 - The local browser connector's frame-locator click did not reliably dispatch pointer clicks; native accessibility clicks and keyboard activation verified the actual visual controls.
 
 This is a presentation/state consolidation, not a new legal or tax ruling. Financial formulas, source elections, real-dollar treatment and V23 calculation pages are retained. The frozen tests preserve previous outputs; they do not prove every planning assumption is suitable for every person. V23's richer annual ledger remains a later canonical-engine migration domain.

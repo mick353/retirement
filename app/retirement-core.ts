@@ -157,6 +157,7 @@ export const PSS_PRUDENT_ELECTIONS: Partial<Record<PssElectionKey, PssElection>>
   "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, grossPension: 88_571.01, netPensionPf: 3_102.79, netPension: 80_672.54, lumpSum: 649_520.78, lumpTaxFree: 177_975.75, lumpTaxableTaxed: 471_545.03, lumpTaxableUntaxed: 0, fas: 162_380.20, source: "1 Sep 2026 CSC iEstimator · 60/40 · 6/5/3" },
   "65-35": { key: "65-35", label: "65% pension / 35% lump", pensionPercent: 65, lumpPercent: 35, grossPension: 95_951.93, netPensionPf: 3_386.67, netPension: 88_053.42, lumpSum: 568_330.69, lumpTaxFree: 155_728.77, lumpTaxableTaxed: 412_601.91, lumpTaxableUntaxed: 0, fas: 162_380.20, source: "1 Sep 2026 CSC iEstimator · 65/35 · 6/5/3" },
   "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, grossPension: 103_332.85, netPensionPf: 3_670.55, netPension: 95_434.30, lumpSum: 487_140.59, lumpTaxFree: 133_481.80, lumpTaxableTaxed: 353_658.78, lumpTaxableUntaxed: 0, fas: 162_380.20, source: "1 Sep 2026 CSC iEstimator · 70/30 · 6/5/3" },
+  "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, grossPension: 147_713.96, netPensionPf: 5_214.45, netPension: 135_575.70, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0, fas: 162_485.36, source: "9 Sep 2026 CSC iEstimator · 100% pension · 6/5/3" },
 };
 
 export const PSS_PROJECTION_BASES: Record<PssProjectionBasisKey, PssProjectionBasis> = {
@@ -171,8 +172,8 @@ export const PSS_PROJECTION_BASES: Record<PssProjectionBasisKey, PssProjectionBa
     key: "prudent-630", label: "Prudent sensitivity basis", shortLabel: "6 / 5 / 3",
     fundEarnings: 0.06, salaryGrowth: 0.05, cpi: 0.03,
     realFundEarnings: (1.06 / 1.03) - 1, realSalaryGrowth: (1.05 / 1.03) - 1,
-    sourceStatus: "partial-source", sourceDate: "1 September 2026", elections: PSS_PRUDENT_ELECTIONS,
-    note: "Direct CSC outputs are available for 60/40, 65/35 and 70/30. The 100% pension option remains unavailable on this basis until its matching provider PDF is supplied.",
+    sourceStatus: "source-backed", sourceDate: "1 and 9 September 2026", elections: PSS_PRUDENT_ELECTIONS,
+    note: "All four elections are direct CSC outputs. The 60/40, 65/35 and 70/30 estimates use the 1 September snapshot and FAS $162,380.20; the 100% pension estimate uses the later 9 September snapshot and FAS $162,485.36.",
   },
 };
 
@@ -244,7 +245,7 @@ export function railBOpeningPosition(
     tbcExcess: Math.max(0, dbSpecialValue - TRANSFER_BALANCE_CAP),
     washTaxableShare,
     washEvidence: election.lumpSum > 0
-      ? `Direct 1 September 2026 CSC component split: ${(washTaxableShare * 100).toFixed(2)}% taxable-taxed, ${((election.lumpTaxFree / election.lumpSum) * 100).toFixed(2)}% tax-free and 0% untaxed. Washing is limited to the original PSS lump; Hostplus components remain unresolved.`
+      ? `Direct CSC component split from the selected election's provider estimate: ${(washTaxableShare * 100).toFixed(2)}% taxable-taxed, ${((election.lumpTaxFree / election.lumpSum) * 100).toFixed(2)}% tax-free and 0% untaxed. Washing is limited to the original PSS lump; Hostplus components remain unresolved.`
       : "The 100% pension election has no PSS lump sum and therefore no PSS lump component available for NCC washing.",
   };
 }

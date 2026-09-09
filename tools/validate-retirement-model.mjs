@@ -82,6 +82,7 @@ const expectedElectionsByBasis = {
     "60-40": { grossPension: 88_571.01, netPension: 80_672.54, lumpSum: 649_520.78, lumpTaxFree: 177_975.75, lumpTaxableTaxed: 471_545.03, poolA: 677_863.84, poolC: 289_104.60, dbSpecialValue: 1_417_136.16, fas: 162_380.20, maxCycles: 5 },
     "65-35": { grossPension: 95_951.93, netPension: 88_053.42, lumpSum: 568_330.69, lumpTaxFree: 155_728.77, lumpTaxableTaxed: 412_601.91, poolA: 559_769.12, poolC: 326_009.23, dbSpecialValue: 1_535_230.88, fas: 162_380.20, maxCycles: 5 },
     "70-30": { grossPension: 103_332.85, netPension: 95_434.30, lumpSum: 487_140.59, lumpTaxFree: 133_481.80, lumpTaxableTaxed: 353_658.78, poolA: 441_674.40, poolC: 362_913.85, dbSpecialValue: 1_653_325.60, fas: 162_380.20, maxCycles: 4 },
+    "100": { grossPension: 147_713.96, netPension: 135_575.70, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, poolA: 0, poolC: 317_447.66, dbSpecialValue: 2_363_423.36, fas: 162_485.36, maxCycles: 0 },
   },
 };
 assert.deepEqual(Array.from(dashboard.PSS_ELECTION_ORDER), ["60-40", "65-35", "70-30", "100"], "Command Centre election order");
@@ -90,7 +91,7 @@ const close = (actual, expected, message) => assert.ok(Math.abs(Number(actual) -
 
 const expectedBases = {
   "source-825": { fundEarnings: .082, salaryGrowth: .05, cpi: .025, realFundEarnings: 1.082 / 1.025 - 1, realSalaryGrowth: 1.05 / 1.025 - 1, status: "source-backed", elections: 4 },
-  "prudent-630": { fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, status: "partial-source", elections: 3 },
+  "prudent-630": { fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, status: "source-backed", elections: 4 },
 };
 
 for (const [key, expected] of Object.entries(expectedBases)) {
@@ -114,9 +115,9 @@ for (const [key, expected] of Object.entries(expectedBases)) {
 assert.equal(dashboard.normaliseProjectionBasis("prudent-630"), "prudent-630", "Command Centre accepts sourced prudent basis");
 assert.equal(atlas.normaliseProjectionBasis("prudent-630"), "prudent-630", "Atlas accepts sourced prudent basis");
 assert.equal(v23('normaliseProjectionBasis("prudent-630")'), "prudent-630", "V23 accepts sourced prudent basis");
-assert.equal(dashboard.normaliseElectionForBasis("prudent-630", "100"), "60-40", "Command Centre rejects missing prudent 100% election");
-assert.equal(atlas.normaliseElectionForBasis("prudent-630", "100"), "60-40", "Atlas rejects missing prudent 100% election");
-assert.equal(v23('normaliseElectionForBasis("prudent-630","100")'), "60-40", "V23 rejects missing prudent 100% election");
+assert.equal(dashboard.normaliseElectionForBasis("prudent-630", "100"), "100", "Command Centre accepts sourced prudent 100% election");
+assert.equal(atlas.normaliseElectionForBasis("prudent-630", "100"), "100", "Atlas accepts sourced prudent 100% election");
+assert.equal(v23('normaliseElectionForBasis("prudent-630","100")'), "100", "V23 accepts sourced prudent 100% election");
 
 for (const [basisKey, expectedElections] of Object.entries(expectedElectionsByBasis)) {
  for (const [key, expected] of Object.entries(expectedElections)) {

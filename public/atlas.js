@@ -22,11 +22,12 @@
     "60-40": { key: "60-40", label: "60% pension / 40% lump", pensionPercent: 60, lumpPercent: 40, fas: 162_380.20, grossPension: 88_571.01, netPension: 80_672.54, netPensionPf: 3_102.79, lumpSum: 649_520.78, lumpTaxFree: 177_975.75, lumpTaxableTaxed: 471_545.03, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf" },
     "65-35": { key: "65-35", label: "65% pension / 35% lump", pensionPercent: 65, lumpPercent: 35, fas: 162_380.20, grossPension: 95_951.93, netPension: 88_053.42, netPensionPf: 3_386.67, lumpSum: 568_330.69, lumpTaxFree: 155_728.77, lumpTaxableTaxed: 412_601.91, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf" },
     "70-30": { key: "70-30", label: "70% pension / 30% lump", pensionPercent: 70, lumpPercent: 30, fas: 162_380.20, grossPension: 103_332.85, netPension: 95_434.30, netPensionPf: 3_670.55, lumpSum: 487_140.59, lumpTaxFree: 133_481.80, lumpTaxableTaxed: 353_658.78, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf" },
+    "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, fas: 162_485.36, grossPension: 147_713.96, netPension: 135_575.70, netPensionPf: 5_214.45, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0, source: "00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator 2026Aug29_100--6-5-3.pdf" },
   };
 
   const PSS_PROJECTION_BASES = {
     "source-825": { key: "source-825", label: "Current CSC source basis", shortLabel: "8.2 / 5 / 2.5", fundEarnings: .082, salaryGrowth: .05, cpi: .025, realFundEarnings: 1.082 / 1.025 - 1, realSalaryGrowth: 1.05 / 1.025 - 1, sourceStatus: "source-backed", sourceDate: "1 September 2026", elections: PSS_ELECTIONS },
-    "prudent-630": { key: "prudent-630", label: "Prudent sensitivity basis", shortLabel: "6 / 5 / 3", fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, sourceStatus: "partial-source", sourceDate: "1 September 2026", elections: PSS_PRUDENT_ELECTIONS },
+    "prudent-630": { key: "prudent-630", label: "Prudent sensitivity basis", shortLabel: "6 / 5 / 3", fundEarnings: .06, salaryGrowth: .05, cpi: .03, realFundEarnings: 1.06 / 1.03 - 1, realSalaryGrowth: 1.05 / 1.03 - 1, sourceStatus: "source-backed", sourceDate: "1 and 9 September 2026", elections: PSS_PRUDENT_ELECTIONS },
   };
 
   function normaliseProjectionBasis(value) {

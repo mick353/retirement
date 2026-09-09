@@ -14,7 +14,7 @@ The Command Centre, Atlas and V23 share the rail, PSS election, PSS provider pro
 ## What is included
 
 - Integrated command centre with Rail A plus two selectable, source-backed Rail B provider bases
-- Governed provider-basis layer: the 8.2% fund / 5% salary / 2.5% CPI set has 60/40, 65/35, 70/30 and 100% pension; the 6% / 5% / 3% set has direct 60/40, 65/35 and 70/30 estimates, while only its unsupplied 100% election remains disabled
+- Governed provider-basis layer: both the 8.2% fund / 5% salary / 2.5% CPI and 6% / 5% / 3% sets have direct 60/40, 65/35, 70/30 and 100% pension estimates; the prudent 100% estimate retains its separate 9 September source and FAS
 - Retirement Atlas strategy map with reciprocal links to the Command Centre and V23
 - Adjustable scenario lab and side-by-side saved-scenario comparison
 - Spending and estate frontier analysis

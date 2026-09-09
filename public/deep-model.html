@@ -1044,7 +1044,7 @@ main{min-width:0;}
         </div>
         <div class="pss-basis-options" role="group" aria-label="PSS provider projection basis">
           <button class="pss-basis-card active" type="button" id="pss-basis-current" aria-pressed="true"><span>Current CSC source</span><b>8.2% fund · 5% salary · 2.5% CPI</b><small>Verified four-election source set</small></button>
-          <button class="pss-basis-card" type="button" id="pss-basis-prudent" aria-pressed="false"><span>Prudent sensitivity</span><b>6% fund · 5% salary · 3% CPI</b><small>Verified 60/40, 65/35 and 70/30</small></button>
+          <button class="pss-basis-card" type="button" id="pss-basis-prudent" aria-pressed="false"><span>Prudent sensitivity</span><b>6% fund · 5% salary · 3% CPI</b><small>Verified 60/40, 65/35, 70/30 and 100%</small></button>
         </div>
         <div class="pss-basis-boundary" id="pss-basis-boundary" role="note"></div>
         <div class="pss-election-options" role="group" aria-label="Rail B PSS election">
@@ -1054,7 +1054,7 @@ main{min-width:0;}
           <button class="pill" type="button" data-pss-election="100">100% pension</button>
         </div>
         <div class="muted smaller" id="pss-election-summary"></div>
-        <div class="muted smaller"><b>Source boundary:</b> each basis carries its own FAS, pension, lump and exact tax components. The 6/5/3 basis has no 100% pension PDF, so that one election is disabled rather than borrowed from the other basis.</div>
+        <div class="muted smaller"><b>Source boundary:</b> each provider estimate carries its own FAS, pension, lump and exact tax components. Both bases have four direct elections; prudent 100% uses the later 9 September source and FAS $162,485.36.</div>
       </div>
       <div class="custom-form" id="customForm">
         <div class="custom-grid">
@@ -1777,11 +1777,12 @@ const PSS_ELECTIONS = Object.freeze({
 const PSS_PRUDENT_ELECTIONS = Object.freeze({
   "60-40":{key:"60-40",label:"60 / 40",pensionPct:60,lumpPct:40,grossPension:88_571.01,netPension:80_672.54,lumpSum:649_520.78,lumpTaxFree:177_975.75,lumpTaxableTaxed:471_545.03,lumpUntaxed:0,fas:162_380.20,source:"00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf"},
   "65-35":{key:"65-35",label:"65 / 35",pensionPct:65,lumpPct:35,grossPension:95_951.93,netPension:88_053.42,lumpSum:568_330.69,lumpTaxFree:155_728.77,lumpTaxableTaxed:412_601.91,lumpUntaxed:0,fas:162_380.20,source:"00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf"},
-  "70-30":{key:"70-30",label:"70 / 30",pensionPct:70,lumpPct:30,grossPension:103_332.85,netPension:95_434.30,lumpSum:487_140.59,lumpTaxFree:133_481.80,lumpTaxableTaxed:353_658.78,lumpUntaxed:0,fas:162_380.20,source:"00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf"}
+  "70-30":{key:"70-30",label:"70 / 30",pensionPct:70,lumpPct:30,grossPension:103_332.85,netPension:95_434.30,lumpSum:487_140.59,lumpTaxFree:133_481.80,lumpTaxableTaxed:353_658.78,lumpUntaxed:0,fas:162_380.20,source:"00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf"},
+  "100":{key:"100",label:"100% pension",pensionPct:100,lumpPct:0,grossPension:147_713.96,netPension:135_575.70,lumpSum:0,lumpTaxFree:0,lumpTaxableTaxed:0,lumpUntaxed:0,fas:162_485.36,source:"00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator 2026Aug29_100--6-5-3.pdf"}
 });
 const PSS_PROJECTION_BASES=Object.freeze({
   "source-825":{key:"source-825",label:"Current CSC source basis",shortLabel:"8.2 / 5 / 2.5",fundEarnings:.082,salaryGrowth:.05,cpi:.025,realFundEarnings:1.082/1.025-1,realSalaryGrowth:1.05/1.025-1,sourceStatus:"source-backed",sourceDate:"1 September 2026",elections:PSS_ELECTIONS},
-  "prudent-630":{key:"prudent-630",label:"Prudent sensitivity basis",shortLabel:"6 / 5 / 3",fundEarnings:.06,salaryGrowth:.05,cpi:.03,realFundEarnings:1.06/1.03-1,realSalaryGrowth:1.05/1.03-1,sourceStatus:"partial-source",sourceDate:"1 September 2026",elections:PSS_PRUDENT_ELECTIONS}
+  "prudent-630":{key:"prudent-630",label:"Prudent sensitivity basis",shortLabel:"6 / 5 / 3",fundEarnings:.06,salaryGrowth:.05,cpi:.03,realFundEarnings:1.06/1.03-1,realSalaryGrowth:1.05/1.03-1,sourceStatus:"source-backed",sourceDate:"1 and 9 September 2026",elections:PSS_PRUDENT_ELECTIONS}
 });
 function normaliseProjectionBasis(value){return RETIREMENT_ENGINE.normaliseProjectionBasis(value);}
 function normaliseElectionForBasis(basisKey,value){return RETIREMENT_ENGINE.normaliseElectionForBasis(basisKey,value);}
@@ -3748,9 +3749,10 @@ function renderAudit(){
     ["00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-60-40.pdf","Prudent Rail B source","6/5/3 assumptions; 60/40 gross/net pension, $162,380.20 FAS, lump and exact components"],
     ["00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-65-35.pdf","Prudent Rail B source","6/5/3 assumptions; 65/35 gross/net pension, lump and exact components"],
     ["00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator-1-9-2026-diffCPIandReturns-70-30.pdf","Prudent Rail B source","6/5/3 assumptions; 70/30 gross/net pension, lump and exact components"],
-    ["6/5/3 100% pension iEstimator","Awaiting source","No matching PDF supplied; this election is unavailable and no other-basis value is substituted"],
+    ["00_SUPPLEMENTARY/PSS_Source_Docs/i-Estimator 2026Aug29_100--6-5-3.pdf","Prudent Rail B source","9 September 6/5/3 estimate; 100% pension, $162,485.36 FAS and no lump sum"],
     ["00_SUPPLEMENTARY/PSS_Source_Docs/Statement 2026.pdf","Current but provisional","Issued statement uses the disputed $131,437 salary; retain as evidence pending CSC correction and reissue"],
-    ["00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf","Current salary evidence","Shows $143,099 current ordinary salary and $138,394 employee superannuation salary"],
+    ["00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_09_09.pdf","Latest payroll evidence","Pay date 10 September: $143,099 salary, $138,394 employee superannuation salary and $2,908.56 net after payroll deductions"],
+    ["00_SUPPLEMENTARY/PSS_Source_Docs/Paystub_2026_08_26.pdf","Prior payroll/backpay evidence","Earlier evidence for the corrected current salary and birthday super salary"],
     ["00_SUPPLEMENTARY/PSS_Source_Docs/PSS_iEstimator_60-40_2026-03-23.pdf","Rail A source","Historical March 60/40 pension, lump sum and exact components"],
     ["Robinson_Retirement_ModelV5.0_Baseline_2026-07-18.xlsx","Rail A mechanics reference","Historical V5.0 Integrated Optimiser; not current Rail B numerical authority"],
     ["PSS_Defined_Benefit_Calculator_V8_Baseline_2026-07-18.xlsx","Rail A mechanics reference","Historical net-pension and breakeven calculator; not current Rail B or DBT authority"],
@@ -3857,20 +3859,21 @@ function renderDecisions(){
   const activeBasis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
   document.getElementById("dec_cards").innerHTML=`
-    <div class="decision-card"><div class="k">Active PSS election</div><div class="v">${isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"Selected"):"Rail A control"}</div><div class="s">The 8.2/5/2.5 basis supplies four direct options; the 6/5/3 basis supplies three. Missing options stay unavailable rather than blended.</div></div>
+    <div class="decision-card"><div class="k">Active PSS election</div><div class="v">${isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"Selected"):"Rail A control"}</div><div class="s">Both provider bases supply four direct options. The prudent 100% option uses its later 9 September source and is not inferred from another estimate.</div></div>
     <div class="decision-card"><div class="k">TBC anchor</div><div class="v">${fmt$(p.tbc)}</div><div class="s">2026-27 indexed planning assumption, all today's dollars.</div></div>
     <div class="decision-card"><div class="k">Pool split (Day 1)</div><div class="v">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="s">${openingPoolNote(p)}</div></div>
     <div class="decision-card"><div class="k">Current version</div><div class="v">${APP_VERSION}</div><div class="s">Feature-rich dashboard after Codex wiring pass.</div></div>
   `;
   renderTable("dec_tbl",[
     ["Rail B PSS election","Selectable",`Active option: ${isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"selected"):"Rail A control"}. Every available option uses its own direct source values.`,"Compare income, liquidity, TBC, wash capacity and estate results before the retirement election."],
-    ["PSS projection basis",activeBasis.label,`${activeBasis.shortLabel}% means fund earnings / salary growth / CPI before retirement. The site return is separate and starts after retirement.`,activeBasis.key==="prudent-630"?"60/40, 65/35 and 70/30 verified; 100% awaits its matching PDF.":"All four elections verified."],
+    ["PSS projection basis",activeBasis.label,`${activeBasis.shortLabel}% means fund earnings / salary growth / CPI before retirement. The site return is separate and starts after retirement.`,activeBasis.key==="prudent-630"?"All four elections verified; prudent 100% uses the later 9 September source.":"All four elections verified."],
     ["$2.1M TBC anchor","Current assumption","Used as 2026-27 real-dollar planning anchor.","Review annually against ATO indexation and personal cap rules."],
     ["Pool C external ETF",openingSourceLabel(p),`Pool C opens at ${fmt$(p.poolC_day1??0)}. NCC wash controls begin at age ${p.washAge??61}; surplus draws continue to externalise.`,"Review ETF drag and tax assumptions annually."],
     ["Dynamic target age","Added in v17C","Shows how results change from age 70-90.","Use for adviser-style sensitivity reviews."],
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.8","Sep 2026","Activated the direct prudent-basis 100% pension estimate from the 9 September CSC source, preserving its own $162,485.36 FAS and no-lump/TBC treatment. Added the latest 9 September payroll evidence without mixing payroll cashflow with provider retirement outputs."],
     ["v23.7","Sep 2026","Added an explicit Pool C spending policy (preserve, or use only after Pools A and B), with ledger-level withdrawals, shortfall protection, reinvestment reconciliation and CSV/state persistence. Profile and plan controls now collapse to live summaries; the lifestyle table defaults to an essential view with full accounting available on demand; chart keyboard labels describe the visible series."],
     ["v23.6","Sep 2026","Replaced the easily misread funded-gap-versus-minimum ratios in the lifestyle table with Target funded, Mandatory used and Gap ÷ portfolio earnings. Added plain-English funding conclusions and repeated the active PSS option, CSC provider basis and post-retirement real return beside the results."],
     ["v23.4","Sep 2026","Activated the direct 6% fund / 5% salary / 3% CPI CSC estimates for 60/40, 65/35 and 70/30, including the separate $162,380.20 FAS and source-specific tax components. The unavailable 100% option remains gated; shared-state schema advanced to v7."],
@@ -5704,7 +5707,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:controlSnapshot(page,100),charts:chartSnapshots(page)},
       globalControls:controlSnapshot(globalRoot,40),
       deterministicOutputs:outputs,
-      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% basis has direct 60/40, 65/35 and 70/30 outputs; its unsupplied 100% election must not be inferred."],
+      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% basis has four direct elections; its 100% pension estimate uses the later 9 September snapshot and $162,485.36 FAS."],
       links:{commandCentre:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./"):"./",document.baseURI).toString(),atlas:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./atlas.html"):"atlas.html",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
     };
   }
