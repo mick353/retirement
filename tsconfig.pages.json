@@ -14,6 +14,7 @@
   },
   "include": [
     "app/retirement-dashboard.tsx",
+    "app/hostplus-live-core.ts",
     "github-pages/main.tsx",
     "vite.pages.config.ts"
   ]
