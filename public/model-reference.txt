@@ -1,6 +1,7 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Current release: 3 September 2026 real-basis VR correction
+Current publication release: 9 September 2026 source reconciliation
+Canonical retirement-engine version: 2026-09-09.1
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
