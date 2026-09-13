@@ -71,7 +71,7 @@ export function firstFinancialYearMinimum(
  * Pool B, one-off and policy-aware workbench ledger until that richer domain
  * can be migrated with its own parity contract.
  */
-export const RETIREMENT_ENGINE_VERSION = "2026-09-05.2";
+export const RETIREMENT_ENGINE_VERSION = "2026-09-09.1";
 export const TRANSFER_BALANCE_CAP = 2_100_000;
 export const TRANSFER_BALANCE_BUFFER = 5_000;
 export const HOSTPLUS_OPENING_ANCHOR = 317_447.66;
