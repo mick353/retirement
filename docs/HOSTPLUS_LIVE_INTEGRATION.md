@@ -1,15 +1,15 @@
 # Hostplus Live / Pre-Retirement Integration Foundation
 
-Status: foundation design for the live Hostplus tracker and retirement integration.
+Status: active foundation for the live Hostplus tracker and retirement integration.
 
 ## Purpose
 
 The existing retirement model is projection-led. This foundation introduces a point-in-time, evidence-led pre-retirement layer that can start from an actual dated Hostplus position and then project forward from that real state.
 
-The target architecture is deliberately split into two systems:
+The architecture is deliberately split into two systems:
 
-1. **Private Hostplus Command Centre** — authenticated account collection, private snapshots, transaction history, exact unit ledger, contribution attribution, live/shadow market tracking, drawdown analysis and contribution scenario controls.
-2. **Retirement Command Centre** — governed PSS/CSC sources, retirement elections, post-retirement capital/spending analysis and a sanitised pre-retirement Hostplus input.
+1. **Private Hostplus Command Centre** (`mick353/hostplus-command-centre`) — authenticated-account collection, private snapshots, transaction history, exact unit ledger, contribution attribution, live/shadow market tracking, drawdown analysis and contribution scenario controls.
+2. **Retirement Command Centre** (`mick353/retirement`) — governed PSS/CSC sources, retirement elections, post-retirement capital/spending analysis and a sanitised pre-retirement Hostplus input.
 
 The private system may feed selected values into the retirement model. The public retirement repository must never become a credential store or a private Hostplus database.
 
@@ -24,9 +24,9 @@ Never commit any of the following to this public repository:
 - raw authenticated Hostplus HTML containing account identifiers;
 - private snapshot history unless explicitly sanitised for publication.
 
-The browser collector should keep credentials and MFA inside the user's normal browser/authentication boundary. Automation may continue after the user completes Hostplus SMS verification, but it must not bypass or defeat MFA.
+The browser collector keeps credentials and MFA inside the user's normal browser/authentication boundary. Automation may continue after the user completes Hostplus verification only where Hostplus permits it; it must not bypass MFA, CAPTCHA, bot controls or other security measures.
 
-## Proposed private sync flow
+## Private sync flow
 
 ```text
 User presses Sync Hostplus
@@ -36,7 +36,7 @@ Local browser collector opens Hostplus
         |
         +-- valid session --> continue
         |
-        +-- SMS MFA required --> user completes verification --> continue
+        +-- MFA required --> user completes verification --> continue
         v
 Collector reads only approved portfolio fields
         v
@@ -47,13 +47,17 @@ Private immutable snapshot store
         +--> Private Hostplus dashboard
         +--> Shadow-market/reconciliation engine
         +--> Sanitised retirement sync pack
+        v
+Public retirement repo validates the sync pack
+        v
+Reviewed pre-60 Hostplus scenario input
 ```
 
 ## Canonical snapshot model
 
 The public code contract is implemented in `app/hostplus-live-core.ts`.
 
-A confirmed snapshot is expected to contain:
+A confirmed snapshot can contain:
 
 - Hostplus fund-price date;
 - capture timestamp;
@@ -82,7 +86,7 @@ actual dated snapshot
 
 This replaces the weaker pattern of repeatedly projecting from an old static Hostplus opening anchor.
 
-The current retirement model remains authoritative for PSS/CSC inputs. A live Hostplus sync pack may replace only the pre-retirement Hostplus opening/projection input; it must not overwrite PSS pension, lump-sum, tax-component or provider-assumption sources.
+The current retirement model remains authoritative for PSS/CSC inputs. A live Hostplus sync pack may replace only the pre-retirement Hostplus opening/projection input after explicit review; it must not overwrite PSS pension, lump-sum, tax-component or provider-assumption sources.
 
 ## Contribution modelling
 
@@ -95,13 +99,9 @@ The live core supports separate contribution streams:
 - dated contribution phases;
 - option allocation targets.
 
-This allows scenarios such as:
+This allows scenarios such as changing salary sacrifice on a real future pay date, adding the later direct-contribution phase, temporarily accelerating contributions during a drawdown, modelling a one-off cash deployment separately, and comparing plan versus actual from any later date.
 
-- change salary sacrifice on a real future pay date;
-- add or remove the later direct-contribution phase;
-- temporarily accelerate contributions during a drawdown;
-- model a one-off cash deployment separately from ordinary payroll contributions;
-- compare plan versus actual from any later date.
+A critical governance rule is that **plan is not implementation**. If the retirement plan says $650/fortnight salary sacrifice but the live Hostplus evidence shows a $650 personal contribution, the live system retains that distinction until payroll implementation is actually confirmed.
 
 ## Reconciliation model
 
@@ -114,81 +114,33 @@ current balance
 = investment movement after account charges
 ```
 
-Where available, fees and insurance are separated so the engine can also estimate investment movement before those charges.
+Where available, fees and insurance are separated so the engine can also estimate investment movement before those charges. Unit deltas are retained by option so contributions and switches can be distinguished from investment returns.
 
-Unit deltas are retained by option. This allows contributions and option switches to be distinguished from investment returns.
+## Retirement sync-pack contract
 
-## Private Hostplus Command Centre — planned modules
+The private system exports a sanitised `schemaVersion: 1` pack. The public-side runtime validator is implemented in `app/hostplus-sync-import.ts`; the machine-readable contract is `schemas/hostplus-retirement-sync.schema.json`.
 
-### Live Position
+The pack contains only:
 
-- confirmed Hostplus balance;
-- shadow/live estimate between Hostplus price publications;
-- exact unit ledger;
-- current versus target allocation;
-- contribution status and pending transactions;
-- last successful authenticated sync.
-
-### Performance Attribution
-
-- total personal contributions;
-- concessional tax drag;
-- fees and insurance;
-- investment gain/loss;
-- money-weighted return (XIRR);
-- time-weighted return;
-- option-level contribution to return;
-- plan versus actual.
-
-### Look-through Portfolio
-
-- Australia / US / Japan / Europe / other developed exposure;
-- sector exposure;
-- major-company effective weights;
-- currency exposure;
-- AI/mega-cap concentration;
-- Australian bank/resource concentration;
-- valuation and earnings-yield indicators;
-- comparison with S&P 500, Hostplus Indexed High Growth and other approved references.
-
-### Drawdown / Bear-Market Engine
-
-- peak balance and peak unit-price reference;
-- current drawdown;
-- staged drawdown thresholds;
-- contribution acceleration scenarios;
-- optional opportunity-capital tranches;
-- recovery-to-old-peak estimate;
-- account recovery versus market/unit-price recovery;
-- explicit invalidation conditions before any tactical action.
-
-### Snapshot Archive
-
-- immutable authenticated snapshots;
-- transaction events;
-- allocation-setting changes;
-- contribution-setting changes;
-- assumption changes;
-- reconciliation status;
-- provenance and evidence status.
-
-### Retirement Bridge
-
-The private system should produce a minimal sanitised `RetirementSyncPack` containing only what the retirement engine requires, such as:
-
-- as-of date;
-- confirmed Hostplus balance;
+- generation timestamp and source system;
+- Hostplus as-of date;
+- confirmed current Hostplus balance;
 - retirement date;
-- current contribution schedule;
-- projected Hostplus balance under named assumptions;
-- target allocation;
-- provenance label.
+- Australian/international target allocation;
+- named base, prudent and low-return Hostplus projections;
+- current personal-contribution setting;
+- planned/confirmed salary-sacrifice start and amount;
+- later phase-3 total contribution setting;
+- contribution-tax assumption;
+- provenance.
 
-No credentials, member number, MFA data or private browser state should cross this interface.
+It contains no Hostplus credentials, member number, MFA data or browser state.
+
+`parseExternalHostplusRetirementSyncPack()` rejects malformed or unexpected inputs. `reviewExternalHostplusSyncPack()` surfaces warnings, including a planned salary-sacrifice amount with no confirmed implementation date. `hostplusProjectionFromReviewedSync()` returns a reviewed Hostplus projection but deliberately does **not** mutate retirement-core constants or any CSC/PSS values.
 
 ## Source classifications
 
-Every material value in the private tracker should be labelled as one of:
+Every material value should retain its evidence class:
 
 - **CONFIRMED** — directly read from authenticated Hostplus or another primary source;
 - **DERIVED** — direct arithmetic from confirmed source values;
@@ -196,6 +148,23 @@ Every material value in the private tracker should be labelled as one of:
 - **MODELLED** — scenario/projection output;
 - **ASSUMED** — user-selected or planning assumption;
 - **SPECULATIVE** — future state not directly inferable from evidence.
+
+## Private Command Centre current implementation
+
+The private repository now contains:
+
+- confirmed snapshot and cash-flow seed history;
+- exact unit and contribution reconciliation;
+- point-in-time projections;
+- time-weighted return, Modified Dietz and guarded XIRR infrastructure;
+- plan-versus-actual tracking;
+- contribution/return scenario library;
+- bear-market opportunity-capital controls with a protected cash floor;
+- sanitised retirement sync-pack export;
+- shadow-market estimate and proxy-calibration engine;
+- local read-only Chrome/Playwright collector prototype with user-controlled MFA and fail-closed parsing.
+
+The private command centre remains the only place for private factual history. The public retirement repository receives only the sanitised bridge payload after review.
 
 ## Security model
 
@@ -205,21 +174,15 @@ Preferred implementation:
 - no passwords in source code;
 - no SMS interception;
 - no MFA bypass;
+- no bot-control circumvention;
 - local encrypted/private snapshot store;
 - least-privilege extraction of portfolio fields only;
-- automatic sync only while the authenticated session remains valid;
+- automatic sync only while the authenticated session remains valid and permitted;
 - explicit `authentication required` state when Hostplus asks for MFA again;
 - private repository or private backend for the Hostplus application itself.
 
-## Immediate implementation boundary
+## Public-repository implementation boundary
 
-This branch contains only reusable public-safe code and architecture. It intentionally contains **no live personal Hostplus snapshot data and no authentication code**.
+This branch contains only reusable public-safe code, validators, schemas and architecture. It intentionally contains **no live personal Hostplus snapshot data and no authentication code**.
 
-The next implementation stage should occur in a separate private repository or private backend. That stage can add:
-
-1. the private snapshot store;
-2. the phone-friendly dashboard;
-3. import/manual-entry workflow;
-4. browser collector prototype;
-5. retirement sync-pack export;
-6. automated validation against the public retirement engine.
+A later retirement-UI integration should be separately reviewed. It may display a reviewed sync-pack projection as an alternate pre-60 Hostplus scenario input, but it should not silently replace the existing governed Hostplus planning anchor or mutate provider-source PSS values.
