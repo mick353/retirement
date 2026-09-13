@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mick353.github.io/retirement/schemas/hostplus-retirement-sync.schema.json",
+  "title": "Sanitised Hostplus Retirement Sync Pack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "sourceSystem",
+    "asOf",
+    "confirmedBalance",
+    "retirementDate",
+    "targetAllocation",
+    "projections",
+    "futureContributionSettings",
+    "provenance"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "sourceSystem": { "const": "hostplus-command-centre" },
+    "asOf": { "type": "string", "format": "date" },
+    "confirmedBalance": { "type": "number", "minimum": 0 },
+    "retirementDate": { "type": "string", "format": "date" },
+    "targetAllocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["australian-shares-indexed", "international-shares-indexed"],
+      "properties": {
+        "australian-shares-indexed": { "type": "number", "minimum": 0, "maximum": 1 },
+        "international-shares-indexed": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "projections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "prudent", "lowReturn"],
+      "properties": {
+        "base": { "$ref": "#/$defs/projection" },
+        "prudent": { "$ref": "#/$defs/projection" },
+        "lowReturn": { "$ref": "#/$defs/projection" }
+      }
+    },
+    "futureContributionSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nextContributionDate",
+        "currentPersonalPerFortnight",
+        "salarySacrificeStartDate",
+        "grossSalarySacrificePerFortnight",
+        "phase3Date",
+        "phase3TotalPerFortnight",
+        "concessionalTaxRate"
+      ],
+      "properties": {
+        "nextContributionDate": { "type": "string", "format": "date" },
+        "currentPersonalPerFortnight": { "type": "number", "minimum": 0 },
+        "salarySacrificeStartDate": {
+          "anyOf": [
+            { "type": "string", "format": "date" },
+            { "type": "null" }
+          ]
+        },
+        "grossSalarySacrificePerFortnight": { "type": "number", "minimum": 0 },
+        "phase3Date": { "type": "string", "format": "date" },
+        "phase3TotalPerFortnight": { "type": "number", "minimum": 0 },
+        "concessionalTaxRate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshotSource", "note"],
+      "properties": {
+        "snapshotSource": { "enum": ["hostplus-confirmed", "manual", "imported"] },
+        "note": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nominalReturn", "projectedBalance"],
+      "properties": {
+        "nominalReturn": { "type": "number", "exclusiveMinimum": -1 },
+        "projectedBalance": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}
