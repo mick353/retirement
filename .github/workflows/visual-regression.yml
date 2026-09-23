@@ -87,7 +87,7 @@ jobs:
 
       - name: Compare rendered surfaces
         env:
-          VISUAL_CHANGE_APPROVED: ${{ contains(github.event.pull_request.body, 'Visual-Change-Approved: yes') }}
+          VISUAL_CHANGE_APPROVED: "${{ contains(github.event.pull_request.body, 'Visual-Change-Approved: yes') }}"
         run: node tools/visual-regression/compare.cjs --baseline visual-artifacts/baseline --current visual-artifacts/current --report visual-artifacts/report
 
       - name: Publish visual summary
