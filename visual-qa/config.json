@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "freezeTime": "2026-09-23T00:00:00.000Z",
+  "pixelDiffThreshold": 0.0025,
+  "geometryTolerancePx": 2,
+  "checked": ["top viewport rendering","selected high-signal computed styles","selected element geometry","horizontal page overflow","browser page errors"],
+  "notChecked": ["every scroll position","every modal/dropdown/interaction state","cross-browser rendering outside pinned Chromium","manual accessibility/usability judgement","live production data freshness"],
+  "cases": [
+    {"id":"command-desktop","path":"/retirement/","width":1440,"height":1000,"waitFor":".retirement-app","selectors":[".retirement-app",".topbar",".app-layout",".sidebar",".content",".hero",".panel",".metric"]},
+    {"id":"command-phone","path":"/retirement/","width":390,"height":844,"waitFor":".retirement-app","selectors":[".retirement-app",".topbar",".app-layout",".content",".hero",".panel",".metric",".mobile-dock"]},
+    {"id":"atlas-desktop","path":"/retirement/atlas.html","width":1440,"height":1000,"waitFor":"main","selectors":["body","header","main",".hero",".scenario-card",".panel",".visual-studio"]},
+    {"id":"atlas-phone","path":"/retirement/atlas.html","width":390,"height":844,"waitFor":"main","selectors":["body","header","main",".hero",".scenario-card",".panel",".mobile-nav"]},
+    {"id":"deep-model-desktop","path":"/retirement/deep-model.html","width":1440,"height":1000,"waitFor":"body","selectors":["body",".page",".panel",".card",".control-bar",".v23-tabs"]},
+    {"id":"deep-model-phone","path":"/retirement/deep-model.html","width":390,"height":844,"waitFor":"body","selectors":["body",".page",".panel",".card",".control-bar",".v23-tabs"]}
+  ]
+}
