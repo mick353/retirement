@@ -61,7 +61,7 @@ jobs:
         run: |
           mkdir -p "$VISUAL_QA_MODULES"
           npm install --prefix "$VISUAL_QA_MODULES" --package-lock=false --no-save --no-audit --no-fund \
-            playwright@1.49.1 pixelmatch@6.0.0 pngjs@7.0.0
+            playwright@1.49.1 pixelmatch@5.3.0 pngjs@7.0.0
           "$VISUAL_QA_MODULES/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Start both local previews
@@ -69,11 +69,8 @@ jobs:
         run: |
           npm run preview:pages -- --host 127.0.0.1 --port 4173 >"$RUNNER_TEMP/retirement-head.log" 2>&1 &
           echo $! >"$RUNNER_TEMP/retirement-head.pid"
-          (
-            cd visual-base
-            npm run preview:pages -- --host 127.0.0.1 --port 4174 >"$RUNNER_TEMP/retirement-base.log" 2>&1 &
-            echo $! >"$RUNNER_TEMP/retirement-base.pid"
-          )
+          (cd visual-base && npm run preview:pages -- --host 127.0.0.1 --port 4174) >"$RUNNER_TEMP/retirement-base.log" 2>&1 &
+          echo $! >"$RUNNER_TEMP/retirement-base.pid"
           for port in 4173 4174; do
             for attempt in {1..40}; do
               if curl -fsS "http://127.0.0.1:$port/retirement/" >/dev/null; then break; fi
