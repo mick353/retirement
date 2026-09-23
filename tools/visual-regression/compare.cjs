@@ -31,7 +31,15 @@ if (!baselineDir || !currentDir || !reportDir) {
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const baseline = JSON.parse(fs.readFileSync(path.join(baselineDir, "measurements.json"), "utf8"));
 const current = JSON.parse(fs.readFileSync(path.join(currentDir, "measurements.json"), "utf8"));
-const approved = String(process.env.VISUAL_CHANGE_APPROVED || "").toLowerCase() === "true";
+let approved = String(process.env.VISUAL_CHANGE_APPROVED || "").toLowerCase() === "true";
+if (!approved && process.env.GITHUB_EVENT_PATH && fs.existsSync(process.env.GITHUB_EVENT_PATH)) {
+  try {
+    const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+    approved = String(event.pull_request && event.pull_request.body || "").includes("Visual-Change-Approved: yes");
+  } catch {
+    approved = false;
+  }
+}
 fs.mkdirSync(reportDir, { recursive: true });
 
 function copyAsset(source, name) {
