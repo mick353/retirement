@@ -2,41 +2,26 @@ name: Visual regression
 
 on:
   pull_request:
-    paths:
-      - "app/**"
-      - "github-pages/**"
-      - "public/**"
-      - "schemas/**"
-      - "tools/**"
-      - "visual-qa/**"
-      - "package.json"
-      - "package-lock.json"
-      - "vite.pages.config.ts"
-      - ".github/workflows/visual-regression.yml"
+    branches: [main]
 
 permissions:
   contents: read
-  pull-requests: read
-
-concurrency:
-  group: visual-${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   visual:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      VISUAL_QA_MODULES: ${{ runner.temp }}/retirement-visual-tools
+      VISUAL_QA_MODULES: /tmp/retirement-visual-tools
 
     steps:
       - name: Check out pull-request head
         uses: actions/checkout@v4
 
-      - name: Check out exact base commit
+      - name: Check out main baseline
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: main
           path: visual-base
 
       - name: Set up Node.js
@@ -68,9 +53,7 @@ jobs:
         shell: bash
         run: |
           npm run preview:pages -- --host 127.0.0.1 --port 4173 >"$RUNNER_TEMP/retirement-head.log" 2>&1 &
-          echo $! >"$RUNNER_TEMP/retirement-head.pid"
           (cd visual-base && npm run preview:pages -- --host 127.0.0.1 --port 4174) >"$RUNNER_TEMP/retirement-base.log" 2>&1 &
-          echo $! >"$RUNNER_TEMP/retirement-base.pid"
           for port in 4173 4174; do
             for attempt in {1..40}; do
               if curl -fsS "http://127.0.0.1:$port/retirement/" >/dev/null; then break; fi
@@ -86,8 +69,6 @@ jobs:
         run: node tools/visual-regression/capture.cjs --base-url http://127.0.0.1:4173 --out visual-artifacts/current --label current
 
       - name: Compare rendered surfaces
-        env:
-          VISUAL_CHANGE_APPROVED: "${{ contains(github.event.pull_request.body, 'Visual-Change-Approved: yes') }}"
         run: node tools/visual-regression/compare.cjs --baseline visual-artifacts/baseline --current visual-artifacts/current --report visual-artifacts/report
 
       - name: Publish visual summary
