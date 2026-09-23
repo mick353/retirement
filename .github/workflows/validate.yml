@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -15,6 +19,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
-      - run: npm install
+      - run: npm ci
       - run: npm run typecheck
       - run: npm run build:pages
