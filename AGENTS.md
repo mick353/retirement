@@ -21,3 +21,18 @@ Pull requests that can affect the rendered site also run the bounded visual-regr
 Do not add the PR marker `Visual-Change-Approved: yes` merely to make a failing visual check pass. That marker is reserved for an intentional visual change after the evidence has been inspected and the user has explicitly approved the changed appearance.
 
 A visual-regression failure should be diagnosed from the report artifact before broad local reruns. Fix unintended layout/style regressions; preserve the existing model and provenance gates.
+
+
+## Explicit fast path
+
+Default mode is the normal PR path with both `Validate` and `Visual regression`.
+
+If the user explicitly says `RETIREMENT.FAST`, asks to use the old/pre-visual workflow, or explicitly asks to bypass the visual-regression overhead for that change, the agent may add this exact line to the pull-request body:
+
+`Retirement-Fast-Path: yes`
+
+That marker causes the required `Visual regression` check to complete successfully without installing Chromium, building the base copy, taking screenshots, or producing visual-diff artifacts. The separate `Validate` workflow still runs exactly as before the visual-regression system was introduced.
+
+Do not use the marker by default, infer it from urgency, or add it merely because visual regression fails. It is an explicit user-selected execution mode.
+
+The fast path does not authorize bypassing model/source/provenance checks, TypeScript/build validation, branch protection, or the normal Pages deployment from `main`.
