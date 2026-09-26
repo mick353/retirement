@@ -108,8 +108,7 @@ jobs:
         run: node tools/visual-regression/compare.cjs --baseline visual-artifacts/baseline --current visual-artifacts/current --report visual-artifacts/report
 
       - name: Publish visual summary
-        if: steps.mode.outputs.fast != 'true'
-        if: always()
+        if: ${{ always() && steps.mode.outputs.fast != 'true' }}
         shell: bash
         run: |
           if [ -f visual-artifacts/report/summary.md ]; then
@@ -117,8 +116,7 @@ jobs:
           fi
 
       - name: Upload visual evidence
-        if: steps.mode.outputs.fast != 'true'
-        if: always()
+        if: ${{ always() && steps.mode.outputs.fast != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: retirement-visual-report
