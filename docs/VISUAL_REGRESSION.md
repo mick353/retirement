@@ -44,3 +44,20 @@ That converts the result to PASS_WITH_EXPLICIT_VISUAL_APPROVAL. Agents must not 
 This first implementation is intentionally bounded. It is not a clone engine, does not screenshot every scroll position, and does not replace the existing calculation/model/mobile/accessibility controls. It adds one missing release question:
 
 Did this change unexpectedly alter the important rendered retirement surfaces?
+
+
+## Fast path
+
+The repository also supports an explicit low-overhead mode for times when the user wants the pre-visual workflow.
+
+Add this exact line to the pull-request body:
+
+`Retirement-Fast-Path: yes`
+
+When present, the `Visual regression` job still reports a successful required check, but it skips the expensive rendered comparison work: no second site build, no Chromium installation, no screenshots and no diff artifact.
+
+The separate `Validate` workflow still runs. Therefore this mode is equivalent to the retirement PR validation posture that existed before visual regression was added; it is not a no-check deployment path.
+
+Agents may use the marker only after an explicit user instruction such as `RETIREMENT.FAST` or an equivalent request to bypass visual-regression overhead for that change.
+
+This is intentionally distinct from administrator branch-protection bypass. Emergency direct-to-main administration remains a repository-settings concern, not a CI feature.
