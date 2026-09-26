@@ -23,33 +23,57 @@ jobs:
       VISUAL_QA_MODULES: /tmp/retirement-visual-tools
 
     steps:
+      - name: Select visual mode
+        id: mode
+        shell: bash
+        run: |
+          body="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH")"
+          if grep -Fq 'Retirement-Fast-Path: yes' <<<"$body"; then
+            echo "fast=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Retirement visual regression"
+              echo
+              echo "**FAST PATH** — visual rendering/diff work was intentionally skipped for this PR."
+              echo
+              echo "The normal retirement Validate workflow still runs. This mode does not bypass model, TypeScript, build, source/provenance, branch-protection, or Pages deployment controls."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "fast=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check out pull-request head
+        if: steps.mode.outputs.fast != 'true'
         uses: actions/checkout@v4
 
       - name: Check out exact base commit
+        if: steps.mode.outputs.fast != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: visual-base
 
       - name: Set up Node.js
+        if: steps.mode.outputs.fast != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
           cache: npm
 
       - name: Build pull-request site
+        if: steps.mode.outputs.fast != 'true'
         run: |
           npm ci
           npm run build:pages
 
       - name: Build baseline site
+        if: steps.mode.outputs.fast != 'true'
         working-directory: visual-base
         run: |
           npm ci
           npm run build:pages
 
       - name: Install isolated visual QA tooling
+        if: steps.mode.outputs.fast != 'true'
         shell: bash
         run: |
           mkdir -p "$VISUAL_QA_MODULES"
@@ -58,6 +82,7 @@ jobs:
           "$VISUAL_QA_MODULES/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Start both local previews
+        if: steps.mode.outputs.fast != 'true'
         shell: bash
         run: |
           npm run preview:pages -- --host 127.0.0.1 --port 4173 >"$RUNNER_TEMP/retirement-head.log" 2>&1 &
@@ -71,15 +96,19 @@ jobs:
           done
 
       - name: Capture baseline
+        if: steps.mode.outputs.fast != 'true'
         run: node tools/visual-regression/capture.cjs --base-url http://127.0.0.1:4174 --out visual-artifacts/baseline --label base
 
       - name: Capture pull-request version
+        if: steps.mode.outputs.fast != 'true'
         run: node tools/visual-regression/capture.cjs --base-url http://127.0.0.1:4173 --out visual-artifacts/current --label current
 
       - name: Compare rendered surfaces
+        if: steps.mode.outputs.fast != 'true'
         run: node tools/visual-regression/compare.cjs --baseline visual-artifacts/baseline --current visual-artifacts/current --report visual-artifacts/report
 
       - name: Publish visual summary
+        if: steps.mode.outputs.fast != 'true'
         if: always()
         shell: bash
         run: |
@@ -88,6 +117,7 @@ jobs:
           fi
 
       - name: Upload visual evidence
+        if: steps.mode.outputs.fast != 'true'
         if: always()
         uses: actions/upload-artifact@v4
         with:
