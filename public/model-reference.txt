@@ -76,6 +76,11 @@ V23 has two spending contexts:
 1. A Command Centre shared target (including its visual explorer) is total net spending. V23 derives either the portfolio gap or the PSS surplus.
 2. Manual V23 age bands are gap-above-PSS controls. Editing a band clears the imported total target. Each band maps to its own lifestyle phase, and the display subdivides a phase whenever its funding routine changes.
 
+V23 ADAPTIVE POLICY COMPARATOR
+The Guardrail spending page keeps advisory instructions as the default and offers an opt-in comparison with a closed-loop adaptive rule. Enter annual essential total spending explicitly; this is the amount the rule must not cut and is not automatically the PSS pension. At each year’s opening, the rule observes current investment capital, adjusts only desired spending above essentials, and sends the permitted total through the existing annual ledger. The changed closing balance informs the next year. Running a comparison does not alter the saved plan.
+
+Across PSS elections, choose either the same total lifestyle or the same additional gap above PSS. Policies share deterministic economic assumptions and each Monte Carlo pair faces the identical sampled return path. Read funded spending and cut years alongside investment capital; higher capital may reflect lower spending. Age-75/85 investment checks are informational by default. Preferred and hard checks require an explicit amount; a hard breach is a test outcome, not a guarantee. Investment capital excludes the home. The comparator does not rank after-tax inheritance or infer a liquid reserve from invested Pool C. Percentage-of-current-return spending is excluded from adaptive runs because the current return is not known at the opening decision.
+
 The birthday-year planning rows apply the ABP minimum rate for age at the preceding 1 July: under 65 4%; 65-74 5%; 75-79 6%; 80-84 7%; 85-89 9%; 90-94 11%; 95+ 14%. The provider calculates actual financial-year minima and first-year pro-rating.
 
 VOLUNTARY RETIREMENT / REDUNDANCY SENSITIVITY
