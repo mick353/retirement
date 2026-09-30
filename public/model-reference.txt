@@ -1,6 +1,6 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Current publication release: 9 September 2026 source reconciliation
+Source reconciliation: 9 September 2026; guide review: 30 September 2026
 Canonical retirement-engine version: 2026-09-09.1
 
 PUBLIC INTERFACES
@@ -13,6 +13,15 @@ PURPOSE AND BOUNDARIES
 This document describes the source inputs, formulas, scenario engines, controls and provenance used by the three public interfaces. It contains no JavaScript and is intended for people, accessibility tools, search engines and AI retrieval.
 
 Decision-support only. This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules, obtain a corrected CSC statement and seek professional advice before acting.
+
+START HERE: USE AND READ THE PLAN
+1. In Command Centre, check the active rail, dated CSC source basis and PSS election. Set a flat annual net spending target and a separate after-inflation return assumption.
+2. In Scenario > Lab, compare desired spending with funded spending. A shortfall is not extra income. Read the annual ledger and investment capital at your selected age together.
+3. In Scenario > Explore, inspect an age in Income by year or the exact table. Compare and Frontier show spending trade-offs; Risk shows sampled and stress sensitivities, not personal forecast odds.
+4. In V23 Income & draws, set spending gaps by age when a flat target does not fit. Guardrail spending is advisory by default; its opt-in adaptive comparison requires an explicit essential total budget and does not change the saved plan.
+5. Before a real decision, check the source date and limits below, refresh actual balances and confirm current provider and tax rules.
+
+Keep desired spending, funded spending and investment capital separate. Higher investment capital can result from spending less. Gross estate may add the selected home value; it is not an after-tax inheritance estimate.
 
 CLASSIFICATIONS
 - EXACT: documented source value or direct arithmetic from it.
@@ -104,10 +113,12 @@ The selected provider CPI (2.5% or 3%) is already reflected in each CPI-reduced,
 RETURNS AND RISK
 - Retirement projections use real dollars and the selected post-retirement real return.
 - Pool C also applies a separate 0.35% annual modelled distribution drag.
-- Pre-retirement Hostplus sensitivities are separately labelled nominal.
+- Command Centre Present-to-60 contribution sensitivity uses nominal returns. The separate V23 Pre-60 tracker asks for a real return; do not compare the two without checking the basis and timing.
 - Command Centre Monte Carlo uses 600 reproducible seeded paths and 12% volatility.
 - V23 exposes run count, mean return, volatility, target age and guardrails.
 - Percentiles and sampled success frequencies are stress tests, not forecasts.
+- Each Command Centre sampled return path runs its annual three-pool ledger. V23 also routes sampled paths through its modelled pools. Neither simulation covers future legislation, actual provider financial-year payment timing, market regimes or personal spending shocks; treat selected returns as net of product fees.
+- V23's best-first and worst-first sequence lines reorder one constructed return set. The smooth line is a separate constant-mean reference, not a third ordering of that set.
 - Build validation requires every zero-volatility stochastic path and its median to equal the deterministic annual ledger for every Rail B election, multiple spending targets and both displayed tax years.
 
 NCC WASH AND DEATH-BENEFIT TAX
