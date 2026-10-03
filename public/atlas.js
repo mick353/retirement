@@ -102,7 +102,7 @@
   const embedPanel = params.get("panel") || "studio";
   const sendHost = (message) => { if (embedded) window.parent.postMessage({channel:"retirement-explorer-v1",...message},location.origin); };
   const parsedReturn = Number(params.get("return"));
-  const parsedElection = Object.hasOwn(PSS_ELECTIONS, params.get("pss")) ? params.get("pss") : "60-40";
+  const parsedElection = Object.hasOwn(PSS_ELECTIONS, params.get("pss")) ? params.get("pss") : "70-30";
   const parsedBasis = normaliseProjectionBasis(params.get("basis"));
   const state = {
     rail: params.get("rail") === "A" ? "A" : "B",
@@ -206,7 +206,7 @@
 
   function persistScenario() {
     if (embedded) return; // Command Centre alone owns scenario storage and its URL.
-    const payload = { version: 7, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, pssProjectionBasis: state.pssProjectionBasis, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
+    const payload = { version: 7, defaultsVersion: 2, updatedAt: new Date().toISOString(), rail: state.rail, pssElection: state.pssElection, pssProjectionBasis: state.pssProjectionBasis, spend: state.spend, realReturn: state.realReturn, targetAge: state.targetAge, homeValue: state.home, taxYear: state.taxYear, liquidityMonths: state.liquidityMonths, simulationSeed: state.simulationSeed };
     try { localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify(payload)); } catch { /* device-local convenience only */ }
     history.replaceState(null, "", `${location.pathname}?${scenarioQuery()}${location.hash}`);
     const v23 = `./deep-model.html?${scenarioQuery()}`;
@@ -1194,7 +1194,7 @@
   $("washCycles").addEventListener("input", (event) => { state.washCycles = Number(event.target.value); renderTax(currentRail(), operationalLedger(currentRail(), state.spend, state.realReturn)); });
   $("resetScenario").addEventListener("click", () => {
     stopVisualPlay();
-    Object.assign(state, { rail: "B", pssElection: "60-40", pssProjectionBasis: "source-825", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 6, visualMode: "horizon", visualPerspective: true, compareRail: false });
+    Object.assign(state, { rail: "B", pssElection: "70-30", pssProjectionBasis: "source-825", spend: 110_000, realReturn: .05, targetAge: 75, home: 500_000, taxYear: "2026-27", liquidityMonths: 12, simulationSeed: 20260814, selectedIncomeAge: 61, selectedCapitalAge: 75, inspectionAge: 75, washCycles: 4, visualMode: "horizon", visualPerspective: true, compareRail: false });
     renderAll();
     showToast("Rail B central baseline restored.");
   });
