@@ -16,7 +16,7 @@ The Pages deployment workflow on `main` remains the canonical build/deploy path.
 
 ## Visual regression
 
-Pull requests that can affect the rendered site also run the bounded visual-regression workflow documented in docs/VISUAL_REGRESSION.md. It compares the PR against the exact base commit in pinned Chromium and publishes baseline/current/diff evidence.
+The bounded visual-regression workflow documented in docs/VISUAL_REGRESSION.md is MANUAL ONLY (since 2026-10-03). It no longer runs on pull requests and is not a required check; Validate remains the required gate. Run it from the Actions tab only when the owner asks for a visual comparison. It compares the selected branch against a chosen base in pinned Chromium and publishes baseline/current/diff evidence.
 
 Do not add the PR marker `Visual-Change-Approved: yes` merely to make a failing visual check pass. That marker is reserved for an intentional visual change after the evidence has been inspected and the user has explicitly approved the changed appearance.
 

@@ -4,9 +4,11 @@ This is a deliberately small rendered-UI guard layered on top of the existing re
 
 It does not call or depend on the Pat Pro fork at runtime. The fork supplied a useful method: measure the rendered result and prove important visual properties rather than relying on "looks right". This repository owns its own implementation so retirement CI remains independent.
 
-## Pull-request flow
+## Manual run (since 2026-10-03)
 
-The visual workflow checks out both the pull-request head and the exact current base commit (normally main). Both versions are built in the same GitHub runner and served locally. A pinned Chromium captures the same six high-value cases:
+This workflow no longer runs automatically on pull requests and is not a required check for main; Validate remains the required gate. To run it, open Actions → Visual regression → Run workflow, choose the branch to check and the base to compare against (default main).
+
+The visual workflow checks out both the selected branch and the chosen base. Both versions are built in the same GitHub runner and served locally. A pinned Chromium captures the same six high-value cases:
 
 - Command Centre desktop and phone
 - Atlas desktop and phone
