@@ -1027,8 +1027,8 @@ main{min-width:0;}
         <div class="control-bar-title">
           <h3>Profile <span class="control-caption">PSS source, election and opening pools</span></h3>
           <div class="profile-row">
-            <span class="pill active" data-profile="michael">Michael (default)</span>
-            <span class="pill" data-profile="custom">Custom</span>
+            <span class="pill" data-profile="michael">Rail A · March control</span>
+            <span class="pill active" data-profile="custom">Rail B / custom</span>
             <span class="muted smaller" id="profile-summary"></span>
           </div>
         </div>
@@ -1862,7 +1862,7 @@ const SCENARIOS = {
 
 const STATE = {
   profile:"michael",
-  pssElection:"60-40",
+  pssElection:"70-30",
   pssProjectionBasis:"source-825",
   totalSpendTarget:null,
   wash:{enabled:true,startAge:61,annual:130000,maxWashes:6,cutoffAge:75,targetDBT:10000,method:"separate",schedule:{},tsbBuffer:5000},
@@ -4850,9 +4850,18 @@ const LS_FALLBACK_KEY="v23_3_state";
 const LS_OLDER_FALLBACK_KEY="v23_2_state";
 const LS_LEGACY_FALLBACK_KEY="v23_state";
 const LS_OLDEST_FALLBACK_KEY="v21c1_state";
+/* Default V23 operating basis (2026-10-03): Rail B · 70/30 · current CSC source basis · $110k flat total spend.
+   Saved states written before defaultsVersion 2 that still sit on the old Rail A default are migrated once;
+   any later deliberate selection, including Rail A, is kept. */
+const V23_DEFAULTS_VERSION=2;
+const V23_LEGACY_DEFAULT_GAP_BANDS=[{age:60,amount:24000,unit:"dollar"}];
+function applyV23DefaultRailB({preserveSpendingPlan=false}={}){
+  STATE.pssProjectionBasis="source-825";
+  return selectPssElection("70-30",preserveSpendingPlan?{spendTarget:STATE.totalSpendTarget,preserveSpendingPlan:true}:{spendTarget:110_000});
+}
 function saveState(){
   try{localStorage.setItem(LS_KEY,JSON.stringify({
-    profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,
+    defaultsVersion:V23_DEFAULTS_VERSION,profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,
     likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,simulationSeed:STATE.simulationSeed,liquidityMonths:STATE.liquidityMonths,
     gapBands:STATE.gapBands,gapGrowth:STATE.gapGrowth,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
@@ -4864,7 +4873,7 @@ function saveState(){
 function loadState(){
   try{
     const s=JSON.parse(localStorage.getItem(LS_KEY)||localStorage.getItem(LS_FALLBACK_KEY)||localStorage.getItem(LS_OLDER_FALLBACK_KEY)||localStorage.getItem(LS_LEGACY_FALLBACK_KEY)||localStorage.getItem(LS_OLDEST_FALLBACK_KEY)||"null");
-    if(!s)return;
+    if(!s){applyV23DefaultRailB();return;}
     if(typeof s.gapGrowth==="number"&&s.gapGrowth>0.2)s.gapGrowth=s.gapGrowth/100;
     if(typeof s.poolCDrag==="number"&&s.poolCDrag>0.05)s.poolCDrag=s.poolCDrag/100;
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
@@ -4883,6 +4892,10 @@ function loadState(){
     ap("poolCPolicy",s.poolCPolicy==="after-abp"?"after-abp":"preserve");ap("incomeTableMode",s.incomeTableMode==="full"?"full":"essential");ap("reinvestTableMode",s.reinvestTableMode==="all"?"all":"key");
     ap("cpi",s.cpi);ap("cpiDur",s.cpiDur);ap("cpiAge",s.cpiAge);ap("cpiDrag",s.cpiDrag);
     ap("theme",s.theme);if(s.wash)STATE.wash={...STATE.wash,...s.wash,schedule:{...(s.wash.schedule||{})}};if(s.slotNames)STATE.slotNames=s.slotNames;if(s.notes)STATE.notes=s.notes;
+    if(Number(s.defaultsVersion||0)<V23_DEFAULTS_VERSION&&STATE.profile!=="custom"){
+      const legacyDefaultPlan=STATE.totalSpendTarget==null&&JSON.stringify(normaliseGapBands(STATE.gapBands).bands)===JSON.stringify(V23_LEGACY_DEFAULT_GAP_BANDS);
+      applyV23DefaultRailB({preserveSpendingPlan:!legacyDefaultPlan});
+    }
   }catch(e){}
 }
 
@@ -5635,7 +5648,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     let saved=null;
     try{saved=JSON.parse(localStorage.getItem("robinson-retirement-shared-scenario")||"null");}catch(e){}
     const query=sharedFromQuery();
-    const base=query||saved||{rail:"A",pssElection:"60-40",pssProjectionBasis:"source-825",spend:90000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27",liquidityMonths:12,simulationSeed:20260814};
+    const base=query||saved||{rail:"B",pssElection:"70-30",pssProjectionBasis:"source-825",spend:110000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27",liquidityMonths:12,simulationSeed:20260814};
     const profile=getProfile();
     const rail=isRailBProfile(profile)?"B":"A";
     const fixedGap=STATE.spendMode==="fixed"&&Array.isArray(STATE.gapBands)?gapAtAge(60,STATE.gapBands):null;
