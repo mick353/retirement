@@ -315,6 +315,25 @@ const SCENARIO_TOOLS: { key: ScenarioTool; label: string; hint: string }[] = [
   { key: "risk", label: "Risk", hint: "Stress sequence, volatility and capital-routing outcomes." },
 ];
 
+type GuideCopy = { use: string; read: string; limit: string };
+const SECTION_GUIDES: Partial<Record<SectionKey, GuideCopy>> = {
+  overview: { use: "Check the active rail, pension election and flat spending above, then read the opening pools and annual ledger.", read: "Compare planned spending with funded spending; a shortfall means the model did not supply the full target.", limit: "The gross estate includes the selected home value and is before estate costs and residual death-benefit tax." },
+  pre60: { use: "Follow the dated contribution phases and change the contribution inputs to test the balance at 60.", read: "Compare the projected Hostplus balance with the source-backed retirement opening; a sensitivity is not a new provider estimate.", limit: "Contribution timing and investment returns are assumptions. Check actual balances and contribution records before using a result." },
+  pss: { use: "Select one CSC projection basis and one PSS election, then inspect the pension, lump sum and Pool A/B/C opening.", read: "A larger pension may leave a smaller lump and less Pool A headroom; compare spending support as well as capital.", limit: "The two provider bases use different source snapshots. Hostplus tax components and future provider execution remain unresolved." },
+  estate: { use: "Review gross and illustrative after-tax estate separately, then inspect the source-limited NCC wash assumptions.", read: "Notice which assets are in super, outside super and in the home before comparing outcomes.", limit: "Beneficiary status, actual tax components, gains and contribution eligibility must be confirmed; these are modelled tax comparisons." },
+  vr: { use: "Choose an age and pathway, then inspect the age-60 source anchor and the illustrated bridge from earlier retirement.", read: "Compare pension start, investable cash and the capital at 60 for each pathway.", limit: "Ages 57–59 are illustrations, not CSC quotations. Obtain formal estimates and tax components before deciding." },
+  benchmark: { use: "Use the external spending figures as context beside your own after-tax cashflow and active plan.", read: "Compare household type and assumptions before drawing a conclusion from a benchmark.", limit: "Population benchmarks do not tell you what your household needs or what this plan can fund." },
+  review: { use: "Capture a dated plan snapshot, record confirmed actuals, work through the checklist and export the result.", read: "The actual-versus-plan checkpoint shows differences; it does not silently replace the projection.", limit: "Data here is stored on this device. Confirm source dates and keep an exported copy for the review record." },
+  evidence: { use: "Check the source register and the EXACT, ESTIMATED, MODELLED and SPECULATIVE labels.", read: "Trace an important figure to its active rail, election, provider basis and dated source.", limit: "The site publishes derived figures, not the private source PDFs; revisit source and rule changes before acting." },
+};
+const SCENARIO_GUIDES: Record<ScenarioTool, GuideCopy> = {
+  lab: { use: "Change one flat annual spending plan in Adjust and inspect the resulting annual ledger.", read: "Compare target spend, funded spend, pool balances and any shortfall at the selected age.", limit: "This flat real-dollar comparison does not replace your V23 age-band plan." },
+  explore: { use: "Choose an illustration or income view, then select an age to inspect the same active plan.", read: "Use Income by year for funding and the exact table for annual values; return comparison changes the assumed return, not the odds.", limit: "Visual shapes and return sensitivities are model outputs, not forecasts." },
+  compare: { use: "Compare the labelled preset cards under the active return and target-age assumptions; select a card only if you want its spend and rail.", read: "Read spending, capital and gross estate together. The simulated frequency is the share of this model's sampled paths above its stated threshold.", limit: "The presets express different preferences. A higher capital result can come from spending less." },
+  frontier: { use: "Move the flat spending point and choose the comparison age.", read: "Read the investment-capital cost of additional spending alongside gross estate, which adds the selected home value.", limit: "The coloured investment bands and property-inclusive estate floor answer different questions; neither is a personal guarantee." },
+  risk: { use: "Keep the same plan while varying volatility, return sequence or stress inputs.", read: "Inspect the percentile fan and exact target test; compare lower-tail outcomes with spending shortfalls.", limit: "Sample frequencies depend on the chosen model, volatility and seed. They omit unmodelled future events." },
+};
+
 const FRONTIER_SPENDS = [90_000, 100_000, 110_000, 120_000, 130_000];
 const RETURNS = [0.04, 0.05, 0.065];
 const VR_AGES = [57, 58, 59, 60] as const;
@@ -948,6 +967,7 @@ export default function RetirementDashboard() {
   const selectedVrPreserve = vrPreservePaths.find((row) => row.age === vrAge)!;
   const selectedVrPath = vrMode === "immediate" ? selectedVrImmediate : selectedVrPreserve;
   const v23SpendPlanUrl = sharedPageUrl("deep-model.html?page=income", currentScenario, theme);
+  const v23PolicyUrl = sharedPageUrl("deep-model.html?page=guardrails", currentScenario, theme);
   const atlasUrl = sharedPageUrl("?section=scenario&tool=explore", currentScenario, theme);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
   const targetProbability = fan.paths[targetIndex].filter((value) => value >= 500_000).length / Math.max(1, fan.paths[targetIndex].length);
@@ -1245,8 +1265,8 @@ export default function RetirementDashboard() {
       <section className="hero">
         <div className="hero-copy">
           <div className="eyebrow">Integrated retirement command centre · September 2026 PSS election release</div>
-          <h1>Your pension secures the floor.<br /><span>Your capital buys optionality.</span></h1>
-          <p>The core decision is no longer whether retirement works. It is how deliberately to trade present lifestyle against later capital and estate value.</p>
+          <h1>Your pension provides an indexed base.<br /><span>Your capital supports choices.</span></h1>
+          <p>Use the model to test how today's spending affects later capital and estate value, then check the assumptions and shortfall years before choosing a plan.</p>
           <div className="hero-actions">
             <button className="primary" onClick={() => go("scenario")}>Run a scenario</button>
             <button className="secondary" onClick={() => go("frontier")}>Inspect the frontier</button>
@@ -1278,7 +1298,7 @@ export default function RetirementDashboard() {
       </div>
 
       <section className="panel decision-banner">
-        <div><Badge tone="good">Central operating band</Badge><h3>$100,000–$110,000 net a year</h3><p>Best structural balance across spending power, capital, tax, estate, liquidity and flexibility.</p></div>
+        <div><Badge tone="modelled">Reference spending range</Badge><h3>$100,000–$110,000 net a year</h3><p>A useful flat-spending comparison under the stated assumptions. Check funded spending, later capital and your own needs before choosing a target.</p></div>
         <div className="comparison-stat"><span>Selected spend</span><strong>{fmt1.format(retirementPf)} / pf</strong><small>{money(grossEquivalent)} salary equivalent</small></div>
         <div className="comparison-stat"><span>Current cash after all expenses</span><strong>{fmt1.format(currentPf)} / pf</strong><small>After current expenses, commitments and deductions</small></div>
         <div className="comparison-stat positive"><span>Cashflow uplift</span><strong>+{fmt1.format(retirementPf - currentPf)} / pf</strong><small>{pct(retirementPf / currentPf - 1)} above current after-expense cashflow</small></div>
@@ -1320,7 +1340,7 @@ export default function RetirementDashboard() {
           <div className="control-hint"><Badge tone="modelled">Flat comparison lens</Badge><p>The spending control below is held constant in real dollars each year. Use V23 when the plan needs different age bands or drawdown periods.</p><a href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age bands in V23 ↗</a></div>
           <label>Modelling rail<select value={railKey} onChange={(e) => setRailKey(e.target.value as RailKey)}><option value="A">Rail A — conservative wealth</option><option value="B">Rail B — spending frontier</option></select></label>
           <label>PSS projection basis<select value={pssProjectionBasis} onChange={(e) => chooseProjectionBasis(normaliseProjectionBasis(e.target.value))}><option value="source-825">Current source · 8.2% / 5% / 2.5% · 4 elections</option><option value="prudent-630">Prudent · 6% / 5% / 3% · 4 elections</option></select><small className="control-help">This provider basis creates the retirement-day PSS figures. It does not replace the separate real-return control below.</small></label>
-          <label>PSS election<select value={effectivePssElection} onChange={(e) => { const next = normaliseElectionForBasis(pssProjectionBasis, e.target.value); const option = activePssElections[next]!; setPssElection(next); setRailKey("B"); setWashCycles(option.lumpSum > 0 ? Math.ceil(option.lumpSum / 130_000) : 0); }}>{activePssElectionKeys.map((key) => activePssElections[key]!).map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}</select><small className="control-help">Selecting an election updates pension, lump, TBC, pools, drawdown, surplus and wash capacity everywhere. 100% pension currently exists only in the 8.2/5/2.5 source set.</small></label>
+          <label>PSS election<select value={effectivePssElection} onChange={(e) => { const next = normaliseElectionForBasis(pssProjectionBasis, e.target.value); const option = activePssElections[next]!; setPssElection(next); setRailKey("B"); setWashCycles(option.lumpSum > 0 ? Math.ceil(option.lumpSum / 130_000) : 0); }}>{activePssElectionKeys.map((key) => activePssElections[key]!).map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}</select><small className="control-help">Selecting an election updates pension, lump, TBC, pools, drawdown, surplus and wash capacity everywhere. Both provider bases have four direct elections; the prudent 100% pension estimate is from 9 September, after the other prudent estimates.</small></label>
           <AdjustableControl label="Flat net annual spend" value={spend} min={76_000} max={MAX_FLAT_SPEND} step={1_000} baseline={110_000} format={money} onChange={setSpend} />
           <AdjustableControl label="Real investment return" value={realReturn} min={0.02} max={0.075} step={0.005} baseline={0.05} scale={100} format={(value) => pct(value, 1)} onChange={setRealReturn} />
           <AdjustableControl label="Liquid reserve target" value={liquidityMonths} min={0} max={24} step={3} baseline={12} format={(value) => `${Math.round(value)} months of starting gap`} onChange={setLiquidityMonths} />
@@ -1378,9 +1398,9 @@ export default function RetirementDashboard() {
     });
     const baseline = scenarios[0];
     return <>
-      <SectionHeading eyebrow="Decision workspace" title="Compare complete retirement plans" copy={`Each card keeps its labelled annual spend and rail fixed, so the trade-offs are comparable. Your active Adjust assumptions rerun every capital, estate and simulation result below: ${pct(realReturn, 1)} real return p.a. after inflation, target age ${targetAge} and a ${money(homeValue)} real home. Using a card changes only its spend and rail; it does not reset those assumptions. For age-banded spending and drawdown periods, continue in V23.`} />
+      <SectionHeading eyebrow="Decision workspace" title="Compare flat spending examples" copy={`Each card keeps its labelled annual spend and rail fixed, so the trade-offs are comparable. Your active Adjust assumptions rerun every capital, estate and simulation result below: ${pct(realReturn, 1)} real return p.a. after inflation, target age ${targetAge} and a ${money(homeValue)} real home. Using a card changes only its spend and rail; it does not reset those assumptions. For age-banded spending and drawdown periods, continue in V23.`} />
       <section className="compare-cards">{scenarios.map((scenario, index) => <article key={scenario.key} className={scenario.key === "baseline" ? "recommended" : ""}>
-        <div className="compare-head"><div><Badge tone={scenario.key === "baseline" ? "good" : scenario.key === "lifestyle" ? "estimated" : "modelled"}>{scenario.key === "baseline" ? "Recommended" : `Option ${index + 1}`}</Badge><h3>{scenario.label}</h3><p>{scenario.intent}</p></div><span>Rail {scenario.rail}{scenario.rail === "B" ? ` · ${activePssElections[effectivePssElection]!.label} · ${projectionBasis.shortLabel}% basis` : ""}</span></div>
+        <div className="compare-head"><div><Badge tone={scenario.key === "baseline" ? "good" : scenario.key === "lifestyle" ? "estimated" : "modelled"}>{scenario.key === "baseline" ? "Reference" : `Option ${index + 1}`}</Badge><h3>{scenario.label}</h3><p>{scenario.intent}</p></div><span>Rail {scenario.rail}{scenario.rail === "B" ? ` · ${activePssElections[effectivePssElection]!.label} · ${projectionBasis.shortLabel}% basis` : ""}</span></div>
         <div className="compare-spend"><span>Flat net annual spend</span><strong>{money(scenario.spend)}</strong><small>{fmt1.format(scenario.spend / 26)} per fortnight · held constant in real dollars each retirement year</small><small className="compare-assumption">Active assumptions: <b>{pct(realReturn, 1)} real return p.a.</b> after inflation · target age {targetAge} · {money(homeValue)} real home</small></div>
         <dl className="compare-outcomes"><div><dt>Capital @{targetAge}</dt><dd>{money(scenario.capitalAtTarget)}</dd></div><div><dt>Capital @85</dt><dd>{money(scenario.capital85)}</dd></div><div><dt>Gross estate @{targetAge} · incl. home</dt><dd>{money(scenario.estateAtTarget)}</dd></div><div><dt>Sim. frequency ≥$500k @{targetAge}</dt><dd>{pct(scenario.probability, 0)}</dd></div></dl>
         <div className="compare-delta"><span>Versus baseline</span><b>{scenario.key === "baseline" ? "Reference plan" : `${scenario.capitalAtTarget >= baseline.capitalAtTarget ? "+" : ""}${money(scenario.capitalAtTarget - baseline.capitalAtTarget)} capital @${targetAge}`}</b></div>
@@ -1393,7 +1413,7 @@ export default function RetirementDashboard() {
           return <div className="matrix-row" key={metric.label}><b>{metric.label}</b>{scenarios.map((scenario) => <div key={scenario.key}><span>{scenario.label}</span><i><em style={{ width: `${scenario[metric.field] / maximum * 100}%` }} /></i><strong>{money(scenario[metric.field])}</strong></div>)}</div>;
         })}
       </section>
-      <div className="note"><b>Professional interpretation:</b> under the active {pct(realReturn, 1)} real-return assumption, the balanced plan is structurally strongest when the objective is both present lifestyle and a durable estate. Lifestyle-led is affordable in many paths but creates materially less recovery margin after an early market shock.</div>
+      <div className="note"><b>How to interpret:</b> compare each example's funded spending, age-{targetAge} investments and gross estate under the active {pct(realReturn, 1)} real-return assumption. More spending usually leaves less capital. The simulated frequency is a model stress measure; use Risk and V23 to inspect downside paths and spending by age.</div>
     </>;
   };
 
@@ -1408,7 +1428,7 @@ export default function RetirementDashboard() {
         <Metric label="PSS contribution rate" value="10%" sub="Maintain until ABM caps near mid-2032" tone="amber" />
       </div>
       <section className="timeline">
-        <article><span>1</span><div><Badge tone="good">Near completion</Badge><h3>Liquidity base</h3><p>Bank to $30k; home loan to $10k. No Hostplus contributions while these targets finish.</p></div><strong>Now → Jul 2026</strong></article>
+        <article><span>1</span><div><Badge tone="modelled">Plan phase</Badge><h3>Liquidity base</h3><p>Bank to $30k; home loan to $10k. The historical plan assumed no new Hostplus contributions during this phase; check actual records.</p></div><strong>To Jul 2026</strong></article>
         <article><span>2</span><div><Badge tone="modelled">Active control</Badge><h3>Salary sacrifice</h3><p>{money(phase2)} per fortnight under the selected Phase 2 contribution setting.</p></div><strong>Jul 2026 → Mar 2028</strong></article>
         <article><span>3</span><div><Badge tone="modelled">Active control</Badge><h3>Contribution acceleration</h3><p>{money(phase3)} total per fortnight under the selected Phase 3 contribution setting.</p></div><strong>Mar 2028 → Dec 2033</strong></article>
       </section>
@@ -1791,6 +1811,8 @@ export default function RetirementDashboard() {
   if(!scenarioHydrated)return <div className={`retirement-app ${theme}`}><main className="panel" role="status"><h1>Robinson Retirement</h1><p>Loading your saved plan and shared assumptions…</p><noscript>Enable JavaScript for the interactive model, or <a href="./model-reference.html">read the model reference</a>.</noscript></main></div>;
 
   const content = section === "overview" ? renderOverview() : section === "scenario" ? renderScenarioWorkspace() : section === "pre60" ? renderPre60() : section === "pss" ? renderPss() : section === "estate" ? renderEstate() : section === "vr" ? renderVr() : section === "benchmark" ? renderBenchmark() : section === "review" ? renderReview() : renderEvidence();
+  const pageGuide = section === "scenario" ? SCENARIO_GUIDES[scenarioTool] : SECTION_GUIDES[section];
+  const pageGuideName = section === "scenario" ? `Scenario → ${SCENARIO_TOOLS.find(item => item.key === scenarioTool)?.label}` : NAV.find(item => item.key === section)?.label;
 
   return (
     <div className={`retirement-app ${theme}`}>
@@ -1807,7 +1829,17 @@ export default function RetirementDashboard() {
           <a className="deep-link" href="./model-reference.html" target="_blank" rel="noreferrer"><span>Model reference</span><small>Static formulas, assumptions, controls and source lineage</small><b>Readable without JavaScript ↗</b></a>
           <div className="version">September 2026 · unified Command Centre + V23</div>
         </aside>
-        <main className="content" id="command-content">{planControls}<details className="workspace-guide"><summary>Help · which workspace and figures am I using?</summary><p><b>Command Centre</b> compares a flat annual net spending target, held constant in real dollars. Every page and illustration here uses the active comparison plan above. Expand that bar to change the pension election, source basis, spending, return or target age.</p><p><b>Scenario</b> is one workspace with five tabs: Lab adjusts one plan; Explore contains all six former Atlas illustrations plus annual income, returns and the strategy map; Compare tests presets; Frontier quantifies spending trade-offs; Risk runs probability and sequence stress tests. Switching tabs does not change the plan.</p><p><b>V23 · Income &amp; draws</b> is where you fine-tune spending gaps by age. Its collapsible Plan controls apply to every V23 page. Your saved age-band plan is not replaced by Command Centre’s flat comparison.</p><p><b>Returns and dollars:</b> the provider’s pre-retirement fund, salary and CPI assumptions create the retirement-day opening figures. The active real return shown here applies after retirement, after inflation. A flat indexed pension in real dollars can still rise in nominal dollars.</p><p><b>Inspect a graph:</b> select an age using the chart or age slider; use Explore → Table for exact annual figures. Explore → Return comparison is sensitivity analysis, while Scenario → Risk contains the Monte Carlo probability fan. Old Atlas bookmarks now open the matching Scenario tab.</p><a href={v23SpendPlanUrl}>Open V23 Income &amp; draws ↗</a></details>{content}</main>
+        <main className="content" id="command-content">
+          {planControls}
+          <details className="workspace-guide">
+            <summary>Help · how to use {pageGuideName || "this page"}</summary>
+            {pageGuide && <><p><b>Start here:</b> {pageGuide.use}</p><p><b>Read the result:</b> {pageGuide.read}</p><p><b>Keep in mind:</b> {pageGuide.limit}</p></>}
+            <p><b>Across Command Centre:</b> The active comparison plan above holds total annual net spending flat in today's dollars. Its CSC source basis creates retirement-day PSS figures; the real-return control applies after retirement. Scenario's five tabs share this plan.</p>
+            <p><b>For spending by age:</b> V23 Income &amp; draws holds your detailed age-band plan. Its Guardrail spending page compares advisory and opt-in adaptive policies; enter essential total spending first, then read spending and capital together. Opening either page does not replace your saved V23 plan.</p>
+            <a href={v23SpendPlanUrl}>Open V23 Income &amp; draws ↗</a>{" · "}<a href={v23PolicyUrl}>Open V23 Policy Comparator ↗</a>{" · "}<a href="./model-reference.html">Read model reference ↗</a>
+          </details>
+          {content}
+        </main>
       </div>
       <nav className="mobile-dock" aria-label="Primary mobile navigation">{[["overview", "Home"], ["scenario", "Scenario"], ["pss", "PSS"], ["estate", "Estate"], ["review", "Review"]].map(([key, label]) => <button key={key} aria-current={section === key ? "page" : undefined} className={section === key ? "active" : ""} onClick={() => go(key as SectionKey)}>{label}</button>)}</nav>
       <RetirementAi context={aiContext} />
