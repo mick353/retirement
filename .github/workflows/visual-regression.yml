@@ -1,12 +1,14 @@
 name: Visual regression
 
+# Manual only (changed 2026-10-03 at the owner's request to save Actions minutes).
+# Run from the Actions tab: choose the branch to check and the base to compare against.
 on:
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
-      - "AGENTS.md"
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Branch, tag or commit to compare against"
+        required: true
+        default: main
 
 permissions:
   contents: read
@@ -23,13 +25,13 @@ jobs:
       VISUAL_QA_MODULES: /tmp/retirement-visual-tools
 
     steps:
-      - name: Check out pull-request head
+      - name: Check out selected head
         uses: actions/checkout@v4
 
       - name: Check out exact base commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ inputs.base_ref }}
           path: visual-base
 
       - name: Set up Node.js
