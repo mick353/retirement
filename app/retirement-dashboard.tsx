@@ -225,13 +225,17 @@ function normaliseElectionForBasis(basisKey: PssProjectionBasisKey, value: unkno
   return normaliseCanonicalElectionForBasis(basisKey, value);
 }
 
+function lowerFirst(value: string): string {
+  return value.charAt(0).toLowerCase() + value.slice(1);
+}
+
 function railBForElection(electionKey: PssElectionKey, basisKey: PssProjectionBasisKey = "source-825"): Rail {
   const engine = calculateCanonicalRailBOpeningPosition(electionKey, basisKey);
   return {
     key: "B",
     short: `Spending frontier · ${engine.label}`,
     name: `Rail B — ${engine.label}`,
-    purpose: `Tests the selected ${engine.basisLabel.toLowerCase()} election against spending, TBC, drawdown, tax and estate objectives.`,
+    purpose: `Tests the selected ${lowerFirst(engine.basisLabel)} election against spending, TBC, drawdown, tax and estate objectives.`,
     source: engine.source,
     grossPension: engine.grossPension,
     netPension: engine.netPension,
@@ -296,7 +300,7 @@ function washOutcome(rail: Rail, cycles: number, annualAmount = 130_000) {
 }
 
 const NAV: { key: SectionKey; label: string; group: string }[] = [
-  { key: "overview", label: "Command centre", group: "Decide" },
+  { key: "overview", label: "Command Centre", group: "Decide" },
   { key: "scenario", label: "Scenario", group: "Decide" },
   { key: "pre60", label: "Present → 60", group: "Build" },
   { key: "pss", label: "PSS & three pools", group: "Build" },
@@ -1278,7 +1282,7 @@ export default function RetirementDashboard() {
           <div className="rail-switch" role="group" aria-label="Select modelling rail">
             {(["A", "B"] as RailKey[]).map((key) => <button type="button" key={key} className={railKey === key ? "active" : ""} aria-pressed={railKey === key} onClick={() => setRailKey(key)}><b>Rail {key}</b><span>{key === "A" ? RAILS.A.short : railBForElection(effectivePssElection, pssProjectionBasis).short}</span></button>)}
           </div>
-          <div className="rail-note"><Badge tone={railKey === "A" ? "modelled" : "exact"}>{rail.source}</Badge><p>{rail.purpose}</p><p><b>Two return systems:</b> Rail B’s pension and lump figures come from the {projectionBasis.label.toLowerCase()} ({pct(projectionBasis.fundEarnings, 1)} fund earnings · {pct(projectionBasis.salaryGrowth, 1)} salary growth · {pct(projectionBasis.cpi, 1)} CPI before retirement). The site’s {pct(realReturn, 1)} control begins at retirement and is a separate real investment return.</p></div>
+          <div className="rail-note"><Badge tone={railKey === "A" ? "modelled" : "exact"}>{rail.source}</Badge><p>{rail.purpose}</p><p><b>Two return systems:</b> Rail B’s pension and lump figures come from the {lowerFirst(projectionBasis.label)} ({pct(projectionBasis.fundEarnings, 1)} fund earnings · {pct(projectionBasis.salaryGrowth, 1)} salary growth · {pct(projectionBasis.cpi, 1)} CPI before retirement). The site’s {pct(realReturn, 1)} control begins at retirement and is a separate real investment return.</p></div>
           <div className="projection-basis-compact" aria-label="Active PSS projection basis">
             <div><span>Before retirement · CSC source</span><b>{projectionBasis.shortLabel}%</b><small>Fund / salary / CPI · {pct(projectionBasis.realFundEarnings, 2)} real fund equivalent</small></div>
             <i aria-hidden="true">→</i>
@@ -1817,7 +1821,7 @@ export default function RetirementDashboard() {
   return (
     <div className={`retirement-app ${theme}`}>
       <header className="topbar">
-        <div className="brand"><div className="brandmark">R</div><div><b>Robinson Retirement</b><span>Command centre · real dollars</span></div></div>
+        <div className="brand"><div className="brandmark">R</div><div><b>Robinson Retirement</b><span>Command Centre · real dollars</span></div></div>
         <div className="top-actions">{section === "vr" ? <Badge tone="modelled">VR · Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : " · March/V5"}</Badge> : <Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : ""}</Badge>}<button aria-label="Toggle colour theme" className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button><button aria-label={navCollapsed ? "Show navigation sidebar" : "Hide navigation sidebar"} title={navCollapsed ? "Show sidebar ( [ )" : "Hide sidebar ( [ )"} aria-controls="retirement-sidebar" aria-expanded={!navCollapsed} className="icon-button desktop-only" onClick={() => setNavCollapsed(!navCollapsed)}>{navCollapsed ? "» Menu" : "« Hide"}</button><button aria-label={navOpen ? "Close navigation" : "Open navigation"} aria-controls="retirement-sidebar" aria-expanded={navOpen} id="nav-menu-button" className="icon-button mobile-only menu-button" onClick={() => setNavOpen(!navOpen)}>{navOpen ? "Close" : "Menu"}</button></div>
       </header>
       <div className={`app-layout ${navCollapsed ? "nav-collapsed" : ""}`.trim()}>
