@@ -2354,9 +2354,10 @@ function policySummary(sim,profile,checks,essentialTotal=0){
   const age75=at(75)?.total??null,age85=at(85)?.total??null;
   const result={
     fundedLifetime:rows.reduce((s,r)=>s+r.fundedTotalSpend,0),
-    funded60to69:rows.filter(r=>r.age<=69).reduce((s,r)=>s+r.fundedTotalSpend,0),
-    funded60to74:rows.filter(r=>r.age<=74).reduce((s,r)=>s+r.fundedTotalSpend,0),
-    discretionary60to74:rows.filter(r=>r.age<=74).reduce((s,r)=>s+Math.max(0,r.fundedTotalSpend-essentialTotal),0),
+    // Age 60 is an opening snapshot. Rows 61–70 fund ages 60–69; rows 61–75 fund ages 60–74.
+    funded60to69:rows.filter(r=>r.age<=70).reduce((s,r)=>s+r.fundedTotalSpend,0),
+    funded60to74:rows.filter(r=>r.age<=75).reduce((s,r)=>s+r.fundedTotalSpend,0),
+    discretionary60to74:rows.filter(r=>r.age<=75).reduce((s,r)=>s+Math.max(0,r.fundedTotalSpend-essentialTotal),0),
     age75,age85,cutYears:rows.filter(r=>r.policyCut>0.01).length,
     anyCutOver10:rows.some(r=>r.desiredTotal>0&&r.policyCut/r.desiredTotal>.10),
     shortfallYears:rows.filter(r=>r.spendingShortfall>0.01).length,
@@ -5044,8 +5045,8 @@ guardrails:{t:"Guardrail spending",w:"Advisory zone instructions remain the defa
 ["Comparison availability","Across-election comparison requires Rail B. Hold total lifestyle needs dollar age bands or an explicit total-spending target. Percentage-of-current-return spending cannot run an opening-year adaptive decision."],
 ["Age 75 and 85 checks","Informational is the default. Preferred shows a goal without treating a miss as a hard breach. Hard requires your explicit amount and flags a miss. These are investment-capital checks and exclude the home."],
 ["Paired Monte Carlo","Advisory and adaptive policies face the same simulated return path. Median is the middle sampled result; P10 is a weaker sampled result, not a guaranteed worst case. Read the spending delta beside the investment delta."],
-["Funded age 60–69 / 60–74 / lifetime","Cumulative total spending the ledger actually funds over each stated age span, in today's dollars. These columns are sums, not annual amounts."],
-["Discretionary age 60–74","Cumulative funded spending above the entered essential total budget across those years. A higher value means more above-essential lifestyle was funded."],
+["Funded age 60–69 / 60–74 / lifetime","Cumulative total spending the ledger actually funds over each stated age span, in today's dollars. Age 60 is an opening snapshot: the 60–69 window sums ten spending years ending at ages 61–70, and 60–74 sums fifteen ending at ages 61–75. These columns are sums, not annual amounts."],
+["Discretionary age 60–74","Cumulative funded spending above the entered essential total budget over the same fifteen spending years ending at ages 61–75. A higher value means more above-essential lifestyle was funded."],
 ["Investments @75 / @85","Pool A+B+C investment capital at those ages. The home, after-tax estate and any separately held asset outside these pools are excluded."],
 ["Cut / unfunded / core shortfall years","Cut years have an adaptive policy reduction from desired spending. Unfunded years miss permitted spending. Core shortfall years fund less than the entered essential budget. Check all three beside capital."],
 ["Paired delta and breach frequency","Adaptive minus advisory is computed within each identical return path. Positive capital delta may reflect less spending. A hard-check breach frequency is the share of sampled paths missing an explicitly entered hard threshold, not forecast odds."],

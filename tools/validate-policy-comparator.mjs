@@ -51,6 +51,11 @@ for(const key of ["off","one","changed","sameOpeningDecision","pathsDifferent","
 assert.equal(checks.summary.hardBreach,true);
 assert.equal(checks.summary.binding.age,75);
 assert.equal(checks.summary.constraints[1].breach,false);
+const ageWindows=run(`(()=>{const p=railBProfileForElection('60-40','source-825');const sim=runModel({profile:p,endAge:75,abpReturn:0,accumReturn:0,poolCDrag:0,totalSpendTarget:110000,gapGrowth:0,oneOff:0,spendMode:'fixed',policy:{mode:'advisory'}});const s=policySummary(sim,p,[],70000);return{operating:sim.rows.filter(r=>!r.launchSnapshot).length,ten:s.funded60to69,fifteen:s.funded60to74,discretionary:s.discretionary60to74};})()`);
+assert.equal(ageWindows.operating,15,"Age 60 is an opening snapshot followed by fifteen spending years through age 75");
+assert.equal(ageWindows.ten,10*110000,"Age 60–69 must include ten funded spending years");
+assert.equal(ageWindows.fifteen,15*110000,"Age 60–74 must include fifteen funded spending years");
+assert.equal(ageWindows.discretionary,15*(110000-70000),"Discretionary age 60–74 must use the same fifteen years");
 assert.equal(run("pairedPolicyOutcome({age85:200,funded60to74:100,hardBreach:false,shortfallYears:0,coreShortfallYears:0},{age85:150,funded60to74:90,hardBreach:false,anyCutOver10:false,shortfallYears:0,coreShortfallYears:0}).better85"),false);
 assert.equal(run(`(()=>{const p=railBProfileForElection('60-40','source-825');const paths=policyReturnPaths({runs:2,years:35,mean:.05,sd:0,seed:0});const opts={profile:p,endAge:95,abpReturn:.05,accumReturn:.05*.85,gapBands:[{age:60,amount:24000,unit:'dollar'}],totalSpendTarget:null,oneOff:0};return paths.every(path=>['advisory','adaptive'].every(mode=>{const policy={mode,essentialTotal:70000};return JSON.stringify(runModel({...opts,policy}).rows)===JSON.stringify(runModel({...opts,annualReturns:path,policy}).rows)}));})()`),true,"Zero volatility must equal deterministic for each policy");
 assert.equal(run(`(()=>{const prior=STATE.gapGrowth;STATE.gapGrowth=.03;const p=railBProfileForElection('60-40','source-825');const c=comparatorCandidates(p,'total','70-30');const rows=c.map(x=>runModel({...x.options,endAge:85}).rows);STATE.gapGrowth=prior;return rows[0].every((r,i)=>Math.abs(r.targetSpend-rows[1][i].targetSpend)<.001);})()`),true,"Same total must hold through band growth");
