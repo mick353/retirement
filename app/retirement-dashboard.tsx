@@ -176,6 +176,7 @@ const PSS_PRUDENT_ELECTIONS: Partial<Record<PssElectionKey, PssElection>> = {
   "100": { key: "100", label: "100% pension / no lump", pensionPercent: 100, lumpPercent: 0, grossPension: 147_713.96, netPensionPf: 5_214.45, netPension: 135_575.70, lumpSum: 0, lumpTaxFree: 0, lumpTaxableTaxed: 0, lumpTaxableUntaxed: 0, fas: 162_485.36, source: "9 Sep 2026 CSC iEstimator · 100% pension · 6/5/3" },
 };
 const PSS_ELECTION_ORDER: PssElectionKey[] = ["60-40", "65-35", "70-30", "100"];
+const SCENARIO_DEFAULTS_VERSION = 2; // 2 = Rail B 70/30 default (2026-10-03)
 
 const PSS_PROJECTION_BASES: Record<PssProjectionBasisKey, PssProjectionBasis> = {
   "source-825": {
@@ -877,7 +878,7 @@ export default function RetirementDashboard() {
   const [explorerPanel,setExplorerPanel]=useState<ExplorerPanel>("studio");
   const [visualView,setVisualView]=useState("horizon");
   const [railKey, setRailKey] = useState<RailKey>("B");
-  const [pssElection, setPssElection] = useState<PssElectionKey>("60-40");
+  const [pssElection, setPssElection] = useState<PssElectionKey>("70-30");
   const [pssProjectionBasis, setPssProjectionBasis] = useState<PssProjectionBasisKey>("source-825");
   const [spend, setSpend] = useState(110_000);
   const [realReturn, setRealReturn] = useState(0.05);
@@ -1119,9 +1120,13 @@ export default function RetirementDashboard() {
           setSimulationSeed(Math.round(clamp(Number(candidate.simulationSeed) || 20260814, 1, 2_147_483_647)));
         };
         if (params.get("shared") === "1") {
-          loadScenario({ rail: params.get("rail") === "A" ? "A" : "B", pssElection: (["60-40", "65-35", "70-30", "100"] as string[]).includes(String(params.get("pss"))) ? params.get("pss") as PssElectionKey : "60-40", pssProjectionBasis: normaliseProjectionBasis(params.get("basis")), spend: Number(params.get("spend")), realReturn: Number(params.get("return")), targetAge: Number(params.get("age")), homeValue: Number(params.get("home")), taxYear: params.get("taxYear") === "2027-28" ? "2027-28" : "2026-27", liquidityMonths: Number(params.get("reserveMonths")), simulationSeed: Number(params.get("seed")) });
+          loadScenario({ rail: params.get("rail") === "A" ? "A" : "B", pssElection: (["60-40", "65-35", "70-30", "100"] as string[]).includes(String(params.get("pss"))) ? params.get("pss") as PssElectionKey : "70-30", pssProjectionBasis: normaliseProjectionBasis(params.get("basis")), spend: Number(params.get("spend")), realReturn: Number(params.get("return")), targetAge: Number(params.get("age")), homeValue: Number(params.get("home")), taxYear: params.get("taxYear") === "2027-28" ? "2027-28" : "2026-27", liquidityMonths: Number(params.get("reserveMonths")), simulationSeed: Number(params.get("seed")) });
         } else if (activeScenario) {
-          loadScenario(JSON.parse(activeScenario));
+          const cached = JSON.parse(activeScenario) as Partial<ScenarioState> & { defaultsVersion?: number };
+          // Default operating basis since 2026-10-03: Rail B 70/30. Caches written before defaultsVersion 2 that still
+          // sit on the old defaults (Rail A, or Rail B 60/40 on the current source basis) migrate once; later choices are kept.
+          const legacyDefault = Number(cached.defaultsVersion || 0) < SCENARIO_DEFAULTS_VERSION && (cached.rail === "A" || ((cached.pssElection ?? "60-40") === "60-40" && normaliseProjectionBasis(cached.pssProjectionBasis) === "source-825"));
+          loadScenario(legacyDefault ? { ...cached, rail: "B", pssElection: "70-30", pssProjectionBasis: "source-825" } : cached);
         }
         if (raw) setSaved(JSON.parse(raw));
         if (snapshot) setReviewSnapshot(JSON.parse(snapshot));
@@ -1137,7 +1142,7 @@ export default function RetirementDashboard() {
   useEffect(() => {
     if (!scenarioHydrated) return;
     try {
-      localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify({ version: 7, updatedAt: new Date().toISOString(), ...currentScenario }));
+      localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify({ version: 7, defaultsVersion: SCENARIO_DEFAULTS_VERSION, updatedAt: new Date().toISOString(), ...currentScenario }));
     } catch { /* local preference only */ }
     const query=new URLSearchParams(sharedScenarioParams(currentScenario,theme));
     query.set("section",section);
@@ -1351,7 +1356,7 @@ export default function RetirementDashboard() {
           <AdjustableControl label="Target age" value={targetAge} min={70} max={95} step={1} baseline={75} format={(value) => `${Math.round(value)}`} onChange={setTargetAge} />
           <AdjustableControl label="Real home value" value={homeValue} min={300_000} max={1_000_000} step={25_000} baseline={HOME_BASELINE} format={money} onChange={setHomeValue} />
           <label>Salary-equivalent tax year<select value={taxYear} onChange={(e) => setTaxYear(e.target.value as TaxYear)}><option>2026-27</option><option>2027-28</option></select></label>
-          <button className="secondary wide" onClick={() => { setRailKey("B"); setPssProjectionBasis("source-825"); setPssElection("60-40"); setWashCycles(6); setSpend(110_000); setRealReturn(0.05); setLiquidityMonths(12); setTargetAge(75); setHomeValue(HOME_BASELINE); setTaxYear("2026-27"); setSimulationSeed(20260814); }}>Reset central baseline</button>
+          <button className="secondary wide" onClick={() => { setRailKey("B"); setPssProjectionBasis("source-825"); setPssElection("70-30"); setWashCycles(4); setSpend(110_000); setRealReturn(0.05); setLiquidityMonths(12); setTargetAge(75); setHomeValue(HOME_BASELINE); setTaxYear("2026-27"); setSimulationSeed(20260814); }}>Reset central baseline</button>
         </aside>
         <div className="scenario-results">
           <div className="metrics three">

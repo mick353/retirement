@@ -5632,7 +5632,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     const pssProjectionBasis=normaliseProjectionBasis(params.get("basis"));
     return{
       rail:params.get("rail")==="A"?"A":"B",
-      pssElection:normaliseElectionForBasis(pssProjectionBasis,PSS_ELECTIONS[params.get("pss")]?params.get("pss"):"60-40"),
+      pssElection:normaliseElectionForBasis(pssProjectionBasis,PSS_ELECTIONS[params.get("pss")]?params.get("pss"):"70-30"),
       pssProjectionBasis,
       spend:Number(params.get("spend"))||110000,
       realReturn:Number(params.get("return"))||.05,
@@ -5716,7 +5716,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       STATE.spendMode="fixed";
       STATE.gapBands=[{age:60,amount:Math.max(0,Math.round(shared.spend-profile.netPension)),unit:"dollar"}];
     }
-    try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:7,updatedAt:new Date().toISOString(),...shared,pssElection:isRailB?profile.pssElection:(shared.pssElection||"60-40"),pssProjectionBasis:normaliseProjectionBasis(shared.pssProjectionBasis)}));}catch(e){}
+    try{localStorage.setItem("robinson-retirement-shared-scenario",JSON.stringify({version:7,updatedAt:new Date().toISOString(),...shared,defaultsVersion:2,pssElection:isRailB?profile.pssElection:(shared.pssElection||"70-30"),pssProjectionBasis:normaliseProjectionBasis(shared.pssProjectionBasis)}));}catch(e){}
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     document.querySelectorAll(".v23-overlay.open").forEach(overlay=>overlay.classList.remove("open"));
     const main=document.querySelector("main");
