@@ -943,7 +943,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.7 · explicit Pool C funding and progressive-detail release · 2 Sep 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.9 · opt-in Adaptive Policy Comparator · 30 Sep 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1283,7 +1283,25 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-guardrails">
-      <div class="note good"><b>Guardrail spending system.</b> This does not overwrite the base model. It converts the model path into operating instructions: spend more when capital is well above target, hold normal spending in the core zone, and automatically tighten discretionary gap near the floor.</div>
+      <div class="note good"><b>Guardrail spending system.</b> Advisory guidance is the default. The Policy Comparator can also simulate an opt-in adaptive rule that changes spending before each year's return is applied. Comparisons do not change your saved plan.</div>
+      <div class="panel" id="policy-comparator">
+        <h2>Policy Comparator</h2>
+        <p class="muted smaller">Compare this plan with its adaptive version using the same economic assumptions and identical Monte Carlo return paths. Essential spending must be entered explicitly before adaptive cuts can run. Percentage-of-return spending is excluded because it uses the current year's unknown return.</p>
+        <div class="grid-2">
+          <label>Comparison basis <select id="pc_basis"><option value="total">Hold total lifestyle constant</option><option value="gap">Hold additional gap above PSS constant</option></select></label>
+          <label>Essential total spending per year ($) <input id="pc_essential" type="number" min="0" step="1000" placeholder="Required for adaptive mode"></label>
+          <label>Other PSS election <select id="pc_election"><option value="same">Current election only</option><option value="60-40">60 / 40</option><option value="65-35">65 / 35</option><option value="70-30">70 / 30</option><option value="100">100% pension</option></select></label>
+          <label>Monte Carlo paths <input id="pc_runs" type="number" min="1" max="1000" step="1" value="200"></label>
+          <label>Age 75 check <select id="pc_75_kind"><option value="informational">Informational only</option><option value="preferred">Preferred target</option><option value="hard">Hard constraint</option><option value="inactive">Inactive</option></select><input id="pc_75_amount" type="number" min="0" step="10000" placeholder="Investment capital target ($)"></label>
+          <label>Age 85 check <select id="pc_85_kind"><option value="informational">Informational only</option><option value="preferred">Preferred target</option><option value="hard">Hard constraint</option><option value="inactive">Inactive</option></select><input id="pc_85_amount" type="number" min="0" step="10000" placeholder="Investment capital target ($)"></label>
+        </div>
+        <button class="btn" type="button" id="pc_run">Compare advisory and adaptive</button>
+        <div id="pc_status" role="status" class="muted smaller"></div>
+        <div id="pc_context" class="muted smaller"></div>
+        <table id="pc_results"></table>
+        <table id="pc_checks"></table>
+        <div id="pc_paired" class="muted smaller"></div>
+      </div>
       <div class="cards" id="gr_cards"></div>
       <div class="grid-2">
         <div class="panel">
@@ -1615,7 +1633,7 @@ main{min-width:0;}
         </div>
       </div>
       <div class="panel sc-delta">
-        <h2>Delta (A − B)</h2>
+        <h2>Delta (B − A)</h2>
         <div class="cards" id="sc_delta_cards"></div>
       </div>
     </section>
@@ -1685,7 +1703,7 @@ main{min-width:0;}
       <div class="cards" id="rv_cards"></div>
       <div class="grid-2">
         <div class="panel"><h2>Ahead / behind bridge</h2><div class="chart-wrap"><canvas id="rv_chart"></canvas></div></div>
-        <div class="panel"><h2>Recommended adjustment</h2><div class="decision-grid" id="rv_reco"></div></div>
+        <div class="panel"><h2>Planning prompts to review</h2><div class="decision-grid" id="rv_reco"></div></div>
       </div>
       <div class="panel"><h2>Delta detail</h2><table id="rv_tbl"></table></div>
       <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="reviewdelta" placeholder="Add notes about the annual review variance..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
@@ -1702,7 +1720,7 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-recalibrate">
-      <div class="note"><b>Annual recalibration.</b> Enter actual current balances to see where the model sits versus the prior projection. The "recalibrated" column updates all downstream outputs.</div>
+      <div class="note"><b>Annual recalibration.</b> Enter confirmed balances and a fixed spending gap to inspect an alternative projection. The current plan and other V23 pages do not change until you explicitly edit their controls.</div>
       <div class="panel">
         <h2>Actuals entry</h2>
         <div class="recal-form">
@@ -1716,7 +1734,7 @@ main{min-width:0;}
         <button class="btn" id="btn-rc-run">Run recalibration</button>
       </div>
       <div class="panel" id="rc_result_panel" style="display:none">
-        <h2>Recalibrated vs model projection</h2>
+        <h2>Alternative projection from entered balances</h2>
         <div class="cards" id="rc_cards"></div>
         <div class="chart-wrap" style="margin-top:14px"><canvas id="rc_chart"></canvas></div>
         <table id="rc_tbl" style="margin-top:14px"></table>
@@ -1762,7 +1780,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.7";
+const APP_VERSION = "v23.9";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -2202,6 +2220,8 @@ function runModel(opts){
   const oneOffAge=opts.oneOffAge??startAge;
   const oneOffSpread=opts.oneOffSpread??1;
   const annualReturns=opts.annualReturns;
+  const policy=opts.policy||{mode:"advisory"};
+  if(policy.mode==="adaptive"&&(!Number.isFinite(policy.essentialTotal)||policy.essentialTotal<0))throw Error("Adaptive mode needs an explicit non-negative essential total spending budget.");
   let abp=opts.startAbp??(p.poolA_day1??tbcAlloc.poolA);
   let acc=opts.startAcc??(p.poolB_day1??tbcAlloc.poolB);
   let poolC=opts.startPoolC??(p.poolC_day1??0);
@@ -2226,9 +2246,16 @@ function runModel(opts){
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
     const investmentReturn=Math.max(0,preAbp*rA+preAcc*rB+prePoolC*rC);
     const requestedGap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age),spendMode,spendReturnPct});
-    const targetSpend=totalSpendTarget===null||totalSpendTarget===undefined
-      ? p.netPension+requestedGap
+    const desiredTotal=totalSpendTarget===null||totalSpendTarget===undefined
+      ? (opts.referencePension??p.netPension)+requestedGap
       : Math.max(0,Number(totalSpendTarget))*Math.pow(1+gapGrowth,t);
+    // The decision sees only opening balances, age and the desired budget. Current returns
+    // are used later by the existing ledger. Return-based spending is ex-post and excluded.
+    if(policy.mode==="adaptive"&&(spendMode==="returnPct"||bandAtAge(age,gapBands)?.unit==="returnPct"))throw Error("Adaptive mode cannot use current-year percentage-of-return spending.");
+    const decision=policy.mode==="adaptive"
+      ? adaptivePolicyDecision({age,openingCapital:preAbp+preAcc+prePoolC,desiredTotal,essentialTotal:policy.essentialTotal,p, multipliers:policy.multipliers})
+      : {permittedTotal:desiredTotal,multiplier:1,zone:"Advisory"};
+    const targetSpend=decision.permittedTotal;
     const pensionSpent=Math.min(p.netPension,targetSpend);
     const pensionSurplus=Math.max(0,p.netPension-targetSpend);
     const gap=Math.max(0,targetSpend-p.netPension);
@@ -2260,11 +2287,21 @@ function runModel(opts){
       if(abp>aCap){poolC+=abp-aCap;abp=aCap;}
     }
     rows.push({
-      age,targetSpend,gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,poolCDraw,oneOffDrawn,oneOffPoolCDrawn,
+      age,targetSpend,desiredTotal,policyMultiplier:decision.multiplier,policyZone:decision.zone,policyCut:Math.max(0,desiredTotal-targetSpend),gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,poolCDraw,oneOffDrawn,oneOffPoolCDrawn,
       abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,pension:p.netPension,pensionSpent,pensionSurplus,headroom,rA,rB,rC
     });
   }
   return{rows,tbcAlloc};
+}
+
+function adaptivePolicyDecision({openingCapital,desiredTotal,essentialTotal,p,multipliers}){
+  if(essentialTotal>desiredTotal)throw Error("Essential spending exceeds desired total spending.");
+  const thresholds=[(p.floor||0)*1000+100000,(p.target||0)*1000,(p.strong||0)*1000,(p.strong||0)*1000+250000];
+  const index=openingCapital<thresholds[0]?0:openingCapital<thresholds[1]?1:openingCapital<thresholds[2]?2:openingCapital<thresholds[3]?3:4;
+  const allowed=multipliers||[.70,.90,1,1.20,1.35];
+  if(!Array.isArray(allowed)||allowed.length!==5||allowed.some(v=>!Number.isFinite(v)||v<0))throw Error("Five non-negative adaptive multipliers are required.");
+  const multiplier=allowed[index];
+  return {permittedTotal:essentialTotal+(desiredTotal-essentialTotal)*multiplier,multiplier,zone:["Protect floor","Caution","Core plan","Upside","Legacy surplus"][index]};
 }
 
 /* ========== MONTE CARLO ========== */
@@ -2299,6 +2336,111 @@ function runMC(opts){
   const targets=[p.floor*1000,p.target*1000,p.strong*1000,2_000_000];
   const probs=targets.map(T=>samplesAtTarget.filter(v=>v>=T).length/N);
   return{years,pcts,percentiles:result,samplesAtTarget,probs,targets,startAge,samples};
+}
+
+/* ========== PAIRED POLICY COMPARATOR ========== */
+function policyReturnPaths({runs,years,mean,sd,seed}){
+  if(!Number.isInteger(runs)||runs<1||runs>1000||!Number.isInteger(years)||years<1||!Number.isFinite(mean)||!Number.isFinite(sd)||sd<0||!Number.isSafeInteger(seed))throw Error("Invalid Monte Carlo settings.");
+  // Zero is remapped: xorshift32 with a zero state never advances.
+  const base=(seed>>>0)||0x6d2b79f5;
+  return Array.from({length:runs},(_,i)=>{
+    const random=seededRandom((base+Math.imul(i+1,7919))>>>0||0x6d2b79f5);
+    return Array.from({length:years},()=>{const ret=sd===0?mean:Math.max(-.55,Math.min(.45,mean+sd*gauss(random)));return{A:ret,B:ret*.85};});
+  });
+}
+function policySummary(sim,profile,checks,essentialTotal=0){
+  const rows=sim.rows.filter(r=>!r.launchSnapshot);
+  const at=age=>sim.rows.find(r=>r.age===age);
+  const age75=at(75)?.total??null,age85=at(85)?.total??null;
+  const result={
+    fundedLifetime:rows.reduce((s,r)=>s+r.fundedTotalSpend,0),
+    funded60to69:rows.filter(r=>r.age<=69).reduce((s,r)=>s+r.fundedTotalSpend,0),
+    funded60to74:rows.filter(r=>r.age<=74).reduce((s,r)=>s+r.fundedTotalSpend,0),
+    discretionary60to74:rows.filter(r=>r.age<=74).reduce((s,r)=>s+Math.max(0,r.fundedTotalSpend-essentialTotal),0),
+    age75,age85,cutYears:rows.filter(r=>r.policyCut>0.01).length,
+    anyCutOver10:rows.some(r=>r.desiredTotal>0&&r.policyCut/r.desiredTotal>.10),
+    shortfallYears:rows.filter(r=>r.spendingShortfall>0.01).length,
+    coreShortfallYears:rows.filter(r=>r.fundedTotalSpend+0.01<essentialTotal).length,
+    terminalInvestment:sim.rows.at(-1).total
+  };
+  result.constraints=checks.map(c=>{
+    const value=c.age===75?age75:age85;
+    return{...c,value,headroom:value===null?null:value-c.amount,breach:c.kind==="hard"&&value!==null&&value<c.amount};
+  });
+  result.hardBreach=result.constraints.some(c=>c.breach);
+  result.binding=result.constraints.filter(c=>c.kind==="hard"&&c.headroom!==null).sort((a,b)=>a.headroom-b.headroom)[0]||null;
+  return result;
+}
+function comparatorChecks(){
+  return[75,85].map(age=>{
+    const kind=document.getElementById(`pc_${age}_kind`).value;
+    const raw=document.getElementById(`pc_${age}_amount`).value.trim();
+    const amount=raw===""?null:Number(raw);
+    if((kind==="hard"||kind==="preferred")&&(!Number.isFinite(amount)||amount<0))throw Error(`Age ${age} ${kind} check needs an explicit non-negative amount.`);
+    return{age,kind,amount};
+  });
+}
+function pairedPolicyOutcome(a,b){
+  return{spend:b.funded60to74-a.funded60to74,capital85:b.age85-a.age85,advisory85:a.age85,adaptive85:b.age85,better85:b.age85>a.age85,advisoryBreach:a.hardBreach,adaptiveBreach:b.hardBreach,avoidsBreach:a.hardBreach&&!b.hardBreach,cut:b.anyCutOver10,advisoryShortfall:a.shortfallYears>0,adaptiveShortfall:b.shortfallYears>0,advisoryCore:a.coreShortfallYears>0,adaptiveCore:b.coreShortfallYears>0};
+}
+function signedPolicyMoney(amount){return `${amount<0?"−":"+"}${fmt$(Math.abs(amount))}`;}
+function comparatorCandidates(profile,semantics,otherElection){
+  const candidates=[{id:"current",label:"Current election",profile}];
+  if(otherElection!=="same"){
+    if(!isRailBProfile(profile))throw Error("Across-election comparison requires Rail B.");
+    const other=railBProfileForElection(otherElection,STATE.pssProjectionBasis);
+    if(other.pssElection!==profile.pssElection)candidates.push({id:"other",label:`${otherElection} election`,profile:other});
+  }
+  return candidates.map(candidate=>{
+    const common={profile:candidate.profile,abpReturn:STATE.likely,accumReturn:STATE.likely*.85,gapBands:STATE.gapBands.map(b=>({...b})),gapGrowth:STATE.gapGrowth,spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,oneOff:STATE.oneOff,poolCPolicy:STATE.poolCPolicy,poolCDrag:STATE.poolCDrag,endAge:95};
+    if(semantics==="total"){
+      // Carry the reference election's desired total through every candidate and age.
+      if(STATE.totalSpendTarget!==null)common.totalSpendTarget=STATE.totalSpendTarget;
+      else if(STATE.spendMode==="fixed"&&common.gapBands.every(b=>b.unit==="dollar"))common.referencePension=profile.netPension;
+      else throw Error("Same-total comparison needs dollar gap bands or an explicit total-spend target.");
+    }else{
+      if(STATE.totalSpendTarget!==null){common.totalSpendTarget=null;common.gapBands=[{age:profile.retireAge,amount:Math.max(0,STATE.totalSpendTarget-profile.netPension),unit:"dollar"}];}
+      else common.totalSpendTarget=null;
+    }
+    return{...candidate,options:common};
+  });
+}
+function renderPolicyComparator(){
+  const status=document.getElementById("pc_status");
+  try{
+    status.textContent="Calculating paired paths…";
+    const profile=getProfile(),semantics=document.getElementById("pc_basis").value;
+    const essentialRaw=document.getElementById("pc_essential").value.trim();
+    if(essentialRaw==="")throw Error("Enter essential total spending before comparing adaptive cuts.");
+    const essentialTotal=Number(essentialRaw);
+    if(!Number.isFinite(essentialTotal)||essentialTotal<0)throw Error("Essential spending must be non-negative.");
+    const checks=comparatorChecks();
+    const candidates=comparatorCandidates(profile,semantics,document.getElementById("pc_election").value);
+    const runs=Number(document.getElementById("pc_runs").value);
+    const paths=policyReturnPaths({runs,years:95-profile.retireAge,mean:STATE.likely,sd:STATE.vol,seed:STATE.simulationSeed});
+    const results=[];
+    for(const c of candidates){
+      const baseline=policySummary(runModel({...c.options,policy:{mode:"advisory"}}),c.profile,checks,essentialTotal);
+      const adaptivePolicy={mode:"adaptive",essentialTotal};
+      const adaptive=policySummary(runModel({...c.options,policy:adaptivePolicy}),c.profile,checks,essentialTotal);
+      const paired=paths.map(path=>{
+        const a=policySummary(runModel({...c.options,annualReturns:path,policy:{mode:"advisory"}}),c.profile,checks,essentialTotal);
+        const b=policySummary(runModel({...c.options,annualReturns:path,policy:adaptivePolicy}),c.profile,checks,essentialTotal);
+        return pairedPolicyOutcome(a,b);
+      });
+      results.push({candidate:c,baseline,adaptive,paired});
+    }
+    const labels=semantics==="total"?"Hold total lifestyle constant":"Hold additional gap above PSS constant";
+    document.getElementById("pc_context").textContent=`${labels} · ${openingSourceLabel(profile)} · real return ${(STATE.likely*100).toFixed(1)}% · volatility ${(STATE.vol*100).toFixed(1)}% · seed ${STATE.simulationSeed} · ${runs} identical paths per policy/election · age 95 horizon. Advisory remains the active plan. Investment capital excludes the home; after-tax estate is not ranked because component coverage is incomplete.`;
+    renderTable("pc_results",results.flatMap(({candidate,baseline,adaptive})=>[[candidate.label+" · advisory",fmt$(candidate.profile.netPension),fmt$(baseline.funded60to69),fmt$(baseline.funded60to74),fmt$(baseline.discretionary60to74),fmt$(baseline.fundedLifetime),fmt$(baseline.age75),fmt$(baseline.age85),baseline.cutYears,baseline.shortfallYears,baseline.coreShortfallYears],[candidate.label+" · adaptive",fmt$(candidate.profile.netPension),fmt$(adaptive.funded60to69),fmt$(adaptive.funded60to74),fmt$(adaptive.discretionary60to74),fmt$(adaptive.fundedLifetime),fmt$(adaptive.age75),fmt$(adaptive.age85),adaptive.cutYears,adaptive.shortfallYears,adaptive.coreShortfallYears]]),["Election / policy","PSS p.a.","Funded age 60–69","Funded age 60–74","Discretionary age 60–74","Funded lifetime","Investments @75","Investments @85","Cut years","Unfunded years","Core shortfall years"]);
+    renderTable("pc_checks",results.flatMap(({candidate,baseline,adaptive})=>[baseline,adaptive].flatMap((r,i)=>r.constraints.map(c=>[candidate.label+(i?" · adaptive":" · advisory"),c.age,c.kind,c.kind==="inactive"?"—":c.value===null?"Not evaluated":fmt$(c.value),c.kind==="hard"||c.kind==="preferred"?c.value===null?"Not evaluated":`${c.headroom>=0?"Met":"Missed"} (${signedPolicyMoney(c.headroom)})`:"No threshold",r.binding?.age===c.age?"Binding hard check":"—"]))),["Policy","Age","Check","Capital","Result","Binding"]);
+    document.getElementById("pc_paired").innerHTML=results.map(({candidate,paired})=>{
+      const quantile=(key,p)=>{const sorted=paired.map(x=>x[key]).sort((a,b)=>a-b);return sorted[Math.floor((sorted.length-1)*p)];};
+      const pct=key=>Math.round(100*paired.filter(x=>x[key]).length/paired.length)+"%";
+      return `<p><b>${candidate.label} paired Monte Carlo:</b> age-85 investment median advisory ${fmt$(quantile("advisory85",.5))}, adaptive ${fmt$(quantile("adaptive85",.5))}; age-85 investment P10 advisory ${fmt$(quantile("advisory85",.1))}, adaptive ${fmt$(quantile("adaptive85",.1))}. Paired adaptive minus advisory median funded age 60–74 ${signedPolicyMoney(quantile("spend",.5))}; median age-85 investment ${signedPolicyMoney(quantile("capital85",.5))}; P10 age-85 investment delta ${signedPolicyMoney(quantile("capital85",.1))}. Adaptive higher capital @85 on ${pct("better85")} of paths; hard-check breach advisory ${pct("advisoryBreach")}, adaptive ${pct("adaptiveBreach")}; avoids an advisory breach on ${pct("avoidsBreach")}; any core shortfall advisory ${pct("advisoryCore")}, adaptive ${pct("adaptiveCore")}; any permitted-spending shortfall advisory ${pct("advisoryShortfall")}, adaptive ${pct("adaptiveShortfall")}; adaptive cuts desired spending by more than 10% in at least one year on ${pct("cut")}.</p>`;
+    }).join("");
+    status.textContent="Comparison complete. No plan settings were changed.";
+  }catch(error){status.textContent=error.message;document.getElementById("pc_results").innerHTML="";document.getElementById("pc_checks").innerHTML="";document.getElementById("pc_paired").textContent="";}
 }
 
 /* ========== SEQUENCE ENGINE ========== */
@@ -3683,7 +3825,7 @@ function renderPoolCETF(){
   const ti=seriesA.length-1;
   document.getElementById("petf_cards").innerHTML=`
     <div class="card"><div class="label">Tax rate (marginal)</div><div class="value">${(taxRate*100).toFixed(0)}%</div></div>
-    <div class="card"><div class="label">Effective CGT (50% disc)</div><div class="value">${(effectiveCGT*100).toFixed(1)}%</div></div>
+    <div class="card"><div class="label">CGT rate illustration (not applied below)</div><div class="value">${(effectiveCGT*100).toFixed(1)}%</div></div>
     <div class="card accent"><div class="label">Model Pool C @${seedAge}</div><div class="value">${fmt$(poolC0)}</div><div class="sub">Seeded from likely-path surplus routing</div></div>
     <div class="card good"><div class="label">VGS/BGBL @95</div><div class="value">${fmt$(seriesV[ti])}</div></div>
     <div class="card"><div class="label">Blend @95</div><div class="value">${fmt$(seriesA[ti])}</div></div>
@@ -3873,6 +4015,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.9","Sep 2026","Added an opt-in closed-loop adaptive spending comparison to the V23 Guardrail page. It uses explicit essential spending, paired return paths, election semantics and configurable age-75/85 investment checks; the active plan remains advisory."],
     ["v23.8","Sep 2026","Activated the direct prudent-basis 100% pension estimate from the 9 September CSC source, preserving its own $162,485.36 FAS and no-lump/TBC treatment. Added the latest 9 September payroll evidence without mixing payroll cashflow with provider retirement outputs."],
     ["v23.7","Sep 2026","Added an explicit Pool C spending policy (preserve, or use only after Pools A and B), with ledger-level withdrawals, shortfall protection, reinvestment reconciliation and CSV/state persistence. Profile and plan controls now collapse to live summaries; the lifestyle table defaults to an essential view with full accounting available on demand; chart keyboard labels describe the visible series."],
     ["v23.6","Sep 2026","Replaced the easily misread funded-gap-versus-minimum ratios in the lifestyle table with Target funded, Mandatory used and Gap ÷ portfolio earnings. Added plain-English funding conclusions and repeated the active PSS option, CSC provider basis and post-retirement real return beside the results."],
@@ -3942,7 +4085,7 @@ function renderGuardrails(){
     <div class="card ${taRow.gr.cls}"><div class="label">Current target-age zone</div><div class="value">${taRow.gr.zone}</div><div class="sub">${taRow.gr.action}</div></div>
     <div class="card"><div class="label">Normal gap @${STATE.targetAge}</div><div class="value">${fmt$(taRow.gap)}</div><div class="sub">Before guardrail multiplier</div></div>
     <div class="card accent"><div class="label">Guardrail gap @${STATE.targetAge}</div><div class="value">${fmt$(taRow.gap*taRow.gr.mult)}</div><div class="sub">${Math.round(taRow.gr.mult*100)}% of base gap</div></div>
-    <div class="card"><div class="label">Tighten / expand years</div><div class="value">${cuts} / ${ups}</div><div class="sub">Ages with automatic adjustment</div></div>
+    <div class="card"><div class="label">Tighten / expand years</div><div class="value">${cuts} / ${ups}</div><div class="sub">Advisory suggestions on the unchanged path</div></div>
   `;
   makeChart("gr_chart",{type:"line",data:{labels:rows.map(r=>r.age),datasets:[
     {label:"Base gap",data:rows.map(r=>r.gap),borderColor:tc.soft,tension:.2},
@@ -4506,6 +4649,8 @@ function renderBandRows(){
 function onBandChange(){STATE.totalSpendTarget=null;updateLabels();renderBandRows();rerenderAll();saveState();}
 
 function wireBandEditor(){
+  const compare=document.getElementById("pc_run");
+  if(compare)compare.addEventListener("click",renderPolicyComparator);
   const add=document.getElementById("btn-add-band");
   if(add)add.addEventListener("click",()=>{
     const age=nextAvailableBandAge();
@@ -4794,7 +4939,7 @@ document.addEventListener("DOMContentLoaded",init);
 /* ---------- per-page guide content ---------- */
 const GUIDE = {
 executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target age tested against the floor, target and strong bands, with traffic-light badges and the wash-strategy status line.",h:["Start every session here.","Badges recompute live as you move any assumption slider.","Green = clears the band on the likely path; amber = clears only in stronger cases; red = breach."],f:[
-["Floor / Target / Strong badges","Capital at the target age tested against the three bands set in the profile. Floor = must never breach; Target = acceptable outcome; Strong = aspirational."],
+["Floor / Target / Strong badges","Capital at the selected target age tested against three planning bands. Floor is the lower target-age band, Target is the desired band and Strong is aspirational. This check does not test every intervening year."],
 ["Floor margin / Target margin","Dollar gap between projected capital at target age and that band. Negative = breach."],
 ["Wash strategy line","A planning status only: the engine uses a birthday-model proxy. A real wash requires the verified prior-30-June TSB, current cap, legal timing and provider/ATO eligibility confirmation."],
 ["TBC planning anchor","The $2.1M transfer balance cap used for Day-1 allocation (real dollars)."],
@@ -4803,19 +4948,19 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Presentation answer","One-sentence verdict suitable for reading out: does the plan clear the bands, and with how much margin."],
 ["Executive scenario table","Conservative 4%, reference 5%, and active-return rows with capital, margins and status at the target age."],
 ["Active capital @target / reference range","The active card follows the selected likely-return control. The separate 4–5% range is a labelled comparison reference."],
-["Day 1 values note","Confirms that opening balances follow the active profile: the governed Rail A control or the selected 1 Sep 2026 Rail B PSS election."],
+["Day 1 values note","Opening balances follow Rail A or the selected source-backed Rail B election and provider basis. The prudent 100% election uses the 9 September source."],
 ["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
 ["NCC blocked","A planning warning only. It cannot determine real non-concessional contribution eligibility because the model does not hold the actual prior-30-June TSB or provider timing evidence."]]},
 decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting evidence cards — built to be printed and filed with the annual review.",h:["Use Print → Brief pack for a filing copy.","Each evidence card cites the page that proves it — follow them for depth.","If the recommendation ever changes between reviews, log why in the Decision log."],f:[
-["Recommendation","The single action verdict under current assumptions (typically: maintain strategy, spend to plan)."],
-["Evidence cards","Each card is one claim (floor safety, sequence immunity, DBT elimination, bequest range) with the number that supports it."],
+["Recommendation","A model-generated planning suggestion under current inputs. Check source dates, funding shortfalls and downside paths before deciding an action."],
+["Evidence cards","Each card links a model claim (floor margin, sequence sensitivity, wash effect or bequest range) to its supporting number."],
 ["Assumptions strip","The exact slider settings the brief was generated under — check it matches the ledger before printing."],
 ["Actions","The short list of standing actions (contributions, review cadence, wash timing) currently open."],
 ["Base case @target / 4% downside @target","The headline capital outcomes the brief is built on: your likely path and the conservative stress path, both at the target age."],
 ["Floor / Target / Strong","The three capital bands from the profile ($1.2M / $1.5M / $1.75M). Every probability and guardrail on the tool is measured against these."]]},
-overview:{t:"Overview",w:"The active Day-1 architecture: selected PSS election, TBC allocation, three-scenario trajectory and mandatory ABP draw schedule.",h:["Rail A is the historical control; the four Rail B buttons load exact 1 September source sets.","The allocation grid shows the order money moves on Day 1; the draw table shows the statutory minimums thereafter."],f:[
+overview:{t:"Overview",w:"The active Day-1 architecture: selected PSS election, TBC allocation, three-scenario trajectory and mandatory ABP draw schedule.",h:["Rail A is the historical March/V5 control. Both Rail B bases have four direct CSC estimates; the prudent 100% pension estimate is dated 9 September, while its other three elections are dated 1 September.","The allocation grid shows the order money moves on Day 1; the draw table shows planning minimums. The provider determines actual financial-year payments."],f:[
 ["Combined capital @60","PSS commuted lump sum + projected Hostplus balance — the total rollover pool."],
-["Gross / Net PSS pension","Formula pension (FAS × ABM ÷ PCF, 60% retained). Net = after the over-60 tax offset treatment. Gross is only used to compute the special value."],
+["Gross / Net PSS pension","Gross is the selected source pension before tax treatment; net is the source estimate of spendable pension income. The gross amount also determines the modelled ×16 transfer-balance special value."],
 ["Pension special value (SV)","Gross pension × 16 — the amount the DB pension consumes of the transfer balance cap. Fixed at commencement, never re-indexed."],
 ["TBC at retirement","$2.1M planning anchor (today's dollars)."],
 ["Initial TBC headroom","TBC − SV: the room left for Pool A."],
@@ -4824,15 +4969,15 @@ overview:{t:"Overview",w:"The active Day-1 architecture: selected PSS election, 
 ["Hostplus → Pool B","Any overflow above the cap parks in accumulation (15% earnings tax) and is withdrawn to Pool C on Day 1."],
 ["Day-1 headroom remaining","Should read ≈ $5,000 — the deliberate buffer below the cap."],
 ["Mandatory draw schedule","Current ABP minimum percentage bands used for planning. The provider calculates the legal financial-year payment, including a pro-rated first year; these rows show available income, not spending that must occur."]]},
-pre60:{t:"Pre-60 tracker",w:"Contribution phases from now to December 2033 and the projected Hostplus balance at 60, with a recalibration panel for live balances.",h:["Enter your actual Hostplus balance at each statement and hit Recalculate to re-anchor the projection.","Phase timing follows the master plan; the phase cards show what changes and when."],f:[
+pre60:{t:"Pre-60 tracker",w:"A dated contribution-plan tracker to December 2033, with an editable Hostplus sensitivity and a comparison against the fixed source-backed retirement opening.",h:["Enter an actual Hostplus balance and age to test the tracker. This page displays a sensitivity; it does not replace the retirement opening used elsewhere.","The phase cards describe the original plan dates. Check actual contribution records before treating a phase as completed."],f:[
 ["Projected Hostplus @60","Current trajectory outcome under the return assumption — feeds the Overview combined-capital figure."],
 ["Phase 1 (to Jul 2026)","Liquidity phase: growth only, no new contributions while the cash/debt runway completes."],
 ["Phase 2 (Jul 2026)","$650/pf salary sacrifice begins — all SS, nil direct."],
 ["Phase 3 (Mar 2028)","$650/pf SS + $550/pf direct = $1,200/pf total."],
 ["Current age / balance inputs","Recalibration inputs — use actual statement figures, not estimates."],
 ["Annual real return assumption","The pre-60 growth rate used for the Hostplus projection (real, after fees)."],
-["Projected Hostplus @60","Quarterly compounding from your entered balance and start age. The loop previously ran 31 quarters across a 30-quarter window — one extra quarter of growth AND contribution, overstating the balance by ~$12,569. Fixed. NOTE: this page is a tracker only; the retirement model uses the LOCKED $317,448 Hostplus figure and is unaffected either way."],
-["Reconciliation gap","With the default inputs ($24,522 @52.5, 6.5%, $650pf then +$550pf) this page projects ~$293k, against the locked master figure of $317,448. The difference is real and expected: the master figure includes assumptions this page does not model (e.g. the Apr-2027 salary-increment boost to $900pf). Do not treat the two as contradicting each other."]]},
+["Projected Hostplus @60","A quarterly tracker from the entered balance, age and real-return assumption through the dated contribution phases. It does not automatically replace the fixed Hostplus opening in the retirement model."],
+["Reconciliation gap","The tracker and the fixed $317,448 retirement opening use different inputs and timing. A gap is a prompt to check current statements and contribution assumptions; editing this tracker does not automatically update the retirement model."]]},
 twopool:{t:"Three-pool structure",w:"Mechanics and balances of Pool A (ABP, 0% earnings tax), Pool B (accumulation transit, normally opens $0) and Pool C (external ETF).",h:["The default preserves Pool C; the alternative policy uses it only after Pools A and B cannot fund the remaining spending gap.","Use the donuts to see composition shift from super-dominated to Pool-C-heavy across retirement."],f:[
 ["Pool A @60","Tax-free account-based pension opening balance — the compounding engine, sized to kiss the cap."],
 ["Pool B @60","$0 — transit vehicle only; anything landing here moves out on Day 1 (and later hosts wash re-contributions until each cycle commutes)."],
@@ -4845,7 +4990,7 @@ trajectory:{t:"Capital trajectory",w:"Total and per-pool capital paths by age un
 ["Three-scenario chart","Conservative / Base / Strong total-capital lines against the floor, target and strong reference bands."],
 ["Waterfall","Each bar is one year's net capital change on the likely path, split into its drivers."],
 ["Pools chart","Pool A vs B vs C vs Total on the likely path — shows the A-shrinks/C-grows crossover."]]},
-income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor plus tax-free ABP draws, with the ramped-draw lifestyle phases.",h:["Income here is what is available, not what must be spent — surplus routes to Pool C automatically.","All post-60 super draws are tax-invisible: never treat them as assessable income."],f:[
+income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor plus modelled ABP draws, with age-band lifestyle phases.",h:["Compare desired and funded spending. Income shown as available does not have to be spent; unspent modelled surplus routes to Pool C.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
 ["Avg total usable income","Mean of pension + consumed draws across the horizon (real)."],
 ["PSS net pension (CPI-flat)","The floor: constant in real terms because CPI indexation exactly offsets inflation."],
 ["Lifetime usable to 95","Cumulative real income available across the whole horizon."],
@@ -4871,33 +5016,43 @@ income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor p
 ["Lifestyle spending (gap)","Second chart, amber line: everything you actually spent above the pension (drawn from the mandatory minimum + any voluntary extra). Where it rises ABOVE the green area you are consuming capital, not just growth."],
 ["Retained earnings (compounds)","Second chart, dashed line: earnings minus spending. Positive = growth left invested to compound. Below the zero line = net capital erosion."],
 ["LIFETIME 60–95 row","Bold whole-plan result. Dollar columns show either the stated per-year average or the lifetime total; Target funded, Mandatory used and Gap ÷ portfolio earnings use lifetime totals so short phases do not distort the result."],
-["Exact dollars","This table now shows exact figures, not $k. The old rounding made 'Avg mandatory $34k − Avg drawn $29k = $6k surplus' look like it did not add up; the truth was $34,156 − $28,500 = $5,656."]]},
-guardrails:{t:"Guardrail spending",w:"Spending-band editor with pre-agreed raise/cut rails: rules decided now for lifting or trimming discretionary spend later, based on where capital sits against the bands.",h:["Edit bands directly or apply a preset, then read the zone chart.","Rails exist to remove in-the-moment judgement — if a rail fires at review, follow it."],f:[
+["Exact dollars","Use the full-dollar table values when reconciling funded spending, mandatory draws and surplus; rounded chart labels are for orientation."]]},
+guardrails:{t:"Guardrail spending",w:"Advisory zone instructions remain the default. The opt-in Policy Comparator runs the same plan with closed-loop adaptive spending on identical economic assumptions and paired return paths.",h:["First enter annual essential total spending: the amount the rule must not cut. This is a spending budget, not automatically the PSS pension. Then choose comparison basis, optional second PSS election and any age-75/85 checks; press Compare advisory and adaptive.","Read funded spending, cut years and investment capital together. A higher balance may reflect spending less. Running the comparison never changes your saved plan."],f:[
 ["Current target-age zone","Which band (below floor / floor–target / target–strong / above strong) the projection currently lands in."],
 ["Before guardrail multiplier","The spend level before any rail adjustment is applied."],
-["Tighten / expand years","How many years of the horizon have an automatic adjustment active."],
+["Tighten / expand years","Years where the unchanged projection falls into a tighten or expand zone. The active plan is not automatically changed."],
 ["Base gap vs Guardrail gap","Your entered spending gap versus the gap after rails adjust it."],
 ["Zone (table)","The band the portfolio occupies at each age."],
-["Spend factor","The multiplier the rail applies to the gap in that zone (e.g. 0.9 = trim 10%)."],
-["Instruction","The plain-language action for that age/zone — this is the operational rule."],
+["Spend factor","In advisory mode this is a suggested multiplier. In the opt-in adaptive comparison it adjusts only desired spending above the entered essential total budget."],
+["Instruction","The suggested response for that age and zone. It remains advisory unless you separately choose to act or run an adaptive comparison."],
 ["Normal gap @target","What your live spend rule produces at the target age, before any guardrail adjustment."],
 ["Guardrail gap @target","The same gap after the zone multiplier (70% / 90% / 100% / 120% / 135%). Advisory only — it does not feed back into the projection."],
-["Tighten / expand years","How many ages in the projection fall into a cut zone versus an upside zone."]]},
+["Comparison basis","Hold total lifestyle keeps overall desired spending the same across PSS elections. Hold additional gap above PSS keeps the extra programme the same, so total spending changes with the pension."],
+["Comparison availability","Across-election comparison requires Rail B. Hold total lifestyle needs dollar age bands or an explicit total-spending target. Percentage-of-current-return spending cannot run an opening-year adaptive decision."],
+["Age 75 and 85 checks","Informational is the default. Preferred shows a goal without treating a miss as a hard breach. Hard requires your explicit amount and flags a miss. These are investment-capital checks and exclude the home."],
+["Paired Monte Carlo","Advisory and adaptive policies face the same simulated return path. Median is the middle sampled result; P10 is a weaker sampled result, not a guaranteed worst case. Read the spending delta beside the investment delta."],
+["Funded age 60–69 / 60–74 / lifetime","Cumulative total spending the ledger actually funds over each stated age span, in today's dollars. These columns are sums, not annual amounts."],
+["Discretionary age 60–74","Cumulative funded spending above the entered essential total budget across those years. A higher value means more above-essential lifestyle was funded."],
+["Investments @75 / @85","Pool A+B+C investment capital at those ages. The home, after-tax estate and any separately held asset outside these pools are excluded."],
+["Cut / unfunded / core shortfall years","Cut years have an adaptive policy reduction from desired spending. Unfunded years miss permitted spending. Core shortfall years fund less than the entered essential budget. Check all three beside capital."],
+["Paired delta and breach frequency","Adaptive minus advisory is computed within each identical return path. Positive capital delta may reflect less spending. A hard-check breach frequency is the share of sampled paths missing an explicitly entered hard threshold, not forecast odds."],
+["Coverage boundary","The comparator does not rank after-tax inheritance or infer a cash reserve from invested Pool C assets. It leaves the active plan and Command Centre flat comparison unchanged."],
+["Tighten / expand years","How many ages in the advisory projection fall into a cut zone versus an upside zone."]]},
 reinvest:{t:"Drawdown & reinvestment",w:"Where mandatory draws go when they exceed spending, and whether the selected policy later uses Pool C to support a gap.",h:["This is why Pool C can grow with no planned deposits — it is the default destination for forced-draw surplus.","Negative bars are explicit Pool C withdrawals, permitted only under the use-after-A/B policy."],f:[
 ["Pool C recycling and use (chart)","Positive bars are dollars recycled to Pool A or Pool C; negative bars are Pool C used for spending after A/B under the selected policy."],
 ["Reinvestment table","Year-by-year: compulsory draw, amount spent, surplus banked, Pool C withdrawal, return and ending balance."],
 ["Surplus → Pool A (TBC headroom)","While transfer-balance headroom exists (e.g. after a wash commutation), surplus can re-enter the 0%-tax pension phase — the preferred destination."],
 ["Surplus → Pool C (External ETF)","Once the cap is saturated, surplus defaults outside super. This is the dominant recycling pathway in the plan."],
 ["Pool C reconciliation","Every ending balance reconciles as prior balance + Pool C return + deposits − explicit withdrawals. This makes the preserve/use-after-A/B choice auditable rather than implied."]]},
-oneoff:{t:"One-off capacity",w:"How much can be pulled out in a single hit (car, renovation, gift) without breaching the floor band — tested at each scenario return.",h:["Set the one-off amount on the sidebar slider, then read the capacity cards.","Capacity is the maximum single withdrawal at retirement that still clears the floor at the target age."],f:[
+oneoff:{t:"One-off capacity",w:"A modelled one-off capacity at retirement, checked against the investment floor at the selected target age under each stated return.",h:["Set the one-off amount in Plan controls, then read the capacity cards.","The result checks one target-age balance under a constant return. It does not guarantee the path between retirement and that age."],f:[
 ["Max @ Conservative (4%)","Largest Day-1 one-off that still clears the floor if returns run at 4% real."],
 ["Max @ Base (5%) / Strong (7%)","Same test at the base and strong returns — the spread shows how return-sensitive spare capacity is."],
 ["One-off withdrawal at retirement","The amount currently set on the slider, shown against those maxima."],
 ["Max @ Likely (your return)","Capacity computed at whatever the sidebar likely-return slider says — the other cards pin 4/5/7%."],
 ["'stay above floor @age' sub-line","The binding condition: the maximum shown is the largest Day-1 withdrawal that still clears the floor at the target age."],
 ["Max @ Strong (7%)","One-off capacity computed under the optimistic 7% real return — the upper reference. Read alongside the 4%/5% cards to see how much the answer depends on returns."],
-["Chart title","Now states the floor in full ($1,200,000). Earlier builds truncated it to '$1k floor' — a display bug, never a calculation error."]]},
-bequest:{t:"Bequest projection",w:"Estate value passing to your beneficiary by age and scenario — capital only; the PSS pension itself ends at death (no residual capital value).",h:["Read alongside Estate & DBT for the after-tax position.","The by-age table is the honest answer to 'what does she get if I die at X'."],f:[
+["Chart title","Shows the active target age and floor amount used for the one-off capacity test."]]},
+bequest:{t:"Bequest projection",w:"Modelled investment capital by age and return scenario. This page excludes the home, taxes and any possible survivor entitlement.",h:["Read alongside Estate & DBT for illustrative tax effects and beneficiary assumptions.","The by-age table shows the projected pool balances, not a guaranteed inheritance amount."],f:[
 ["Bequest trajectory","Total capital (A+B+C) by age of death, per scenario."],
 ["Bequest at key ages","Snapshot table at 65/70/75/80/85/90/95."],
 ["Series: Conservative/Base/Likely — Total","Total-capital bequest paths per return scenario."],
@@ -4908,28 +5063,28 @@ wash:{t:"NCC wash & DBT",w:"Wash-only planning schedule for the residual taxable
 "The 'Status' column tells you exactly why a year did or did not wash.",
 "Compare separate and merged interests to see why provider implementation matters."],
 f:[
-["The wash, in plain English","Each year you commute a sum out of Pool A and immediately put the same sum back as a non-concessional (after-tax) contribution. After-tax money arrives as 100% TAX-FREE component. So the round trip swaps taxable money for tax-free money. Your balance is unchanged; your death-tax bill shrinks."],
-["Why bring-forward is NOT available to you","NCC capacity depends on your total super balance at the prior 30 June. The Optimiser deliberately holds your TSB at ~$2,095,000 (the $5,000 buffer under the $2.1M cap). That sits in the $1.97M–$2.10M band = $130,000, one-year cap. Bring-forward ($260k / $390k) needs a TSB below $1.97M, which you never have. That is exactly why the master doc sets the wash at $130,000/yr."],
+["The wash, in plain English","The illustration withdraws part of the original PSS-derived super interest and re-contributes an eligible after-tax amount into a separate interest. Under the modelled component method this can reduce taxable dollars exposed to death-benefit tax. It depends on contribution eligibility, provider setup and real account components."],
+["Bring-forward and NCC eligibility","The model uses a one-year NCC planning amount. Actual capacity depends on the previous 30 June total super balance, current caps, prior contributions and eligibility. This page cannot establish whether a bring-forward arrangement is available; verify it with current ATO and fund records."],
 ["Component method — the execution control","<b>Separate interests:</b> the clean NCC amount is kept apart, so each commutation from the original interest uses that interest's opening component proportion. This is the strategy model.<br><b>Merged interest:</b> clean money is blended into the same interest and later washes become less effective. This is a warning comparator only. Confirm Hostplus supports the required structure before acting."],
-["Annual wash amount","Default $130,000 = the 1-year NCC cap from 1 July 2026, which is also your maximum given the TSB band."],
+["Annual wash amount","The default $130,000 is the model's 2026–27 one-year NCC planning amount, not a verified personal entitlement. Check the current cap and your own eligibility before any contribution."],
 ["Start age / Maximum washes / planning cutoff","Start and cutoff remain planning controls. The maximum is also capped mechanically by the active original PSS lump: Rail A 5, Rail B 60/40 6, 65/35 5, 70/30 4, and 100% pension 0. Recheck legal timing and eligibility before each contribution."],
-["Stop when remaining DBT ≤","The auto-stop. Washing halts once the projected liability falls to this figure ($10,000 in the master doc), so you never wash pointlessly."],
+["Stop when remaining DBT ≤","A modelled stop threshold for the wash schedule. It does not decide whether a real transaction is worthwhile after costs, tax and provider rules."],
 ["Year-by-year schedule (editable)","Type an amount into any year to override the annual default; leave blank to use the default; type 0 to skip that year. This is your hand-built schedule — useful if cash flow is lumpy or you want to pause in a weak market. 'Clear all overrides' resets to the flat annual amount."],
 ["Status column","Why a planning year washed or did not: before start age, max washes reached, DBT target met, or the planning cutoff. Verify real eligibility before any contribution."],
-["NCC capacity","The annual cap determined from the prior 30 June TSB. The simulator caps the attempted wash to that amount. A withdraw-and-recontribute cycle does not consume extra distance to the transfer balance cap."],
+["NCC capacity","The simulator applies its planning cap to the attempted amount. It does not know your verified prior-30-June total super balance or remaining personal cap; check both before acting."],
 ["Residual taxable share (%) — right axis","Residual modelled taxable dollars divided by the live super balance. It is a wash-only planning indicator, not a provider statement of the account's current component proportion."]]},
-estate:{t:"Estate & DBT analysis",w:"Death-benefits-tax exposure on super paid to a non-dependant: a deliberately severe ceiling versus the active PSS source's wash-only taxable-dollar schedule, plus illustrative Pool C CGT.",h:["Rail A and every Rail B election use their own PSS iEstimator components; Hostplus components remain unresolved and are excluded from the modelled mid-case component claim.","Refresh actual components annually; estate-at-death and later beneficiary disposals are distinct tax events."],f:[
+estate:{t:"Estate & DBT analysis",w:"Illustrative death-benefit-tax and Pool C gain scenarios beside gross investment capital.",h:["Rail A and each Rail B election use their own PSS source components. Hostplus components remain unresolved, so the modelled tax result is incomplete.","Confirm beneficiary status and current components. Death-benefit tax and any later sale of investments are different events."],f:[
 ["Before any death tax","Gross capital — the ceiling on the estate."],
-["Worst-case line","Floor on estate value: assumes 100% of super taxable at 17% and full Pool C balance taxed at 23.5% CGT. Deliberately pessimistic."],
+["Worst-case line","A deliberately severe illustration: it taxes all super at the model's 17% death-benefit rate and applies a simplified 23.5% reduction to the full Pool C balance. It is not a proven minimum inheritance."],
 ["Modelled wash case","DBT at 17% on residual taxable dollars from the active wash schedule; Pool C CGT remains an illustrative 15% effective rate on an assumed 50% unrealised gain."],
-["Tax dependant note","Super paid to a spouse or other tax dependant attracts zero DBT — the whole analysis only matters for adult-child beneficiaries."],
+["Tax dependant note","The model's death-benefit-tax scenario assumes a non-tax-dependant beneficiary. Actual beneficiary classification and tax treatment must be confirmed."],
 ["Estate composition donut","Split of the target-age estate across pools and tax treatments."],
-["Gross estate (no tax)","Total capital at death with zero tax applied — the ceiling, useful only as a reference against the two taxed lines."],
+["Gross estate (no tax)","Modelled investment capital before the illustrated taxes and costs. It is a reference amount, not a guaranteed amount received."],
 ["Pool C after CGT @ (max tax)","Worst-case external estate: the FULL Pool C balance treated as a realised gain at the top marginal rate with the 50% discount (23.5% effective). The mid case taxes only the assumed ~50% unrealised gain at ~15% effective."],
 ["The NCC wash is modelled here","Residual taxable dollars flow from the NCC wash page into this page. The worst-case cards still assume 100% taxable and no wash as a deliberate stress ceiling."],
 ["Modelled after-tax @target","Active wash schedule plus the stated Pool C gain assumption. It is decision support, not a tax return or provider component statement."]]},
-montecarlo:{t:"Monte Carlo fan",w:"Percentile fan across randomised return paths at the volatility you set — the honest uncertainty picture around the single-line projections.",h:["Increase MC runs for smoother bands (slower on phones).","Focus on P10: even the bad-luck decile should clear the floor."],f:[
-["P10 (downside)","10% of simulated paths end below this line — the pessimistic-but-plausible outcome."],
+montecarlo:{t:"Monte Carlo fan",w:"Sampled capital percentiles across simplified random-return paths at the volatility you set.",h:["Increase MC runs for smoother sampled bands (slower on phones). Keep the seed fixed when comparing input changes.","Read P10 beside the floor at each age and check the funded-spending table separately. A percentile is not a guarantee or a personal forecast."],f:[
+["P10 (downside)","At each age, about 10% of this run's sampled capital values are below this percentile. It is a sample statistic, not a worst case."],
 ["P25 / P50 / P75","Lower quartile, median (central path), upper quartile."],
 ["P90 (upside)","Only 10% of paths end above this — the lucky-decile outcome."],
 ["Fan width","Wider = more outcome uncertainty; driven directly by the volatility slider."],
@@ -4937,36 +5092,36 @@ montecarlo:{t:"Monte Carlo fan",w:"Percentile fan across randomised return paths
 ["P10/P25/Median/P75/P90 @target cards","The percentile capital values at the target age, matching the fan lines at that vertical slice."],
 ["Re-render stability","The fixed simulation seed keeps unchanged inputs identical across re-renders. Use New repeatable sample only when you deliberately want to inspect a different set of paths."],
 ["Median @target","The P50 path value at the target age — half the simulated outcomes land above it, half below."]]},
-histogram:{t:"Outcome histogram",w:"Full distribution of capital at the target age across all simulated paths.",h:["A long right tail with no mass below the floor is the desired shape.","Compare the median to the deterministic base case — big gaps mean volatility drag is material."],f:[
+histogram:{t:"Outcome histogram",w:"Distribution of investment capital at the selected target age across the model's sampled paths.",h:["Look at the share of bars below the floor as well as the middle and upper tail.","Compare the median with the deterministic base case; any gap reflects the sampled return paths under this model, not a measured forecast error."],f:[
 ["P10 / P25 / Median / P75 / P90","Percentile capital values at target age."],
-["Mean","Average across paths — sits above the median because return distributions are right-skewed."],
-["Bars below floor","The visual floor-breach probability; should be zero or negligible."],
+["Mean","Average of the sampled target-age balances. It may differ from the median when the sample is skewed."],
+["Bars below floor","The portion of sampled target-age outcomes below the selected planning floor. It may be substantial under adverse inputs."],
 ["Floor breach (< floor) %","The stat-table row giving the exact share of simulated paths ending below the floor — the single number summarising downside risk."],
 ["Re-render stability","The histogram is fixed for unchanged inputs and seed. The Spend-% slider has a real effect only in Override mode; use New repeatable sample when you deliberately want a different path set."],
 ["Target","The target-band reference marker on the distribution — read the mass of outcomes to the right of it."]]},
-longevity:{t:"Longevity risk",w:"Capital survival to advanced ages: probability of remaining above the floor at each age out to 95+.",h:["The pension never depletes — this page is about the capital stack around it.","Read the @85 and @95 cards as 'chance the estate cushion is still intact'."],f:[
+longevity:{t:"Longevity risk",w:"Sampled investment-capital threshold frequencies at later ages.",h:["This page tests the capital stack, not whether a future pension payment is guaranteed.","Read the age-85 and age-95 cards as model frequencies above the stated capital floor; inspect spending shortfalls separately."],f:[
 ["Survival (≥floor) @85","Share of simulated paths still above the floor band at 85."],
 ["Survival (≥floor) @95","Same at 95 — the stress case for a four-decade retirement."],
 ["Survival curve","Breach risk by age; a flat curve near 100% is the signature of a floor-protected structure."],
 ["Survival (≥target) @target","Stricter test: share of paths still above the TARGET band (not merely the floor) at the target age."],
-["P(capital > 0)","Absolute depletion probability — capital exhausted entirely. Should read ~100% survival throughout; the pension floor makes true ruin structurally impossible for lifestyle, this measures the capital stack only."],
+["P(capital > 0)","Share of sampled paths with positive investment capital at that age. It does not show whether desired spending was fully funded."],
 ["P(>= floor) / P(>= target)","Probability that capital is still at or above the floor / target band at each age, so you can read survival deep into the tail rather than only at the target age."]]},
-sequence:{t:"Sequence of returns",w:"The same average return delivered in different orders: best-first vs likely vs worst-first, exposing the classic early-crash retiree risk.",h:["Because the residual draw is only ~2.7% of capital, early crashes dent the bequest, not the lifestyle — verify that here.","If the worst-ordering line still clears the floor, sequence risk is contained."],f:[
-["Best / likely / worst ordering","Identical returns, re-ordered: strongest years first, actual draw order, weakest years first."],
-["Spread at target age","Gap between orderings = pure sequence effect, isolated from average-return effects."],
-["Best ordering (luck) / Smooth (likely) / Worst ordering (shock)","The three series: identical annual returns re-ordered best-first, in the smooth expected order, and worst-first. The vertical spread between them is pure sequence effect."]]},
+sequence:{t:"Sequence of returns",w:"A sensitivity showing how the order of annual returns can change modelled capital.",h:["Compare the best-first and worst-first paths with the smooth reference, then inspect any funded-spending shortfall.","A target-age floor pass in this test does not remove other sequence, spending or longevity risks."],f:[
+["Best / smooth / worst ordering","Best and worst use the same constructed annual returns in opposite order. Smooth uses a constant mean return as a separate reference."],
+["Spread at target age","The gap between best-first and worst-first uses the same constructed returns and isolates their ordering under this model."],
+["Best ordering / Smooth / Worst ordering","Best and worst reorder one constructed set of annual returns. The smooth line assumes the same constant return each year; differences from smooth include more than ordering alone."]]},
 sensitivity:{t:"Sensitivity scenarios",w:"Named what-if scenarios (return shifts, spending shifts, combinations) with end-capital under each.",h:["Use to find which combination first threatens the floor.","Pair with Tornado to see which single lever matters most."],f:[
 ["Scenario rows","Each row is one pre-defined assumption change from base."],
 ["Capital under each scenario","End-capital at target age; compare against the bands."],
 ["Floor / Target reference lines","Band lines drawn across the scenario bars — a bar ending below the floor line is the failure signature."],
-["The four reference cases","'Low gap $18k', 'Default $24k', 'Higher $36k' are pinned to a FIXED-DOLLAR rule so they remain true reference points even when a global override is active. Previously they silently inherited the override and all four cases spent the same."],
+["The four reference cases","The named low, default and higher gap cases use fixed-dollar spending rules. They remain reference points when your live plan uses a percentage override."],
 ["Your current spend rule","The last row is your live setting — whichever of the three modes is active. Compare it against the fixed-dollar references above it to see what your rule actually costs."]]},
-breakeven:{t:"Breakeven returns",w:"Capital at target age plotted against the real-return assumption: the curve shows the minimum return needed to hit each band.",h:["If the floor breakeven is near 0% real, lifestyle is essentially market-proof.","The target and strong crossings tell you what markets must deliver for upside goals."],f:[
+breakeven:{t:"Breakeven returns",w:"Target-age investment capital under different constant real-return assumptions.",h:["Read the floor crossing as the constant return this model needs to reach that target-age band, with all other inputs held fixed.","A low crossing shows less sensitivity to this one assumption; it does not make spending or capital market-proof."],f:[
 ["Breakeven curve","End-capital as a function of assumed real return, all else at current settings."],
 ["Band crossings","Where the curve intersects floor / target / strong — the breakeven returns."],
 ["Floor / Target / Strong @age cards","The breakeven real returns themselves: the minimum constant real return at which capital at the target age exactly reaches that band."],
 ["Floor @ / Target @","The constant real return required, from now to the target age, for capital to land exactly on that band. Compare against your likely-return slider: a large margin means the band is not return-dependent."]]},
-stress:{t:"Stress test",w:"Deterministic crash scenarios — a defined drawdown at a defined age — applied on top of the current settings.",h:["Try a 30–40% crash at 61 versus 75 to see timing effects explicitly.","Recovery shape matters less than the floor margin at trough — check the table."],f:[
+stress:{t:"Stress test",w:"Defined market-shock illustrations applied to the current plan.",h:["Try an early and a later shock to see how timing changes the modelled path.","Check capital, target-age floor margin and funded spending; a single chosen shock is not a complete downside range."],f:[
 ["Base vs adverse path","Likely path against the same path with the crash injected."],
 ["Stress sensitivity table","Capital at key ages under each stress variant, with floor margin."],
 ["Base case vs Adverse sequence","The two chart series: your likely path versus the same assumptions with the crash sequence injected."],
@@ -4978,27 +5133,27 @@ probability:{t:"Simulation results",w:"Simplified Monte Carlo success frequencie
 ["P(>= strong)","Share of sampled paths clearing the aspirational band at the target age — a stress indicator, not odds."],
 ["P(capital > 0)","Sampled non-depletion frequency for the capital stack; the pension itself cannot deplete."],
 ["Re-render stability","Results reproduce for unchanged inputs and seed. A changed seed is a deliberately different sample, not a model-input result; compare inputs using the same seed."],
-["P(>= floor) / P(>= target) / P(>= strong)","Monte Carlo sample frequencies of clearing each capital band at the target age. They omit fees, legislation, payment timing, account routing and personal spending shocks."]]},
+["P(>= floor) / P(>= target) / P(>= strong)","The share of sampled paths above each investment-capital band at the target age. The simulation uses the model's pool routing but does not represent future market regimes, rule changes, actual fund payment timing or personal spending shocks."]]},
 tornado:{t:"Tornado sensitivity",w:"Ranked bars: how much each single assumption moves capital at the target age when flexed through its plausible range.",h:["Spend review energy where the bars are long; ignore short bars.","Return and gap dominate in this structure; drag and one-offs are second-order."],f:[
 ["Driver bars","Each bar = one assumption flexed low→high, all else held; length = dollar impact."],
 ["Tornado detail table","The exact low/high values used and resulting capital range per driver."],
 ["Downside / Upside bars","Each driver is flexed both ways: Downside = capital when the assumption moves against you, Upside = when it moves in your favour. Bar length = total swing."],
 ["Lifestyle gap driver (mode-aware)","In age-band mode this flexes the gap between $40k (adverse) and $18k (favourable). Under an override it instead flexes the SLIDER by ±25 points, because the dollar bands are ignored in that mode. Note: at 100% of mandatory drawdown the adverse bar is legitimately ZERO — you cannot spend more than the compulsory minimum under that rule, so there is no downside left to test."],
-["Downside vs Upside sign","Downside is always the assumption moving AGAINST you (lower return, higher drag, HIGHER spending). Prior versions inverted this for the lifestyle-gap driver; it is now consistent across all four."]]},
-health:{t:"Health events",w:"Late-life care-cost shocks layered onto the projection: lump-sum and elevated-spend scenarios.",h:["Model residential-care entry as a one-off plus a raised gap in the final years.","The floor pension keeps paying regardless — the question is only estate impact."],f:[
+["Downside vs Upside sign","Downside means a less favourable value for the selected driver, such as lower return or higher spending. The table shows the actual low and high inputs used."]]},
+health:{t:"Health events",w:"Illustrative one-off and continuing extra-cost patterns layered onto the projection.",h:["Select a cost pattern and compare its capital path with the no-event reference.","Read any spending shortfall as well as estate impact. Actual care needs, fees and pension rules may differ."],f:[
 ["Scenario cards","Pre-built health-cost patterns (event size, age, duration)."],
 ["Impact chart/table","Capital path with the event versus without."],
 ["Capital @target / Floor status","End-capital and floor verdict for each health scenario."],
 ["Total event cost / vs base","The summed cost of the event pattern, and the capital delta versus the healthy base (with margin change)."],
 ["Base (healthy)","The no-event reference path. Every health scenario is read as a delta against this, not in isolation."]]},
-cpishock:{t:"CPI shock",w:"A sustained inflation pulse: the PSS pension is CPI-indexed (protected), but Pool C real returns take the drag you set.",h:["Set spike size, duration and starting age; read the real-terms wealth impact.","This isolates the asymmetry: the floor is inflation-proof, the capital stack is not."],f:[
+cpishock:{t:"CPI shock",w:"A modelled inflation pulse with pension-indexation lag and a chosen real-return drag.",h:["Set spike size, duration and starting age, then compare investment capital under base and shock paths.","The illustration does not prove that actual pension payments, expenses or invested assets will fully offset inflation."],f:[
 ["CPI shock magnitude","Size of the inflation pulse above baseline."],
 ["Shock duration (yrs)","How many years the pulse persists."],
 ["Shock starting age","When it begins."],
 ["Real return drag","The real-return haircut applied to invested capital during the shock."],
 ["Base vs CPI shock series","The likely path with and without the inflation pulse — the wedge between them is the cumulative real-wealth cost of the shock."],
 ["Base @ / CPI shock @","Capital at the target age with and without the inflation pulse. The gap between them is the cumulative real cost of the shock, including the pension-indexation lag year."],
-["Shock duration (fixed)","The duration slider now drives the pension leg. Previously the real pension was cut for ONE year no matter what duration you set — the indexation-lag cost was identical at 1yr and 5yr. It now bites every year of the window: cost at age 75 runs ~$50k (1yr) → $98k (2yr) → $144k (3yr) → $230k (5yr)."]]},
+["Shock duration","How many model years the inflation pulse and pension-indexation lag are applied. Compare the live base and shock paths rather than using a fixed example amount."]]},
 scencomp:{t:"Scenario comparison",w:"Two full assumption sets side-by-side: Scenario A is your current sliders; Scenario B is set on this page. Delta cards quantify B − A.",h:["Use before changing any standing assumption — quantify the difference first.","Save either side to a slot if you want to keep it."],f:[
 ["Scenario A — Current (likely)","Snapshot of the live sidebar settings."],
 ["Right: Real return","Scenario B's real-return assumption (right-hand panel = B)."],
@@ -5006,7 +5161,7 @@ scencomp:{t:"Scenario comparison",w:"Two full assumption sets side-by-side: Scen
 ["Right: Volatility","Scenario B's return standard deviation for its Monte Carlo run."],
 ["Total capital / Pool A / B / C","End-values at target age under each scenario."],
 ["Mandatory draw / Lifestyle gap","Average forced draw and the spending gap each scenario assumes."],
-["Delta (A − B) cards","Signed differences; includes floor/target probability deltas so you see risk movement, not just dollars."],
+["Delta (B − A) cards","Each signed difference is Alternative B minus Current A. The simulation-frequency differences use percentage points, not relative percent."],
 ["MC P(>= floor)","Share of that scenario's own Monte Carlo paths ending at or above the floor at the target age. Each side runs its own MC: A at the sidebar volatility, B at the Right: Volatility slider."],
 ["MC P(>= target)","Same test against the target band — the upside-probability counterpart."],
 ["vol N% (card sub-line)","Which volatility fed that card's Monte Carlo: A shows the sidebar setting, B shows its own slider. If the two vols differ, the probabilities are not like-for-like on risk."],
@@ -5020,8 +5175,8 @@ saveslots:{t:"Scenario save slots",w:"Save and reload named assumption sets in t
 ["Clear","Empties the slot."],
 ["Scenario notes","Free-text rationale — write why the scenario exists."],
 ["Slot / Saved / Return","Three named scenario slots stored in the browser. Each captures the full assumption set — including the spend mode and % — so a saved slot reproduces exactly."],
-["Storage keys","Slots are stored under v23_slot_A/B/C. Slots saved by earlier builds are read automatically as a fallback, so nothing you saved is lost."]]},
-poolcetf:{t:"Pool C ETF tool",w:"Mix, yield and tax drag for the external Pool C portfolio: global index (VGS/BGBL-style) versus tech-tilted (NDQ-style) and blends.",h:["The canonical drag assumption is 0.35%/yr — this page tests alternatives.","Drag only applies to the distributed slice; unrealised growth compounds untaxed until sale."],f:[
+["Storage keys","Slots live in this browser. Export settings to keep a portable copy; browser storage can be cleared or unavailable on another device."]]},
+poolcetf:{t:"Pool C ETF tool",w:"A separate simplified sensitivity for the external Pool C portfolio: broad-market, growth-tilted and blended return assumptions.",h:["Compare the displayed after-distribution-tax returns and age-95 balances with the main model's separate 0.35% annual Pool C drag assumption.","This page compounds one selected Pool C starting balance. It does not replace the main ledger, model future deposits or calculate a sale-time CGT bill."],f:[
 ["Global ETF gross real return","Assumed real return for the broad-index sleeve."],
 ["Tech-tilted ETF gross real return","Assumed real return for the NDQ-style sleeve."],
 ["Marginal tax rate","Your rate applied to distributions (and effective CGT at half that with the 50% discount)."],
@@ -5030,22 +5185,22 @@ poolcetf:{t:"Pool C ETF tool",w:"Mix, yield and tax drag for the external Pool C
 ["VGS/BGBL @95 · Blend @95 · NDQ-adj @95","Pool C end-balances under each strategy."],
 ["Blend (default)","The modelled Pool C mix: 65% broad-market + 35% growth/tech, using the two return sliders."],
 ["Broad (e.g. VGS/BGBL)","The broad-market leg of the blend — its slider sets that component's gross return."],
-["Effective CGT (50% disc)","Your marginal rate x the 50% CGT discount. Applied to the distribution/yield share only, not the whole balance — this is the AMIT drag that makes Pool C the least tax-efficient pool."]]},
-reviewdelta:{t:"What changed?",w:"Annual review comparator: enter live balances and months elapsed; the page computes drift versus the model and recommends stay/adjust.",h:["Feed it actual Pool A/B/C balances from statements, not estimates.","Follow the status verdict — the thresholds were set in calm conditions."],f:[
+["Effective CGT (50% disc)","A displayed marginal-rate illustration only. The age-95 lines subtract the selected tax rate from the distribution share; they do not apply this CGT figure to a later sale."]]},
+reviewdelta:{t:"What changed?",w:"Device-local annual review comparison of entered balances against the modelled balances at the selected age.",h:["Enter confirmed Pool A/B/C balances, elapsed months and actual spending gap from records.","Read the dollar delta first. The Ahead/On track/Behind threshold is a planning prompt, not an instruction to change spending without review."],f:[
 ["Actual Pool A / B / C","Live balances entered at review."],
 ["Model Pool A / B / C","What the projection said they should be at this date."],
 ["Delta","Actual − model, per pool and total."],
-["Actual gap","Realised spending gap over the period, backed out of the numbers."],
-["Status: Ahead / On track / Behind","Verdict with its standing instruction (e.g. Behind → hold one-offs, tighten gap until next review)."],
+["Actual gap","The spending gap you enter from records; this page does not calculate it from the pool balances."],
+["Status: Ahead / On track / Behind","A planning label based on the entered total's dollar difference from the model. Review actual evidence before changing the plan."],
 ["Actual vs model / Balance","Side-by-side of modelled versus real pool balances at review time, with the dollar delta per pool."],
-["Drift vs model (annualised)","Was mislabelled 'Implied review return'. It is NOT a return — it is actual ÷ model, annualised: the EXCESS over the modelled return. 0% means you are exactly on the modelled path, not that you earned nothing."]]},
-triggers:{t:"Action triggers",w:"Pre-agreed thresholds that convert drift into action — the operational arm of the guardrails, with a timeline view.",h:["If a trigger fires at review, execute its action; that is the entire point of setting it in advance.","Adviser notes persist locally and export with settings."],f:[
+["Drift vs model (annualised)","The entered total divided by the modelled total, scaled over the entered months. Zero means the balances match the model; it is not your investment return."]]},
+triggers:{t:"Action triggers",w:"Planning prompts based on modelled thresholds, with a timeline view.",h:["When a trigger shows Active, check actual balances and the assumptions behind it before choosing an action. This page does not change spending automatically.","Adviser notes persist locally and export with settings."],f:[
 ["Trigger register","Each row: condition, threshold, action, status."],
 ["Active triggers","Count currently firing under live settings."],
 ["Primary risk trigger","The first line of defence (floor-margin based)."],
 ["Estate/tax trigger","Wash-progress and DBT-exposure conditions."],
 ["Trigger timeline","When each trigger becomes testable across the horizon."],
-["Floor defence trigger","Fires when capital at the target age drops below floor + $100k. Action: cut discretionary spending ~30% and pause one-offs."],
+["Floor defence trigger","Shows Active when modelled target-age capital is below the floor plus $100k. The displayed cut and pause are advisory prompts for review; this page does not apply them."],
 ["Floor margin @target","Capital at the target age minus the floor band — your headroom. This is the number the whole guardrail system watches."]]},
 audit:{t:"Assumption audit",w:"Every live assumption with its source, default and current value — the integrity page.",h:["After any settings import or major change, verify this page reads sensibly before trusting outputs.","Source register maps each figure to its canonical document."],f:[
 ["Assumption register","Name, current value, default, and source for every model input."],
@@ -5053,22 +5208,22 @@ audit:{t:"Assumption audit",w:"Every live assumption with its source, default an
 ["DBT parameters","Death-benefits tax 17%; opening PSS taxable dollars come directly from the active iEstimator. Hostplus components remain unresolved."],
 ["Parameter / Value / Notes","Every live assumption in one table, read straight from the current sliders — the page to screenshot before making changes so you can prove what the run assumed."],
 ["Pool A / B / C (Day 1)","The active profile opening. Rail A and shared Rail B remain distinct and must not reuse one another’s Pool A or Pool C values."],
-["Pool C tax drag","Displayed to 2 decimals. Your canonical AMIT drag is 0.35%/yr — earlier builds rounded the display to 0.4% and, worse, wrote 0.4% back into the model if you touched the slider. Fixed."],
-["Floor / Target / Strong capital","Now shown with thousands separators. Earlier builds printed the raw concatenation '$1200000'."]]},
-recalibrate:{t:"Annual recalibration",w:"Re-anchor the whole projection to actual balances once a year: enter actuals, run, and adopt the recalibrated path as the new baseline.",h:["Run after the June statements; Export settings afterwards as the new baseline.","Pre-retirement, the Hostplus field substitutes for Pool balances."],f:[
+["Pool C tax drag","The selected annual modelled reduction to Pool C return. The default is 0.35%; actual tax and fund costs may differ."],
+["Floor / Target / Strong capital","The active investment-capital amounts for the three target-age planning bands. They exclude the home."]]},
+recalibrate:{t:"Annual recalibration",w:"Compare an alternative projection from entered balances and a fixed gap with the current model path.",h:["Enter confirmed balances and review the recalibrated chart and floor margin.","Running this page does not overwrite saved plan settings or adopt a new baseline. Record a decision separately if the actuals justify changing the plan."],f:[
 ["Actuals entry","Current age, actual pool balances (or Hostplus if pre-60), and current annual gap."],
-["Run recalibration","Rebuilds the projection from the actuals instead of the Day-1 model."],
-["Recalibrated vs model chart","Old path versus re-anchored path."],
+["Run recalibration","Shows a projection beginning at the entered age and balances. It leaves the current V23 plan unchanged."],
+["Recalibrated vs model chart","The chart shows the alternative capital path and floor line. Use the cards to compare its target-age capital with the current base path."],
 ["Floor margin","Post-recalibration margin at the target age — the number that decides whether anything changes."],
-["Actual pool total / Actual vs model at age","Enter real balances from your statements; the page reports the drift against the modelled path and an implied annualised return, then classifies you Ahead / On track / Behind (±$100k band)."],
-["Actual gap (fixed)","The gap you enter now genuinely drives the recalibrated projection. Previously, if a global spend override was active, this input was silently ignored and the override rule was applied instead."]]},
+["Actual pool total / Actual vs model at age","The entered Pool A/B/C total is compared with the modelled balance at that age. The page shows a dollar difference; it does not infer an actual investment return."],
+["Actual gap (fixed)","The fixed annual gap entered for this alternative projection. It does not change your active age bands or percentage spend rule."]]},
 checklist:{t:"Annual review checklist",w:"The full review procedure as a persistent tick-list, printable for filing.",h:["Progress saves in this browser; Print for a signed file copy.","Reset all at the start of each annual cycle."],f:[
 ["Checklist sections","Statement gathering → recalibration → delta review → triggers → decision log → export/backup."],
 ["Progress bar","Completion across all items this cycle."]]},
 decisions:{t:"Decision log",w:"Settled decisions with dates and evidence — the do-not-relitigate register — plus version history of the dashboard itself.",h:["If a question is answered here, it is closed. Log any new decision with its evidence.","Version history records what changed in each dashboard build."],f:[
 ["Decision register","Records the active PSS election comparison, Hostplus assumptions, buffers and eventual decision evidence."],
-["PSS election decision","The four 1 Sep 2026 Rail B options remain selectable what-ifs. 60/40 is the default comparison; use this register to record the eventual election and evidence."],
-["Version history","Dashboard build lineage; current entry should be V23."],
+["PSS election decision","Both Rail B bases have four source-backed what-ifs. The prudent 100% pension source is dated 9 September; use the register to record a later election and its evidence."],
+["Version history","The dated model and interface changes recorded by the site. Use the current page heading and source date when filing a result."],
 ["Decision notes","Free-text log, saved locally, included in settings export."],
 ["Current version / Pool split (Day 1) / TBC anchor","The immutable record: which build produced a result, the locked Day-1 allocation, and the $2.1M transfer-balance-cap planning anchor."]]}
 };
@@ -5077,46 +5232,46 @@ decisions:{t:"Decision log",w:"Settled decisions with dates and evidence — the
 const CONTROLS = [
 ["Profile and PSS election","Michael preserves the Rail A control. The four Rail B election buttons load exact September source values. Custom fields remain available for deliberate non-source what-ifs."],
 ["Retirement age","Pension start age. Locked plan: 60 (Dec 2033). Changing it moves every downstream date."],
-["Gross PSS pension (pa)","Formula pension before tax treatment; used only to compute the special value (× 16)."],
+["Gross PSS pension (pa)","Selected source pension before tax treatment. The model also uses it to calculate the ×16 transfer-balance special value."],
 ["Net PSS pension (pa)","The spendable floor after the over-60 offset — the number all spending sits on top of."],
-["PSS lump sum","The 60% commutation amount rolled to Pool A on Day 1."],
+["PSS lump sum","The lump amount for the selected source election; it can be zero under 100% pension."],
 ["Other super (Hostplus)","Accumulation balance at 60 joining the Day-1 allocation."],
 ["TBC at retirement","Transfer balance cap anchor ($2.1M real). Pool A is sized to this minus the special value minus the $5k buffer."],
 ["Default gap (pa)","Annual lifestyle spending ABOVE the net pension, in real dollars. The single most powerful lever in the model."],
-["Floor / Target / Strong","The three capital bands (at the target age) every page tests against. Floor = must not breach."],
+["Floor / Target / Strong","Three investment-capital planning bands at the selected target age. A target-age pass does not test every intervening year."],
 ["Annual gap by age band","Piecewise spending: different gap levels for different age ranges. Overrides the flat default gap."],
 ["Band presets","Flat (constant), Ramp (rising), Front-load (heavy 60s), Base lifestyle, Travel-heavy 60s, Floor protection (defensive), Legacy maximiser (lean spend), Shock recovery (post-crash trim)."],
 ["Gap real growth","Extra real escalation applied on top of the bands — models lifestyle creep beyond CPI."],
-["Annual spend mode","THE master switch (OR function) — three mutually exclusive rules for the annual gap ABOVE the PSS pension. (1) <b>Use age bands</b>: your banded schedule drives spending and the % slider is inert. (2) <b>Override: % of investment earnings</b>: gap = N% of that year's positive Pool A + Pool C earnings. Earnings run ~1.72x the mandatory draw at 6.5%, so any setting above ~58% pushes spending PAST the ABP minimum and forces a voluntary extra Pool A draw. (3) <b>Override: % of mandatory drawdown</b>: gap = N% of the compulsory ABP minimum — can NEVER exceed it, so no extra Pool A draw ever occurs and the unspent remainder routes to Pool C. Both overrides ignore (but preserve) the age bands. Negative-return years give a $0 gap in earnings mode."],
-["Spend % (override slider)","One slider, two possible denominators — the caption above it and the note beside it always name the live one. In <b>% of investment earnings</b> mode, 100% = spend the entire year's portfolio return (~$57,816 in year 1 at Day-1 values and 6.5%), which requires drawing ~$24,181 above the ABP minimum. In <b>% of mandatory drawdown</b> mode, 100% = spend the entire compulsory minimum (~$33,635 in year 1) and route $0 to Pool C. The two are NOT interchangeable: 50% of earnings equals ~86% of the mandatory draw. Inert and dimmed in age-band mode."],
+["Annual spend mode","Choose one rule for desired spending above PSS: age bands, a percentage of positive current-year investment earnings, or a percentage of the modelled mandatory ABP draw. The percentage rules ignore but preserve the age bands. Earnings and mandatory draw are different amounts, so the same percentage can produce different spending. The current-year earnings rule is excluded from the adaptive Policy Comparator because that return is unknown at its opening decision."],
+["Spend % (override slider)","The caption names the active denominator: positive investment earnings or the modelled mandatory draw. The slider is inactive in age-band mode. Compare desired with funded spending after changing it; a target may exceed what the chosen pool policy supplies."],
 ["Target age","The horizon age at which the bands are tested (default 75; slider adjustable)."],
-["Likely real return","Central real (after-inflation) return for the deterministic paths and the Monte Carlo mean. Base case 5%."],
+["Likely real return","A chosen after-inflation return for the deterministic path and sampled-return mean. It is an assumption, not a forecast."],
 ["Volatility (std dev)","Annual return standard deviation for Monte Carlo. Higher = wider fan, fatter tails."],
 ["One-off this year","A single lump withdrawal at retirement (car, renovation) — capacity tested on the One-off page."],
-["Pool C ETF drag","Annual tax drag on Pool C distributions. Canonical: 0.35%/yr (upper bound)."],
+["Pool C ETF drag","The main model's 0.35% annual Pool C distribution-drag assumption. It is not a measured upper bound or a complete personal tax calculation."],
 ["MC runs","Number of Monte Carlo paths. More = smoother percentiles, slower recompute (especially mobile)."]];
 
 /* ---------- glossary ---------- */
 const _PRESET_NOTE=1;
 const GLOSSARY = [
 ["Real dollars","Today's purchasing power. Every figure in this dashboard is real unless explicitly labelled nominal — a 2045 number is directly comparable to a 2026 one."],
-["Floor / Target / Strong bands","Capital thresholds at the target age. Floor = the never-breach line; Target = the planned outcome; Strong = the aspirational band."],
+["Floor / Target / Strong bands","Investment-capital thresholds at the selected target age. Floor is the lower planning band; a result above it at that age does not prove it stayed above it in every year."],
 ["Gap","Annual spending above the net PSS pension. The pension covers the base; the gap is what capital must fund."],
 ["TBC — Transfer Balance Cap","Lifetime cap ($2.1M) on capital moved into 0%-tax retirement phase. The DB pension consumes special value; Pool A takes the rest."],
 ["Special value (SV)","Gross DB pension × 16 — the TBC amount the pension consumes at commencement. Fixed forever, never re-indexed."],
 ["TSB — Total Super Balance","All super interests measured each 30 June. Governs NCC eligibility — the wash commutation must land before the snapshot."],
 ["ABP minimum draw","Current annual ABP rate band used for planning. The provider calculates the legal financial-year minimum, including any first-year pro-rating; unspent withdrawals can route to Pool C."],
-["DBT — Death benefits tax","17% (including Medicare levy) on the taxable-taxed component of super paid to a non-dependant. The engine uses the active rail's modelled opening component share."],
-["NCC wash","Withdraw from Pool A tax-free, re-contribute as a non-concessional contribution: converts taxable component to tax-free, eliminating DBT over ~6–7 cycles from 61."],
+["DBT — Death benefits tax","The model applies a 17% illustrative rate to the sourced taxable-taxed PSS component under its non-tax-dependant beneficiary scenario. Hostplus components and real beneficiary circumstances need separate confirmation."],
+["NCC wash","A modelled withdraw-and-recontribute strategy using the original PSS lump as a limited source. Cycles and tax effects depend on the chosen election, verified contribution eligibility and provider handling; 100% pension has no PSS lump to wash."],
 ["Taxable / tax-free components","Super's internal tax split. Rail A and each Rail B option use the exact split from their own PSS iEstimator; Hostplus is kept unresolved rather than borrowing the PSS ratio. Confirm provider execution before acting."],
-["Sequence risk","Same average return, bad years first — the classic retiree hazard. Contained here because the residual draw is ~2.7%."],
+["Sequence risk","Early weak investment returns can change later capital and spending support even when long-run average returns are similar. The Sequence page tests selected orderings."],
 ["P10 … P90","Monte Carlo percentiles: P10 = 10% of paths end lower (downside decile); P50 = median; P90 = upside decile."],
-["Guardrails","Pre-agreed spend adjustments triggered by portfolio zone — decided in calm, executed mechanically."],
+["Guardrails","Zone-based spending suggestions are advisory by default. The opt-in Policy Comparator tests a closed-loop adaptive rule without changing the saved plan."],
 ["FAS / ABM / PCF","PSS pension inputs: Final Average Salary × Accrued Benefit Multiple ÷ Pension Conversion Factor (11 at 60)."],
 ["Cap-kiss allocation","Day-1 sequence sizing Pool A to just under the TBC ($5,000 buffer), overflow exiting via Pool B to Pool C."],
-["MC P(>= X)","Monte Carlo probability: the share of simulated return paths whose capital at the target age is at or above threshold X. Depends on the volatility used for that run — check the vol sub-label."],
-["Mandatory drawdown (ABP minimum)","The share of the 1-July Pool A balance the law forces the ABP to pay out each year: 4% at 60-64, 5% at 65-74, 6% at 75-79, 7% at 80-84, 9% at 85-89, 11% at 90-94, 14% at 95+. It is paid regardless of whether you spend it — the unspent portion leaves the 0%-tax ABP and routes to Pool C."],
-["Earnings vs mandatory draw (the two denominators)","Routinely confused, and the source of most surprise in this tool. Year 1 at Day-1 values and 6.5%: investment earnings (Pool A + Pool C) = $57,816; mandatory draw (4% of Pool A) = $33,635 — earnings are 1.72x the draw. So spending 100% of EARNINGS requires withdrawing $24,181 MORE than the ABP minimum; spending 100% of the DRAW touches nothing beyond what must come out anyway."],
+["MC P(>= X)","The share of this model's sampled return paths whose investment capital at the selected age is at or above threshold X. It depends on assumptions, volatility, seed and sample size; it is not a personal forecast probability."],
+["Mandatory drawdown (ABP minimum)","The model uses current age bands to estimate Pool A payments in birthday-year planning rows. The fund calculates the actual financial-year minimum, including any first-year pro-rating. Unspent modelled payments may be routed to Pool C."],
+["Earnings vs mandatory draw (the two denominators)","Earnings means modelled return on invested assets; the mandatory draw is a payment from Pool A under a separate age-based rule. They are not interchangeable. Compare the live dollar outputs before using a percentage spending rule."],
 ["Extra draw (voluntary)","Any withdrawal above the compulsory ABP minimum, funded from Pool A. It is the only mechanism in the model that shrinks super capital faster than the statutory schedule requires. Always $0 in '% of mandatory drawdown' mode."],
 ["Sampling noise (MC jitter)","The Monte Carlo pages use a fixed seed, so the same inputs reproduce the same sample. Use New repeatable sample only when you deliberately want to inspect a different sample; raise Runs to smooth sample noise."],
 ["Percentage points (pts)","The unit for probability deltas: 90% − 85% = 5 pts. Never read as relative percent."]];
@@ -5213,7 +5368,7 @@ function renderGuide(tab){
     b.innerHTML=`<p>${g.w}</p><ul>${g.h.map(x=>`<li>${x}</li>`).join("")}</ul>
       ${g.f&&g.f.length?`<p class="v23-kicker" style="margin-top:16px">Fields on this page</p>${dl(g.f)}`:""}
       <p class="v23-kicker" style="margin-top:16px">Engine provenance</p>
-      <p>DBT engine: active-rail opening taxable assumption · DBT rate <b>17%</b> · separate-interest wash-only schedule. All figures are <b>real (today's dollars)</b>. Confirm provider execution and refresh actual components annually.</p>`;
+       <p>Read each result with its active source, pension election, spending rule and return assumption. Projections and sampled frequencies are model outputs in today's dollars, not guarantees. Confirm current provider values and rules before acting.</p>`;
   }else if(tab==="controls"){
     h.textContent="Shared V23 plan controls";
     b.innerHTML=`<p>These settings drive every V23 page. Expand Plan controls to edit; the age-band summary remains visible when collapsed. The ledger strip under the header mirrors the live values; tap a chip to jump to its control. Command Centre’s Scenario workspace is a separate flat-spending comparison: it does not replace your saved V23 age bands.</p>${dl(CONTROLS)}`;
@@ -5226,8 +5381,10 @@ function renderGuide(tab){
       <div><p><b>Choose your source and pension election</b> in Profile. Each available election uses its own verified source figures. Check the active basis before comparing results.</p></div>
       <div><p><b>Set spending in Income &amp; draws.</b> Expand Plan controls to choose gaps by age, real return and volatility. These controls drive every V23 page; collapse them to keep the age-band summary without the full editor.</p></div>
       <div><p><b>Two workspaces:</b> Command Centre compares a flat annual net spending target. Its single <b>Scenario</b> workspace contains Lab, Explore, Compare, Frontier and Risk; Explore includes all six former Atlas illustrations. V23 is your detailed age-band workbench. A shared link carries headline assumptions; it does not silently overwrite an existing V23 age-band plan.</p></div>
-      <div><p><b>Read Executive → Decision brief</b> for the verdict, then deep-dive the risk pages (Monte Carlo, Sequence, Stress).</p></div>
-      <div><p><b>At each annual review:</b> Recalibration → What changed? → Triggers → Checklist, then <b>Export settings</b> as the new baseline.</p></div>
+       <div><p><b>Check funding before capital:</b> in Income &amp; draws compare planned and funded spending, then inspect shortfalls and the investment path. Executive and Decision brief summarise the selected assumptions.</p></div>
+       <div><p><b>Test uncertainty:</b> use Monte Carlo, Sequence and Stress as separate sensitivities. The sampled frequencies are not personal forecast odds.</p></div>
+       <div><p><b>Test adaptive spending if useful:</b> on Guardrail spending, enter essential total spending and compare advisory with adaptive on paired market paths. Read spending cuts beside age-75/85 capital; the comparison does not change your saved plan.</p></div>
+       <div><p><b>At each annual review:</b> enter confirmed balances in Recalibration and What changed?, review Triggers and Checklist, record a decision, then Export settings. The comparison pages do not automatically adopt a new baseline.</p></div>
       <div><p><b>Back up:</b> Export settings (JSON) and CSV of the simulation; Print packs for file copies.</p></div>
     </div>`;
   }else if(tab==="keys"){
@@ -5279,7 +5436,7 @@ function buildWelcome(){
     <div class="v23-steps">
       <div><p><b>Ledger strip</b> under the header mirrors your live assumptions — tap a chip to jump to its control.</p></div>
       <div><p><b>Guide</b> — the ？ button (or <span class="v23-kbd">?</span>) explains every page and how to read it.</p></div>
-      <div><p><b>Palette</b> — <span class="v23-kbd">Ctrl/⌘ K</span> searches all 32 pages instantly.</p></div>
+       <div><p><b>Palette</b> — <span class="v23-kbd">Ctrl/⌘ K</span> searches all 33 pages.</p></div>
       <div><p><b>Mobile</b> — ☰ Menu opens navigation; tables scroll sideways; everything else adapts.</p></div>
     </div>
     <div class="v23-btnrow">

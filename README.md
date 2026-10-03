@@ -7,15 +7,23 @@ A responsive, interactive retirement planning command centre built from the Robi
 - GitHub Pages: <https://mick353.github.io/retirement/>
 - ChatGPT Sites: <https://robinson-retirement.mick353.chatgpt.site>
 - Deep V23 workbench: <https://mick353.github.io/retirement/deep-model.html>
-- Retirement Atlas: <https://mick353.github.io/retirement/atlas.html>
+- Visual explorer (formerly Atlas): <https://mick353.github.io/retirement/?section=scenario&tool=explore>
 
-The Command Centre, Atlas and V23 share the rail, PSS election, PSS provider projection basis, total spending target, real return, target age, home, tax year, reserve policy and simulation seed. GitHub Pages and ChatGPT Sites are parallel published surfaces; ChatGPT Sites is the usual-use surface and GitHub is the public mirror/backup.
+Command Centre uses a flat annual net-spending comparison. V23 keeps its separate, saved age-band spending plan; a shared link carries assumptions without silently replacing that plan. The former Atlas visualisations now live inside Command Centre's Scenario → Explore tab. GitHub Pages and ChatGPT Sites are separate published surfaces and can temporarily differ while a pull request or deployment is pending.
+
+## Start here
+
+1. Check the active rail, dated CSC provider basis and PSS election. The provider basis sets retirement-day pension and lump figures; the site's real-return control applies afterwards.
+2. In Scenario → Lab, compare desired and funded spending, then inspect the annual ledger and investment capital. A spending shortfall is not income.
+3. Use Scenario → Explore for age-by-age values, Compare and Frontier for flat-spending trade-offs, and Risk for sampled and stress sensitivities. Sample frequencies are model outputs, not personal forecast odds.
+4. Open V23 Income & draws for spending that changes by age. On Guardrail spending, advice is the default; the opt-in Adaptive Policy Comparator requires an explicit essential total budget and compares policies on paired return paths without changing the saved plan.
+5. Read the static model reference for source dates, calculation boundaries and tax assumptions before making a real decision.
 
 ## What is included
 
 - Integrated command centre with Rail A plus two selectable, source-backed Rail B provider bases
 - Governed provider-basis layer: both the 8.2% fund / 5% salary / 2.5% CPI and 6% / 5% / 3% sets have direct 60/40, 65/35, 70/30 and 100% pension estimates; the prudent 100% estimate retains its separate 9 September source and FAS
-- Retirement Atlas strategy map with reciprocal links to the Command Centre and V23
+- Former Atlas visualisations and strategy map within Scenario → Explore
 - Adjustable scenario lab and side-by-side saved-scenario comparison
 - Spending and estate frontier analysis
 - Mobile Frontier context that keeps the selected comparison age visible and distinguishes it from the age-95 projection horizon
@@ -26,6 +34,7 @@ The Command Centre, Atlas and V23 share the rail, PSS election, PSS provider pro
 - Progressive disclosure for secondary PSS, VR and evidence detail while source-basis and election controls remain immediately visible and keyboard operable
 - Annual review checklist and review snapshot
 - Corrected V23 model with advanced controls, export, print packs and mobile workbench
+- Opt-in V23 Adaptive Policy Comparator with advisory default, explicit PSS election semantics, identical-path Monte Carlo and configurable age-75/85 investment checks
 - V23.5 control-integrity safeguards: exact number fields and sticky assumptions stay synchronised, manually authored age bands survive PSS election/basis changes, and shared flat scenarios require an explicit choice before replacing a saved detailed plan
 - V23.7 plain-English lifestyle funding: every phase now shows the planned gap, amount actually funded, target-funding percentage, compulsory ABP payment used, and whether the funded gap stays within portfolio earnings; the active PSS election, CSC basis and post-retirement return are repeated beside the results
 - Simplified V23 everyday navigation with all specialist analysis retained behind an Advanced analysis disclosure
@@ -58,7 +67,7 @@ The workflow in `.github/workflows/pages.yml` builds and deploys the site after 
 
 ## Data and privacy
 
-This repository is public and the website contains personal retirement assumptions and modelled financial figures. The source PDFs, spreadsheets and research files are intentionally not committed. Only the integrated website and its calculation logic are included.
+The published website contains personal retirement assumptions and modelled financial figures. The source PDFs, spreadsheets and research files are intentionally not committed. Only the integrated website and its calculation logic are included.
 
 The site stores saved scenarios, the selected PSS election and provider basis, and annual-review preferences only in the current browser using local storage. It has no account system or server-side database.
 

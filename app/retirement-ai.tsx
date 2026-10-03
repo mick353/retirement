@@ -14,6 +14,7 @@ type RetirementAiProps = {
 };
 
 const STORAGE_KEY = "robinson-retirement-ai-chat";
+const WELCOME_CREATED_AT = "2026-07-18T00:00:00.000Z";
 const CHATGPT_SITE_ORIGIN = "https://robinson-retirement.mick353.chatgpt.site";
 const QUICK_PROMPTS = [
   ["Compare rails", "Compare Rail A and Rail B for my active scenario. Explain the source-date difference in the PSS figures and the practical trade-offs."],
@@ -25,7 +26,7 @@ const QUICK_PROMPTS = [
 const welcomeMessage = (): AdviserMessage => ({
   id: "welcome",
   role: "model",
-  createdAt: new Date().toISOString(),
+  createdAt: WELCOME_CREATED_AT,
   content: "I can interpret the active retirement scenario, compare the two governed rails, explain V23 mechanics and help prepare review questions. The dashboard remains the calculation authority; I will not silently change its assumptions or present modelled outcomes as guarantees.",
 });
 
@@ -249,7 +250,7 @@ export default function RetirementAi({ context }: RetirementAiProps) {
         <div className="ai-messages" ref={scrollRef} role="log" aria-live="polite" aria-relevant="additions text">
           {messages.map((message) => (
             <article className={`ai-message ${message.role}`} key={message.id}>
-              <div className="ai-message-meta"><b>{message.role === "user" ? "You" : "Retirement AI"}</b><time>{formatTime(message.createdAt)}</time></div>
+              <div className="ai-message-meta"><b>{message.role === "user" ? "You" : "Retirement AI"}</b><time>{message.id === "welcome" ? "" : formatTime(message.createdAt)}</time></div>
               <div className="ai-message-body">{message.content || (streaming ? <span className="ai-thinking">Reviewing the active model…</span> : "")}</div>
             </article>
           ))}
