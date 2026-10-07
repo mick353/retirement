@@ -65,13 +65,13 @@ The public retirement model currently contains legacy/static Hostplus planning a
 
 ## Immediate Work / Codex objective
 
-If ChatGPT Work / Codex has access to both repositories and ChatGPT Sites, the preferred next step is to create a **private owner-only Hostplus Command Centre Site** using the private `mick353/hostplus-command-centre` codebase as the application/source layer.
+The private Hostplus Command Centre already has a ChatGPT Site and that remains the preferred hosted/mobile interface. GitHub remains the engineering, audit and data-governance layer.
 
-The Site should be the primary phone-friendly interface, while GitHub remains the engineering, audit and data-governance layer.
+Owner decision dated 7 October 2026: **do not use Vercel for this project.** The earlier Vercel experiment is retired and the owner intends to delete the unused account. Do not reconnect it, recreate Vercel configuration, deploy there, or propose it as a fallback unless the owner explicitly reverses this decision.
+
+If a Site capability is unsuitable, use an owner-controlled local-PC website/runtime rather than introducing another third-party host merely for convenience.
 
 Do **not** publish the financial application publicly merely to obtain a convenient URL.
-
-If ChatGPT Sites cannot support a required backend capability, retain protected Vercel as a secondary/fallback deployment option rather than weakening the privacy boundary.
 
 ## Site product requirements
 
@@ -193,8 +193,8 @@ Never silently promote an estimate to a confirmed fact.
 
 1. Inspect `mick353/hostplus-command-centre` `main` and its docs before changing anything.
 2. Inspect `phase20-planning-baselines` and either complete it with tests/PR or supersede it cleanly.
-3. Create / configure a **private ChatGPT Site** from the private Command Centre if supported.
-4. Verify signed-out / non-owner access is denied before treating the Site as production-ready.
+3. Preserve and improve the existing **private ChatGPT Site**; do not create a Vercel deployment.
+4. Keep signed-out / non-owner access denied and re-verify it after relevant hosting/auth changes.
 5. Preserve mobile-first design and all existing interactive controls.
 6. Add direct authenticated AI only behind the private access boundary.
 7. Improve governed sector/economic-country metadata enrichment while surfacing unclassified weight instead of inventing classifications.
@@ -206,6 +206,6 @@ Never silently promote an estimate to a confirmed fact.
 
 A concise instruction is sufficient:
 
-> Read `docs/HOSTPLUS_COMMAND_CENTRE_WORK_HANDOFF.md` in `mick353/retirement`, then inspect the private `mick353/hostplus-command-centre` repository and continue the work. Prioritise a private owner-only ChatGPT Site for the full interactive Command Centre, preserve the public/private trust boundary, and do not publish private Hostplus data into the public retirement repository.
+> Read `docs/HOSTPLUS_COMMAND_CENTRE_WORK_HANDOFF.md` in `mick353/retirement`, then inspect the private `mick353/hostplus-command-centre` repository and continue the work. Use the existing private ChatGPT Site or an owner-controlled local-PC runtime; do not reintroduce Vercel or another third-party host without explicit owner instruction. Preserve the public/private trust boundary and do not publish private Hostplus data into the retirement repository.
 
 If the Work / Codex environment cannot access the private repository, stop and ask for that GitHub repository to be connected rather than reconstructing the system from the public retirement repo.
