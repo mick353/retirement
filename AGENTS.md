@@ -13,6 +13,10 @@ For Codex, ChatGPT and other coding agents working on this retirement system:
 
 The Pages deployment workflow on `main` remains the canonical build/deploy path. A future repository visibility change must preserve the public Pages deployment while keeping repository source private.
 
+## Hostplus Command Centre hosting boundary
+
+Owner decision dated 2026-10-07: the private `mick353/hostplus-command-centre` application may use its existing private ChatGPT Site or an owner-controlled local-PC website/runtime. The earlier Vercel experiment is retired. Do not reconnect Vercel, recreate its deployment configuration, propose it as a fallback, or introduce another third-party host for the Hostplus application unless the owner explicitly changes this decision.
+
 
 ## Visual regression
 
