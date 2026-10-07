@@ -67,7 +67,7 @@ The public retirement model currently contains legacy/static Hostplus planning a
 
 The private Hostplus Command Centre already has a ChatGPT Site and that remains the preferred hosted/mobile interface. GitHub remains the engineering, audit and data-governance layer.
 
-Owner decision dated 7 October 2026: **do not use Vercel for this project.** The earlier Vercel experiment is retired and the owner intends to delete the unused account. Do not reconnect it, recreate Vercel configuration, deploy there, or propose it as a fallback unless the owner explicitly reverses this decision.
+Owner decision dated 7 October 2026: **do not use Vercel for this project.** The earlier Vercel experiment is retired and the unused account was deleted by the owner on 7 October 2026. Do not reconnect it, recreate Vercel configuration, deploy there, or propose it as a fallback unless the owner explicitly reverses this decision.
 
 If a Site capability is unsuitable, use an owner-controlled local-PC website/runtime rather than introducing another third-party host merely for convenience.
 
