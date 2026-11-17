@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import RetirementAi from "./retirement-ai";
 import {
   HOSTPLUS_BASELINE_RETURN,
   HOSTPLUS_STARTING_BALANCE,
   POOL_C_MODELLED_DRAG,
+  TRANSFER_BALANCE_BUFFER,
+  TRANSFER_BALANCE_CAP,
   abpMinimumRateAtAgeOn1July,
   calculateFlatRetirementLedger as calculateCanonicalFlatRetirementLedger,
   calculateWashOutcome as calculateCanonicalWashOutcome,
@@ -35,7 +45,7 @@ type SectionKey =
   | "review"
   | "evidence";
 
-type ScenarioTool = "lab" | "explore" | "compare" | "frontier" | "risk";
+type ScenarioTool = "lab" | "explore" | "compare" | "frontier" | "surface" | "risk";
 
 type ScenarioState = {
   rail: RailKey;
@@ -317,6 +327,7 @@ const SCENARIO_TOOLS: { key: ScenarioTool; label: string; hint: string }[] = [
   { key: "explore", label: "Explore", hint: "See the plan as six interactive illustrations, annual income, return paths or a strategy map." },
   { key: "compare", label: "Compare", hint: "Compare the balanced, lifestyle-led and estate-first presets on like-for-like assumptions." },
   { key: "frontier", label: "Frontier", hint: "Trade annual spending against later investment capital and estate." },
+  { key: "surface", label: "Surface", hint: "See every flat spend against every real return at once, and adopt a point." },
   { key: "risk", label: "Risk", hint: "Stress sequence, volatility and capital-routing outcomes." },
 ];
 
@@ -336,6 +347,7 @@ const SCENARIO_GUIDES: Record<ScenarioTool, GuideCopy> = {
   explore: { use: "Choose an illustration or income view, then select an age to inspect the same active plan.", read: "Use Income by year for funding and the exact table for annual values; return comparison changes the assumed return, not the odds.", limit: "Visual shapes and return sensitivities are model outputs, not forecasts." },
   compare: { use: "Compare the labelled preset cards under the active return and target-age assumptions; select a card only if you want its spend and rail.", read: "Read spending, capital and gross estate together. The simulated frequency is the share of this model's sampled paths above its stated threshold.", limit: "The presets express different preferences. A higher capital result can come from spending less." },
   frontier: { use: "Move the flat spending point and choose the comparison age.", read: "Read the investment-capital cost of additional spending alongside gross estate, which adds the selected home value.", limit: "The coloured investment bands and property-inclusive estate floor answer different questions; neither is a personal guarantee." },
+  surface: { use: "Hover the plane to read any spend and real-return combination, then click to adopt it as the active plan.", read: "Read the shaded measure against the dead-zone wall and the marked Frontier row; left of the wall every spend gives the identical Pool A path.", limit: "Each cell is the same flat-spend lens as the Lab. It is a sensitivity plane, not a probability surface, and it does not model age-banded spending." },
   risk: { use: "Keep the same plan while varying volatility, return sequence or stress inputs.", read: "Inspect the percentile fan and exact target test; compare lower-tail outcomes with spending shortfalls.", limit: "Sample frequencies depend on the chosen model, volatility and seed. They omit unmodelled future events." },
 };
 
@@ -648,6 +660,1221 @@ function ledgerEndingAtAge(rail: Rail, spend: number, realReturn: number, target
 
 function contributionWhatIf(phase2: number, phase3: number, nominalReturn: number) {
   return projectHostplusAt60(phase2, phase3, nominalReturn);
+}
+
+/* ---------------------------------------------------------------------------
+   Scenario instruments — shared reads of the canonical ledger.
+   Nothing here introduces retirement arithmetic: every number is produced by
+   calculateFlatRetirementLedger in app/retirement-core.ts, or by inverting it
+   numerically. Pool A is the only pool the flat ledger ever draws from, so it
+   is the series these instruments plot.
+--------------------------------------------------------------------------- */
+type PoolPath = { age: number; poolA: number; poolC: number; total: number };
+
+function poolPath(rail: Rail, spend: number, realReturn: number, annualReturns?: number[]): PoolPath[] {
+  return calculateCanonicalFlatRetirementLedger({
+    poolA: rail.poolA,
+    poolC: rail.poolC,
+    netPension: rail.netPension,
+    spend,
+    realReturn,
+    poolCDrag: POOL_C_DRAG,
+    startAge: 60,
+    endAge: 95,
+    annualReturns,
+  }).map((row) => ({ age: row.age, poolA: row.poolA, poolC: row.poolC, total: row.ending }));
+}
+
+function poolAAtAge(rail: Rail, spend: number, realReturn: number, age: number) {
+  const index = clamp(Math.round(age) - 60, 0, 35);
+  return poolPath(rail, spend, realReturn)[index]?.poolA ?? 0;
+}
+
+/* The highest Pool A path available at a given return: spend only what the
+   pension plus the statutory minimum draw already delivers. */
+function poolACeilingPath(rail: Rail, realReturn: number) {
+  return poolPath(rail, rail.netPension, realReturn);
+}
+
+/* At or below this spend the statutory minimum draw already covers the
+   lifestyle gap, so every spend produces one identical Pool A path. */
+function deadZoneCeiling(rail: Rail) {
+  return rail.netPension + rail.poolA * drawRate(61);
+}
+
+/* Pool A at `age` falls monotonically in spend, so bisection is exact. */
+function solveSpendForPoolA(rail: Rail, age: number, target: number, realReturn: number) {
+  let lo = rail.netPension;
+  let hi = 900_000;
+  for (let i = 0; i < 60; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (poolAAtAge(rail, mid, realReturn, age) > target) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function solveReturnForPoolA(rail: Rail, age: number, target: number, spend: number) {
+  let lo = -0.08;
+  let hi = 0.25;
+  for (let i = 0; i < 60; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (poolAAtAge(rail, spend, mid, age) < target) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/* The spend interval over which Pool A at `age` actually moves. Outside it the
+   answer is either the statutory ceiling or zero, and solving is ill-posed. */
+function liveSpendBand(rail: Rail, age: number, realReturn: number) {
+  const ceiling = poolAAtAge(rail, rail.netPension, realReturn, age);
+  if (ceiling <= 0.5) return null;
+  return {
+    ceiling,
+    lo: solveSpendForPoolA(rail, age, ceiling - 1, realReturn),
+    hi: solveSpendForPoolA(rail, age, 0.5, realReturn),
+  };
+}
+
+/* Pin one Pool A level, then scan spend for a second level the same plan hits.
+   The return solve is only valid over part of the spend range, so this looks
+   for a bracketing pair of VALID samples instead of trusting the interval ends. */
+type JointSolution =
+  | { ok: true; spend: number; realReturn: number }
+  | { ok: false; reason: "contradictory"; min: number; max: number; sampled: number };
+
+function solveSpendAndReturn(rail: Rail, pin: { age: number; value: number }, point: { age: number; value: number }): JointSolution {
+  const residual = (candidateSpend: number) => {
+    const candidateReturn = solveReturnForPoolA(rail, pin.age, pin.value, candidateSpend);
+    if (candidateReturn <= -0.0795 || candidateReturn >= 0.2495) return Number.NaN;
+    return poolAAtAge(rail, candidateSpend, candidateReturn, point.age) - point.value;
+  };
+  const low = rail.netPension + 1;
+  const high = 700_000;
+  const samples = 96;
+  const xs: number[] = [];
+  const fs: number[] = [];
+  for (let i = 0; i <= samples; i += 1) {
+    const share = i / samples;
+    const candidate = low + (high - low) * share * share;
+    xs.push(candidate);
+    fs.push(residual(candidate));
+  }
+  let lo: number | null = null;
+  let hi = 0;
+  let fLo = 0;
+  let previous = -1;
+  for (let i = 0; i <= samples; i += 1) {
+    if (Number.isNaN(fs[i])) continue;
+    if (previous >= 0 && fs[previous] * fs[i] < 0) { lo = xs[previous]; fLo = fs[previous]; hi = xs[i]; break; }
+    previous = i;
+  }
+  if (lo === null) {
+    let min = Infinity;
+    let max = -Infinity;
+    let sampled = 0;
+    for (let i = 0; i <= samples; i += 1) {
+      if (Number.isNaN(fs[i])) continue;
+      sampled += 1;
+      const value = fs[i] + point.value;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    return { ok: false, reason: "contradictory", min: Number.isFinite(min) ? min : 0, max: Number.isFinite(max) ? max : 0, sampled };
+  }
+  let left = lo;
+  for (let i = 0; i < 60; i += 1) {
+    const mid = (left + hi) / 2;
+    const value = residual(mid);
+    if (Number.isNaN(value)) break;
+    if (fLo * value <= 0) hi = mid; else { left = mid; fLo = value; }
+  }
+  const solvedSpend = (left + hi) / 2;
+  const solvedReturn = solveReturnForPoolA(rail, pin.age, pin.value, solvedSpend);
+  if (solvedReturn <= -0.0795 || solvedReturn >= 0.2495) return { ok: false, reason: "contradictory", min: 0, max: 0, sampled: 0 };
+  return { ok: true, spend: solvedSpend, realReturn: solvedReturn };
+}
+
+/* Read a theme token off a live element so canvas drawing follows light/dark. */
+function themeInk(element: Element | null, token: string, fallback: string) {
+  if (!element) return fallback;
+  const value = getComputedStyle(element).getPropertyValue(token).trim();
+  return value || fallback;
+}
+
+type SolveMode = "spend" | "ret" | "head" | "two";
+
+const SOLVE_MODES: { key: SolveMode; label: string; hint: string }[] = [
+  { key: "spend", label: "Flat spend", hint: "Drag a Pool A level and read the flat annual spend that lands on it." },
+  { key: "ret", label: "Real return", hint: "Hold your spending and read the real return the dragged level would require." },
+  { key: "head", label: "TBC headroom", hint: "Ask what opening Pool A you want, and what pension would have to release it." },
+  { key: "two", label: "Spend and return", hint: "Pin one age, drag another, and solve both unknowns together." },
+];
+
+function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: {
+  rail: Rail;
+  spend: number;
+  realReturn: number;
+  electionOptions: { key: string; label: string; grossPension: number }[];
+  onAdopt: (next: { spend?: number; realReturn?: number }) => void;
+}) {
+  const [mode, setMode] = useState<SolveMode>("spend");
+  const [age, setAge] = useState(75);
+  const [target, setTarget] = useState<number | null>(null);
+  const [pin, setPin] = useState<{ age: number; value: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const width = 920;
+  const height = 332;
+  const pad = { l: 94, r: 30, t: 24, b: 48 };
+  const ceiling = useMemo(() => poolACeilingPath(rail, realReturn), [rail, realReturn]);
+  const planPath = useMemo(() => poolPath(rail, spend, realReturn), [rail, spend, realReturn]);
+  const band = useMemo(() => liveSpendBand(rail, age, realReturn), [rail, age, realReturn]);
+  const deadZone = deadZoneCeiling(rail);
+  const scale = Math.max(1, ...ceiling.map((row) => row.poolA)) * 1.08;
+
+  const xAge = (value: number) => pad.l + ((clamp(value, 60, 95) - 60) / 35) * (width - pad.l - pad.r);
+  const yValue = (value: number) => pad.t + (1 - clamp(value, 0, scale) / scale) * (height - pad.t - pad.b);
+  const ageAt = (x: number) => Math.round(clamp(60 + ((x - pad.l) / (width - pad.l - pad.r)) * 35, 61, 95));
+  const valueAt = (y: number) => clamp((1 - (y - pad.t) / (height - pad.t - pad.b)) * scale, 0, scale);
+  const pathLine = (rows: PoolPath[]) => rows.map((row) => `${xAge(row.age).toFixed(1)},${yValue(row.poolA).toFixed(1)}`).join(" ");
+  const ceilingAt = (atAge: number) => ceiling[clamp(atAge - 60, 0, 35)]?.poolA ?? 0;
+
+  const solved = useMemo(() => {
+    if (target === null) return null;
+    const headroomFactor = rail.grossPension > 0 ? rail.dbSpecialValue / rail.grossPension : 16;
+    if (mode === "head") {
+      const wanted = Math.min(target, rail.capital);
+      const requiredGross = (TRANSFER_BALANCE_CAP - TRANSFER_BALANCE_BUFFER - wanted) / headroomFactor;
+      const clearing = electionOptions.filter((option) => option.grossPension <= requiredGross);
+      return {
+        kind: "head" as const,
+        wanted,
+        requiredGross,
+        clearing,
+        capped: target > rail.capital,
+      };
+    }
+    const reachable = ceilingAt(age);
+    if (target > reachable + 1 && mode !== "ret") {
+      return {
+        kind: "unreachable" as const,
+        reachable,
+        message: `At ${pct(realReturn, 2)} real the most Pool A can hold at age ${age} is ${money(reachable)} — the path where you draw nothing beyond the statutory ABP minimum. Spending cannot lift it above that line, because every dollar of extra capital at 60 landed in Pool C, not Pool A.`,
+      };
+    }
+    if (mode === "spend") {
+      const solvedSpend = solveSpendForPoolA(rail, age, target, realReturn);
+      return { kind: "spend" as const, spend: solvedSpend, path: poolPath(rail, solvedSpend, realReturn) };
+    }
+    if (mode === "ret") {
+      const solvedReturn = solveReturnForPoolA(rail, age, target, spend);
+      const pinnedToEdge = solvedReturn <= -0.0795 || solvedReturn >= 0.2495;
+      return { kind: "ret" as const, realReturn: solvedReturn, pinnedToEdge, path: poolPath(rail, spend, solvedReturn) };
+    }
+    if (!pin) return { kind: "needpin" as const };
+    const joint = solveSpendAndReturn(rail, pin, { age, value: target });
+    if (!joint.ok) return { kind: "joint-fail" as const, ...joint };
+    return { kind: "two" as const, ...joint, path: poolPath(rail, joint.spend, joint.realReturn) };
+  }, [mode, target, age, pin, rail, realReturn, spend, electionOptions, ceiling]);
+
+  const exchange = useMemo(() => {
+    if (spend <= deadZone) return null;
+    const here = poolAAtAge(rail, spend, realReturn, age);
+    if (here <= 0.5) return null;
+    const richer = solveSpendForPoolA(rail, age, here, realReturn + 0.0025);
+    return richer - spend;
+  }, [rail, spend, realReturn, age, deadZone]);
+
+  const point = (event: React.PointerEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * width,
+      y: ((event.clientY - rect.top) / rect.height) * height,
+    };
+  };
+
+  const applyAt = (x: number, y: number) => {
+    const nextAge = mode === "head" ? 60 : ageAt(x);
+    setAge(nextAge);
+    setTarget(valueAt(y));
+  };
+
+  const handleDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    const at = point(event);
+    if (!at) return;
+    setDragging(true);
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer already released */ }
+    applyAt(at.x, at.y);
+  };
+
+  const handleMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!dragging) return;
+    const at = point(event);
+    if (at) applyAt(at.x, at.y);
+  };
+
+  const endDrag = () => setDragging(false);
+
+  const nudge = (event: React.KeyboardEvent<SVGSVGElement>) => {
+    if (target === null) return;
+    const step = event.shiftKey ? scale / 20 : scale / 120;
+    if (event.key === "ArrowUp") { setTarget(clamp(target + step, 0, scale)); event.preventDefault(); }
+    if (event.key === "ArrowDown") { setTarget(clamp(target - step, 0, scale)); event.preventDefault(); }
+    if (event.key === "ArrowLeft" && mode !== "head") { setAge(clamp(age - 1, 61, 95)); event.preventDefault(); }
+    if (event.key === "ArrowRight" && mode !== "head") { setAge(clamp(age + 1, 61, 95)); event.preventDefault(); }
+  };
+
+  const adoptSpend = (value: number) => {
+    if (value < 76_000 || value > MAX_FLAT_SPEND) return;
+    onAdopt({ spend: Math.round(value) });
+  };
+  const adoptReturn = (value: number) => {
+    if (value < 0.02 || value > 0.075) return;
+    onAdopt({ realReturn: Number(value.toFixed(4)) });
+  };
+
+  const solvedPath = solved && "path" in solved ? solved.path : null;
+  const activeMode = SOLVE_MODES.find((item) => item.key === mode)!;
+
+  return <section className="panel solve-lab">
+    <div className="panel-head">
+      <div>
+        <h3>Solve and spend</h3>
+        <p>Your Lab answers “what does this plan do?”. This answers the other direction: name the Pool A balance you want at an age and read the assumption that reaches it. {activeMode.hint}</p>
+      </div>
+      <Badge tone="modelled">Inverse of the same ledger</Badge>
+    </div>
+    <div className="instrument-bar" role="group" aria-label="Solve for">
+      <span className="instrument-label">Solve for</span>
+      {SOLVE_MODES.map((item) => <button
+        key={item.key}
+        type="button"
+        className={mode === item.key ? "active" : ""}
+        aria-pressed={mode === item.key}
+        onClick={() => { setMode(item.key); setTarget(null); if (item.key === "head") setAge(60); else if (age === 60) setAge(75); }}
+      >{item.label}</button>)}
+      {mode === "two" && <>
+        <span className="instrument-sep" />
+        <button type="button" onClick={() => { if (target !== null) { setPin({ age, value: target }); setTarget(null); } }} disabled={target === null}>Pin this point</button>
+        <button type="button" onClick={() => setPin(null)} disabled={!pin}>Clear pin</button>
+      </>}
+      <span className="instrument-sep" />
+      <button type="button" onClick={() => { setTarget(null); setPin(null); }}>Reset</button>
+    </div>
+    <div className="chart-shell">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${width} ${height}`}
+        className="solve-canvas"
+        role="application"
+        tabIndex={0}
+        aria-label={`Pool A trajectory from age 60 to 95. Drag to set a target balance; arrow keys nudge it. Currently solving ${activeMode.label}.`}
+        onPointerDown={handleDown}
+        onPointerMove={handleMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={nudge}
+      >
+        <defs>
+          <linearGradient id="solve-reachable" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--blue)" stopOpacity=".18" />
+            <stop offset="100%" stopColor="var(--blue)" stopOpacity=".02" />
+          </linearGradient>
+        </defs>
+        {[0, .25, .5, .75, 1].map((fraction) => <g key={fraction}>
+          <line x1={pad.l} x2={width - pad.r} y1={yValue(scale * fraction)} y2={yValue(scale * fraction)} stroke="var(--line)" />
+          <text x={pad.l - 10} y={yValue(scale * fraction) + 4} textAnchor="end" fontSize="10.5" fill="var(--muted)">{compactMoney(scale * fraction)}</text>
+        </g>)}
+        {[60, 65, 70, 75, 80, 85, 90, 95].map((tick) => <text key={tick} x={xAge(tick)} y={height - pad.b + 20} textAnchor="middle" fontSize="10.5" fill="var(--muted)">{tick}</text>)}
+        <polygon points={`${xAge(60)},${yValue(0)} ${pathLine(ceiling)} ${xAge(95)},${yValue(0)}`} fill="url(#solve-reachable)" />
+        <polyline points={pathLine(ceiling)} fill="none" stroke="var(--blue)" strokeWidth="1.5" strokeDasharray="5 4" />
+        <polyline points={pathLine(planPath)} fill="none" stroke="var(--muted)" strokeWidth="2" />
+        {solvedPath && <polyline points={pathLine(solvedPath)} fill="none" stroke="var(--green)" strokeWidth="2.6" />}
+        {band && mode !== "head" && <line x1={xAge(age)} x2={xAge(age)} y1={pad.t} y2={height - pad.b} stroke="var(--muted)" strokeDasharray="3 4" opacity=".6" />}
+        {pin && <g>
+          <circle cx={xAge(pin.age)} cy={yValue(pin.value)} r="6" fill="none" stroke="var(--violet)" strokeWidth="2" />
+          <text x={xAge(pin.age)} y={yValue(pin.value) - 12} textAnchor="middle" fontSize="10.5" fill="var(--violet)">pinned {compactMoney(pin.value)}</text>
+        </g>}
+        {target !== null && <g>
+          <circle cx={xAge(age)} cy={yValue(target)} r="7" fill="var(--green)" stroke="var(--panel)" strokeWidth="2" />
+          <text x={xAge(age) + (age > 88 ? -12 : 12)} y={yValue(target) - 10} textAnchor={age > 88 ? "end" : "start"} fontSize="11.5" fill="var(--text)">{money(target)} at {age}</text>
+        </g>}
+        <text x={pad.l} y={pad.t - 8} fontSize="10.5" fill="var(--blue)">statutory ceiling — minimum draw only</text>
+        <g fontSize="10.5">
+          <line x1={width - pad.r - 232} x2={width - pad.r - 216} y1={pad.t - 11} y2={pad.t - 11} stroke="var(--muted)" strokeWidth="2" />
+          <text x={width - pad.r - 211} y={pad.t - 8} fill="var(--muted)">active plan</text>
+          <line x1={width - pad.r - 128} x2={width - pad.r - 112} y1={pad.t - 11} y2={pad.t - 11} stroke="var(--green)" strokeWidth="2.6" />
+          <text x={width - pad.r - 107} y={pad.t - 8} fill="var(--green)">solved plan</text>
+        </g>
+      </svg>
+    </div>
+    <div className="solve-readout">
+      {target === null && <p className="solve-prompt">Drag anywhere on the chart to name a Pool A balance. The shaded field is everything this election can reach; the dashed line is the ceiling, where you draw nothing beyond the statutory ABP minimum.</p>}
+      {solved?.kind === "unreachable" && <div className="note warn"><b>Unreachable by spending.</b> {solved.message}</div>}
+      {solved?.kind === "spend" && <div className="solve-kv">
+        <div><span>Flat annual spend required</span><b>{money(solved.spend)}</b><small>{solved.spend <= deadZone ? "Inside the dead zone — any spend at or below the ceiling gives this same path." : `${solved.spend > spend ? "+" : ""}${money(solved.spend - spend)} against your active plan`}</small></div>
+        <div><span>Pool A at {age}</span><b>{money(target ?? 0)}</b><small>{pct((target ?? 0) / Math.max(1, ceilingAt(age)), 0)} of the statutory ceiling at that age</small></div>
+        <button type="button" className="secondary" disabled={solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND} onClick={() => adoptSpend(solved.spend)}>
+          {solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND ? "Outside the plan control range" : "Adopt this spend"}
+        </button>
+      </div>}
+      {solved?.kind === "ret" && <div className="solve-kv">
+        <div><span>Real return required</span><b>{solved.pinnedToEdge ? "No solution" : pct(solved.realReturn, 2)}</b><small>{solved.pinnedToEdge ? "Not reachable inside −8% to 25% real" : `holding ${money(spend)} a year`}</small></div>
+        <div><span>Against your plan</span><b>{solved.pinnedToEdge ? "—" : `${solved.realReturn > realReturn ? "+" : ""}${((solved.realReturn - realReturn) * 100).toFixed(2)} pts`}</b><small>active assumption {pct(realReturn, 1)} real</small></div>
+        <button type="button" className="secondary" disabled={solved.pinnedToEdge || solved.realReturn < 0.02 || solved.realReturn > 0.075} onClick={() => adoptReturn(solved.realReturn)}>
+          {!solved.pinnedToEdge && solved.realReturn >= 0.02 && solved.realReturn <= 0.075 ? "Adopt this return" : "Outside the plan control range"}
+        </button>
+      </div>}
+      {solved?.kind === "head" && <>
+        <div className="solve-kv">
+          <div><span>Opening Pool A wanted</span><b>{money(solved.wanted)}</b><small>{solved.capped ? `capped at the ${money(rail.capital)} of capital that lands at 60` : "dragged target at age 60"}</small></div>
+          <div><span>Gross pension that would release it</span><b>{money(solved.requiredGross)}</b><small>against {money(rail.grossPension)} on this election</small></div>
+        </div>
+        <div className={solved.clearing.length ? "note" : "note warn"}>
+          <b>{solved.clearing.length ? `${solved.clearing.length} election${solved.clearing.length > 1 ? "s" : ""} clear${solved.clearing.length > 1 ? "" : "s"} it:` : "No available election clears it."}</b>{" "}
+          {solved.clearing.length
+            ? `${solved.clearing.map((option) => option.label).join(", ")} — each has a gross pension at or below ${money(solved.requiredGross)}.`
+            : `The lowest gross pension on offer is ${money(Math.min(...electionOptions.map((option) => option.grossPension)))}. `}
+          Pool A opens at <b>min(capital, headroom − buffer)</b>, and on this plan the headroom side binds: you hold {money(rail.capital)} of capital but only {money(rail.tbcHeadroom)} of transfer-balance headroom. Extra capital cannot enter Pool A at all — it lands in Pool C. The only lever that lifts Pool A is a lower defined-benefit special value, which means a lower gross pension, which means a different election.
+        </div>
+      </>}
+      {solved?.kind === "needpin" && <p className="solve-prompt">Drag a point, press <b>Pin this point</b>, then drag a second one. Two targets fix both unknowns, so the pair is solved jointly.</p>}
+      {solved?.kind === "joint-fail" && <div className="note warn">
+        <b>No pair reaches both.</b> Holding Pool A at {money(pin?.value ?? 0)} at age {pin?.age ?? 0} leaves one free combination of spend and return, so age {age} is not independently yours to choose. Across the {solved.sampled} spend levels that can hold the pin, Pool A at {age} only lands between <b>{money(solved.min)}</b> and <b>{money(solved.max)}</b>; you asked for {money(target ?? 0)}.
+        {solved.max - solved.min < 1_000 && " That range is under $1,000 wide, which means the pin is sitting on the statutory ceiling — every dead-zone spend gives the identical path, so there is nothing left to solve. Pin a point inside the live band instead."}
+      </div>}
+      {solved?.kind === "two" && <div className="solve-kv">
+        <div><span>Flat annual spend</span><b>{money(solved.spend)}</b><small>solved jointly</small></div>
+        <div><span>Real return</span><b>{pct(solved.realReturn, 2)}</b><small>the only pair that hits both points</small></div>
+        <button type="button" className="secondary" disabled={solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND || solved.realReturn < 0.02 || solved.realReturn > 0.075} onClick={() => onAdopt({ spend: Math.round(solved.spend), realReturn: Number(solved.realReturn.toFixed(4)) })}>Adopt both</button>
+      </div>}
+      <div className="solve-facts">
+        <div><span>Live spend band at {age}</span><b>{band && band.hi - band.lo > 1 ? `${money(band.lo)} – ${money(band.hi)}` : "none"}</b><small>{band && band.hi - band.lo > 1 ? `${money(band.hi - band.lo)} wide — outside it Pool A is pinned on the ceiling or already gone` : "Pool A is already exhausted at this age on every spend"}</small></div>
+        <div><span>Dead-zone ceiling</span><b>{money(deadZone)}</b><small>at or below this the statutory minimum already covers the gap, so spending changes nothing</small></div>
+        <div><span>Exchange rate</span><b>{exchange === null ? "n/a in the dead zone" : `${money(exchange)}/yr`}</b><small>extra annual spend that +0.25% real return would fund at age {age}</small></div>
+      </div>
+    </div>
+    <div className="note"><b>What this is for:</b> the Lab moves assumptions and reports outcomes. This moves the outcome and reports the assumption, against the same canonical ledger — so every answer here is one your Lab would reproduce if you typed it in. It does not set age-band spending; that stays in V23.</div>
+  </section>;
+}
+
+type SurfaceMetric = "poolA-target" | "poolA-95" | "exhaustion" | "poolC-95";
+
+const SURFACE_METRICS: { key: SurfaceMetric; label: string; unit: string }[] = [
+  { key: "poolA-target", label: "Pool A at target age", unit: "$" },
+  { key: "poolA-95", label: "Pool A at 95", unit: "$" },
+  { key: "exhaustion", label: "Age Pool A runs out", unit: "age" },
+  { key: "poolC-95", label: "Pool C at 95", unit: "$" },
+];
+
+const SURFACE_COLUMNS = 116;
+const SURFACE_ROWS = 70;
+const SURFACE_SPEND_LOW = 76_000;
+const SURFACE_SPEND_HIGH = 200_000;
+const SURFACE_RETURN_LOW = 0.02;
+const SURFACE_RETURN_HIGH = 0.075;
+
+function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSpends, onAdopt }: {
+  rail: Rail;
+  spend: number;
+  realReturn: number;
+  targetAge: number;
+  theme: Theme;
+  frontierSpends: number[];
+  onAdopt: (next: { spend: number; realReturn: number }) => void;
+}) {
+  const [metric, setMetric] = useState<SurfaceMetric>("poolA-target");
+  const [hover, setHover] = useState<{ spend: number; realReturn: number; value: number } | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const spendAt = (column: number) => SURFACE_SPEND_LOW + (SURFACE_SPEND_HIGH - SURFACE_SPEND_LOW) * (column / (SURFACE_COLUMNS - 1));
+  const returnAt = (row: number) => SURFACE_RETURN_LOW + (SURFACE_RETURN_HIGH - SURFACE_RETURN_LOW) * (row / (SURFACE_ROWS - 1));
+
+  /* 8,120 live ledgers. One pass produces every metric, so switching metric
+     or hovering never recomputes the plane. */
+  const grid = useMemo(() => {
+    const cells = SURFACE_COLUMNS * SURFACE_ROWS;
+    const poolATarget = new Float64Array(cells);
+    const poolA95 = new Float64Array(cells);
+    const exhaustion = new Float64Array(cells);
+    const poolC95 = new Float64Array(cells);
+    const targetIndex = clamp(targetAge - 60, 0, 35);
+    for (let row = 0; row < SURFACE_ROWS; row += 1) {
+      const candidateReturn = returnAt(row);
+      for (let column = 0; column < SURFACE_COLUMNS; column += 1) {
+        const path = poolPath(rail, spendAt(column), candidateReturn);
+        const index = row * SURFACE_COLUMNS + column;
+        poolATarget[index] = path[targetIndex]?.poolA ?? 0;
+        poolA95[index] = path[35]?.poolA ?? 0;
+        poolC95[index] = path[35]?.poolC ?? 0;
+        let ranOut = 96;
+        for (let step = 1; step < path.length; step += 1) {
+          if (path[step].poolA <= 0.5) { ranOut = path[step].age; break; }
+        }
+        exhaustion[index] = ranOut;
+      }
+    }
+    return { poolATarget, poolA95, exhaustion, poolC95 };
+  }, [rail, targetAge]);
+
+  const series = metric === "poolA-target" ? grid.poolATarget
+    : metric === "poolA-95" ? grid.poolA95
+      : metric === "exhaustion" ? grid.exhaustion
+        : grid.poolC95;
+  const peak = useMemo(() => {
+    let max = 0;
+    for (let i = 0; i < series.length; i += 1) if (series[i] > max) max = series[i];
+    return max || 1;
+  }, [series]);
+  const deadZone = deadZoneCeiling(rail);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const cssWidth = Math.max(240, wrap.clientWidth);
+    const cssHeight = Math.round(clamp(cssWidth * 0.46, 240, 420));
+    canvas.width = Math.round(cssWidth * ratio);
+    canvas.height = Math.round(cssHeight * ratio);
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, cssWidth, cssHeight);
+
+    const padLeft = 64;
+    const padBottom = 34;
+    const padTop = 14;
+    const padRight = 26;
+    const plotWidth = cssWidth - padLeft - padRight;
+    const plotHeight = cssHeight - padTop - padBottom;
+    const ink = themeInk(wrap, "--muted", "#87a0c5");
+    const lineInk = themeInk(wrap, "--line", "rgba(92,137,220,.2)");
+    const textInk = themeInk(wrap, "--text", "#e3ecff");
+    // Annotations sit on top of the ramp, so they need the opposite ink to the page.
+    const markInk = theme === "light" ? "rgba(13,22,40,.88)" : "rgba(255,255,255,.9)";
+    // A phone-width plane cannot carry the full annotations without clipping.
+    const compact = cssWidth < 560;
+
+    const tile = document.createElement("canvas");
+    tile.width = SURFACE_COLUMNS;
+    tile.height = SURFACE_ROWS;
+    const tileContext = tile.getContext("2d");
+    if (!tileContext) return;
+    const image = tileContext.createImageData(SURFACE_COLUMNS, SURFACE_ROWS);
+    for (let row = 0; row < SURFACE_ROWS; row += 1) {
+      for (let column = 0; column < SURFACE_COLUMNS; column += 1) {
+        const value = series[row * SURFACE_COLUMNS + column];
+        // Most of the plane sits near zero, so a square-root ramp is the one
+        // that keeps the mid-range legible instead of flooding it with one colour.
+        const share = metric === "exhaustion"
+          ? clamp((value - 61) / 35, 0, 1)
+          : Math.sqrt(clamp(value / peak, 0, 1));
+        // Low sits in the danger red, mid in amber, high in the plan green.
+        const red = share < 0.5 ? 255 : Math.round(255 - (share - 0.5) * 2 * 184);
+        const green = share < 0.5 ? Math.round(114 + share * 2 * 55) : Math.round(169 + (share - 0.5) * 2 * 45);
+        const blue = share < 0.5 ? Math.round(140 - share * 2 * 60) : Math.round(80 + (share - 0.5) * 2 * 80);
+        // Rows are drawn bottom-up: low return belongs at the bottom of the plot.
+        const pixel = ((SURFACE_ROWS - 1 - row) * SURFACE_COLUMNS + column) * 4;
+        image.data[pixel] = red;
+        image.data[pixel + 1] = green;
+        image.data[pixel + 2] = blue;
+        image.data[pixel + 3] = 235;
+      }
+    }
+    tileContext.putImageData(image, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.drawImage(tile, padLeft, padTop, plotWidth, plotHeight);
+
+    const xOf = (value: number) => padLeft + ((value - SURFACE_SPEND_LOW) / (SURFACE_SPEND_HIGH - SURFACE_SPEND_LOW)) * plotWidth;
+    const yOf = (value: number) => padTop + (1 - (value - SURFACE_RETURN_LOW) / (SURFACE_RETURN_HIGH - SURFACE_RETURN_LOW)) * plotHeight;
+
+    context.font = "10.5px Arial, Helvetica, sans-serif";
+    context.strokeStyle = lineInk;
+    context.fillStyle = ink;
+    context.textAlign = "right";
+    for (let step = 2; step <= 7; step += 1) {
+      const y = yOf(step / 100);
+      context.beginPath();
+      context.moveTo(padLeft, y);
+      context.lineTo(padLeft + plotWidth, y);
+      context.stroke();
+      context.fillText(`${step}%`, padLeft - 8, y + 3.5);
+    }
+    context.textAlign = "center";
+    for (let value = 80_000; value <= SURFACE_SPEND_HIGH; value += compact ? 40_000 : 20_000) {
+      context.fillText(compactMoney(value), xOf(value), cssHeight - padBottom + 16);
+    }
+    context.fillText("Flat net annual spend", padLeft + plotWidth / 2, cssHeight - 6);
+    context.textAlign = "left";
+    context.fillText("real return", 4, padTop - 2);
+
+    // Iso-lines: where the measure holds a constant value across the plane.
+    context.fillStyle = "rgba(10,18,32,.5)";
+    [0.2, 0.4, 0.6, 0.8].forEach((level) => {
+      const threshold = metric === "exhaustion" ? 61 + level * 35 : peak * level * level;
+      for (let row = 0; row < SURFACE_ROWS; row += 1) {
+        for (let column = 1; column < SURFACE_COLUMNS; column += 1) {
+          const left = series[row * SURFACE_COLUMNS + column - 1];
+          const right = series[row * SURFACE_COLUMNS + column];
+          if ((left - threshold) * (right - threshold) > 0) continue;
+          context.fillRect(xOf(spendAt(column)) - 0.75, yOf(returnAt(row)) - 0.75, 1.5, 1.5);
+        }
+      }
+    });
+
+    // The dead-zone wall: left of it, spending changes nothing.
+    context.setLineDash([5, 4]);
+    context.strokeStyle = markInk;
+    context.beginPath();
+    context.moveTo(xOf(deadZone), padTop);
+    context.lineTo(xOf(deadZone), padTop + plotHeight);
+    context.stroke();
+    context.setLineDash([]);
+    context.textAlign = "left";
+    context.fillStyle = markInk;
+    context.fillText(compact ? "dead zone" : `dead zone ends ${money(deadZone)}`, xOf(deadZone) + 6, padTop + 14);
+
+    // Your Frontier tab is one horizontal slice of this plane.
+    context.strokeStyle = markInk;
+    context.lineWidth = 1.4;
+    context.beginPath();
+    context.moveTo(padLeft, yOf(realReturn));
+    context.lineTo(padLeft + plotWidth, yOf(realReturn));
+    context.stroke();
+    context.fillStyle = markInk;
+    context.fillText(compact ? "FRONTIER TAB ROW" : "YOUR FRONTIER TAB IS THIS ROW", padLeft + 8, yOf(realReturn) - 7);
+    frontierSpends.forEach((value) => {
+      if (value < SURFACE_SPEND_LOW || value > SURFACE_SPEND_HIGH) return;
+      context.beginPath();
+      context.arc(xOf(value), yOf(realReturn), 3.1, 0, Math.PI * 2);
+      context.fill();
+    });
+
+    // The active plan.
+    const planX = xOf(clamp(spend, SURFACE_SPEND_LOW, SURFACE_SPEND_HIGH));
+    const planY = yOf(clamp(realReturn, SURFACE_RETURN_LOW, SURFACE_RETURN_HIGH));
+    context.strokeStyle = textInk;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(planX, planY, 7, 0, Math.PI * 2);
+    context.stroke();
+    context.lineWidth = 1;
+  }, [series, peak, metric, deadZone, realReturn, spend, frontierSpends, theme]);
+
+  const locate = (event: { clientX: number; clientY: number }) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const padLeft = 64;
+    const padBottom = 34;
+    const padTop = 14;
+    const padRight = 26;
+    const plotWidth = rect.width - padLeft - padRight;
+    const plotHeight = rect.height - padTop - padBottom;
+    const x = event.clientX - rect.left - padLeft;
+    const y = event.clientY - rect.top - padTop;
+    if (x < 0 || y < 0 || x > plotWidth || y > plotHeight) return null;
+    const column = clamp(Math.round((x / plotWidth) * (SURFACE_COLUMNS - 1)), 0, SURFACE_COLUMNS - 1);
+    const row = clamp(Math.round((1 - y / plotHeight) * (SURFACE_ROWS - 1)), 0, SURFACE_ROWS - 1);
+    return { spend: spendAt(column), realReturn: returnAt(row), value: series[row * SURFACE_COLUMNS + column] };
+  };
+
+  const activeMetric = SURFACE_METRICS.find((item) => item.key === metric)!;
+  const readout = hover ?? { spend, realReturn, value: 0 };
+
+  return <section className="panel decision-surface">
+    <div className="panel-head">
+      <div>
+        <h3>Decision surface</h3>
+        <p>Your Frontier tab is five spending points at one return assumption. This is the same question in its plane: {(SURFACE_COLUMNS * SURFACE_ROWS).toLocaleString()} live ledgers across every flat spend and every real return your controls allow, shaded by {activeMetric.label.toLowerCase()}. Click a point to adopt it.</p>
+      </div>
+      <Badge tone="modelled">{(SURFACE_COLUMNS * SURFACE_ROWS).toLocaleString()} ledgers</Badge>
+    </div>
+    <div className="instrument-bar" role="group" aria-label="Surface metric">
+      <span className="instrument-label">Shade by</span>
+      {SURFACE_METRICS.map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{item.label}</button>)}
+    </div>
+    <div className="surface-wrap" ref={wrapRef}>
+      <canvas
+        ref={canvasRef}
+        className="surface-canvas"
+        role="img"
+        aria-label={`Heat map of ${activeMetric.label} across flat spend and real return. Your active plan is ${money(spend)} a year at ${pct(realReturn, 1)} real.`}
+        onPointerMove={(event) => setHover(locate(event))}
+        onPointerLeave={() => setHover(null)}
+        onClick={(event) => { const at = locate(event); if (at) onAdopt({ spend: Math.round(at.spend / 1_000) * 1_000, realReturn: Number(at.realReturn.toFixed(4)) }); }}
+      />
+    </div>
+    <div className="surface-readout">
+      <div><span>{hover ? "Under the cursor" : "Active plan"}</span><b>{money(readout.spend)} · {pct(readout.realReturn, 2)} real</b></div>
+      <div><span>{activeMetric.label}</span><b>{hover ? (metric === "exhaustion" ? (readout.value >= 96 ? "never" : `age ${Math.round(readout.value)}`) : money(readout.value)) : "hover to read"}</b></div>
+      <div><span>Dead-zone ceiling</span><b>{money(deadZone)}</b></div>
+    </div>
+    <div className="note"><b>How to read it:</b> the vertical wall is the dead-zone ceiling — left of it every spend produces the identical Pool A path, because the statutory minimum draw already exceeds the lifestyle gap. The white row is the single return assumption your Frontier tab holds fixed, with its five spending points marked on it. Moving up the plane buys outcomes with return; moving left buys them with restraint. Clicking sets both controls for the whole Command Centre.</div>
+  </section>;
+}
+
+/* ---- minimal 4x4 helpers: the volume needs a camera, not a matrix library ---- */
+function mat4Multiply(a: Float32Array, b: Float32Array) {
+  const out = new Float32Array(16);
+  for (let row = 0; row < 4; row += 1) {
+    for (let column = 0; column < 4; column += 1) {
+      out[column * 4 + row] = a[row] * b[column * 4]
+        + a[4 + row] * b[column * 4 + 1]
+        + a[8 + row] * b[column * 4 + 2]
+        + a[12 + row] * b[column * 4 + 3];
+    }
+  }
+  return out;
+}
+
+function mat4Perspective(fovY: number, aspect: number, near: number, far: number) {
+  const f = 1 / Math.tan(fovY / 2);
+  const out = new Float32Array(16);
+  out[0] = f / aspect; out[5] = f; out[10] = (far + near) / (near - far);
+  out[11] = -1; out[14] = (2 * far * near) / (near - far);
+  return out;
+}
+
+function mat4LookAt(eye: number[], centre: number[], up: number[]) {
+  const z = [eye[0] - centre[0], eye[1] - centre[1], eye[2] - centre[2]];
+  let length = Math.hypot(z[0], z[1], z[2]) || 1;
+  z[0] /= length; z[1] /= length; z[2] /= length;
+  const x = [up[1] * z[2] - up[2] * z[1], up[2] * z[0] - up[0] * z[2], up[0] * z[1] - up[1] * z[0]];
+  length = Math.hypot(x[0], x[1], x[2]) || 1;
+  x[0] /= length; x[1] /= length; x[2] /= length;
+  const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+  const out = new Float32Array(16);
+  out[0] = x[0]; out[1] = y[0]; out[2] = z[0];
+  out[4] = x[1]; out[5] = y[1]; out[6] = z[1];
+  out[8] = x[2]; out[9] = y[2]; out[10] = z[2];
+  out[12] = -(x[0] * eye[0] + x[1] * eye[1] + x[2] * eye[2]);
+  out[13] = -(y[0] * eye[0] + y[1] * eye[1] + y[2] * eye[2]);
+  out[14] = -(z[0] * eye[0] + z[1] * eye[1] + z[2] * eye[2]);
+  out[15] = 1;
+  return out;
+}
+
+function projectPoint(matrix: Float32Array, px: number, py: number, pz: number, width: number, height: number) {
+  const w = matrix[3] * px + matrix[7] * py + matrix[11] * pz + matrix[15];
+  const x = matrix[0] * px + matrix[4] * py + matrix[8] * pz + matrix[12];
+  const y = matrix[1] * px + matrix[5] * py + matrix[9] * pz + matrix[13];
+  const safe = Math.abs(w) < 1e-5 ? 1e-5 : w;
+  return { x: (x / safe * 0.5 + 0.5) * width, y: (1 - (y / safe * 0.5 + 0.5)) * height, w: safe };
+}
+
+type VolumeMetric = "poolA" | "total" | "poolC";
+type VolumeTool = "orbit" | "pan" | "slice";
+type VolumeFilter = "all" | "survivors" | "failures";
+
+const VOLUME_POINTS = 36;
+const VOLUME_VERTEX_SHADER = `attribute vec3 p;attribute vec2 a;uniform mat4 m;uniform float cut;uniform float slab;uniform float vmode;varying float s;varying float d;
+void main(){float vis=step(a.y,cut)*step(abs(p.z),slab);if(vmode>0.5){vis*=(vmode<1.5)?a.x:(1.0-a.x);}vec4 q=m*vec4(p,1.0);gl_Position=(vis>0.5)?q:vec4(3.0,3.0,3.0,1.0);d=clamp(q.w/6.0,0.0,1.0);s=a.x;}`;
+const VOLUME_FRAGMENT_SHADER = `precision mediump float;varying float s;varying float d;uniform vec3 tint;uniform float useTint;uniform float alpha;
+void main(){vec3 c=(useTint>0.5)?tint:mix(vec3(1.0,0.45,0.55),vec3(0.28,0.84,0.63),s);gl_FragColor=vec4(c*mix(1.0,0.4,d),alpha);}`;
+
+function compileVolumeProgram(gl: WebGLRenderingContext) {
+  const build = (type: number, source: string) => {
+    const shader = gl.createShader(type);
+    if (!shader) return null;
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    return gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? shader : null;
+  };
+  const vertex = build(gl.VERTEX_SHADER, VOLUME_VERTEX_SHADER);
+  const fragment = build(gl.FRAGMENT_SHADER, VOLUME_FRAGMENT_SHADER);
+  if (!vertex || !fragment) return null;
+  const program = gl.createProgram();
+  if (!program) return null;
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  return gl.getProgramParameter(program, gl.LINK_STATUS) ? program : null;
+}
+
+function ProbabilityVolume({ rail, spend, realReturn, simulationSeed, theme }: {
+  rail: Rail;
+  spend: number;
+  realReturn: number;
+  simulationSeed: number;
+  theme: Theme;
+}) {
+  const [metric, setMetric] = useState<VolumeMetric>("poolA");
+  const [tool, setTool] = useState<VolumeTool>("orbit");
+  const [filter, setFilter] = useState<VolumeFilter>("all");
+  const [volatility, setVolatility] = useState(0.12);
+  // A phone draws the same geometry on a far smaller GPU budget.
+  const [pathCount, setPathCount] = useState(() => (typeof window !== "undefined" && window.innerWidth < 760 ? 1_500 : 6_000));
+  const [revealAge, setRevealAge] = useState(95);
+  const [slab, setSlab] = useState(1);
+  const [slicePosition, setSlicePosition] = useState(0.5);
+  const [spinning, setSpinning] = useState(false);
+  const [showSpine, setShowSpine] = useState(true);
+  const [supported, setSupported] = useState(true);
+  const [sliceReadout, setSliceReadout] = useState<{ age: number; p5: number; p50: number; p95: number; failed: number } | null>(null);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const cameraRef = useRef({ angle: 0.58, elevation: 0.18, radius: 2.42, panX: 0, panY: 0 });
+  const glRef = useRef<{ gl: WebGLRenderingContext; program: WebGLProgram; cloud: WebGLBuffer; cloudAttr: WebGLBuffer; spine: WebGLBuffer; spineAttr: WebGLBuffer; spineCount: number; count: number } | null>(null);
+  const frameRef = useRef(0);
+
+  /* Every path is a full canonical ledger, so volatility 0 collapses the cloud
+     onto the deterministic plan exactly. */
+  const simulation = useMemo(() => {
+    const paths = pathCount;
+    const poolA = new Float32Array(paths * VOLUME_POINTS);
+    const poolC = new Float32Array(paths * VOLUME_POINTS);
+    const realised = new Float32Array(paths);
+    const survived = new Uint8Array(paths);
+    for (let run = 0; run < paths; run += 1) {
+      const random = seededGenerator(simulationSeed + run * 7_919 + Math.round(rail.capital));
+      const annualReturns: number[] = [];
+      let total = 0;
+      for (let year = 1; year < VOLUME_POINTS; year += 1) {
+        const sampled = clamp(realReturn + volatility * normalSample(random), -0.55, 0.45);
+        annualReturns.push(sampled);
+        total += sampled;
+      }
+      realised[run] = total / (VOLUME_POINTS - 1);
+      const path = poolPath(rail, spend, realReturn, annualReturns);
+      const base = run * VOLUME_POINTS;
+      for (let step = 0; step < VOLUME_POINTS; step += 1) {
+        poolA[base + step] = path[step]?.poolA ?? 0;
+        poolC[base + step] = path[step]?.poolC ?? 0;
+      }
+      survived[run] = (path[VOLUME_POINTS - 1]?.poolA ?? 0) > 0.5 ? 1 : 0;
+    }
+    let low = Infinity;
+    let high = -Infinity;
+    for (let run = 0; run < paths; run += 1) {
+      if (realised[run] < low) low = realised[run];
+      if (realised[run] > high) high = realised[run];
+    }
+    let survivors = 0;
+    for (let run = 0; run < paths; run += 1) survivors += survived[run];
+    return { paths, poolA, poolC, realised, survived, low, high, survivors };
+  }, [rail, spend, realReturn, volatility, pathCount, simulationSeed]);
+
+  const plotted = useMemo(() => {
+    const { paths, poolA, poolC } = simulation;
+    if (metric === "poolA") return poolA;
+    if (metric === "poolC") return poolC;
+    const total = new Float32Array(paths * VOLUME_POINTS);
+    for (let i = 0; i < total.length; i += 1) total[i] = poolA[i] + poolC[i];
+    return total;
+  }, [simulation, metric]);
+
+  const deterministic = useMemo(() => {
+    const path = poolPath(rail, spend, realReturn);
+    return path.map((row) => metric === "poolA" ? row.poolA : metric === "poolC" ? row.poolC : row.total);
+  }, [rail, spend, realReturn, metric]);
+
+  const ceilingValue = useMemo(() => {
+    const sample: number[] = [];
+    const stride = Math.max(1, Math.floor(simulation.paths / 1_400));
+    for (let run = 0; run < simulation.paths; run += stride) {
+      for (let step = 0; step < VOLUME_POINTS; step += 2) sample.push(plotted[run * VOLUME_POINTS + step]);
+    }
+    sample.sort((a, b) => a - b);
+    const quantileShare = metric === "poolA" ? 0.985 : 0.95;
+    const deterministicPeak = Math.max(...deterministic);
+    return Math.max(200_000, deterministicPeak * 1.25, sample[Math.floor(sample.length * quantileShare)] ?? 1_000_000);
+  }, [plotted, simulation.paths, metric, deterministic]);
+
+  const percentiles = useMemo(() => {
+    const low: number[] = [];
+    const mid: number[] = [];
+    const high: number[] = [];
+    const column: number[] = new Array(simulation.paths);
+    for (let step = 0; step < VOLUME_POINTS; step += 1) {
+      for (let run = 0; run < simulation.paths; run += 1) column[run] = plotted[run * VOLUME_POINTS + step];
+      const ordered = [...column].sort((a, b) => a - b);
+      low.push(ordered[Math.floor(ordered.length * 0.05)] ?? 0);
+      mid.push(ordered[Math.floor(ordered.length * 0.5)] ?? 0);
+      high.push(ordered[Math.floor(ordered.length * 0.95)] ?? 0);
+    }
+    return { low, mid, high };
+  }, [plotted, simulation.paths]);
+
+  const sliceAge = 60 + Math.round(slicePosition * 35);
+
+  useEffect(() => {
+    const column: number[] = [];
+    const step = clamp(sliceAge - 60, 0, 35);
+    let failed = 0;
+    for (let run = 0; run < simulation.paths; run += 1) {
+      const value = plotted[run * VOLUME_POINTS + step];
+      column.push(value);
+      if ((simulation.poolA[run * VOLUME_POINTS + step] ?? 0) <= 0.5) failed += 1;
+    }
+    column.sort((a, b) => a - b);
+    setSliceReadout({
+      age: sliceAge,
+      p5: column[Math.floor(column.length * 0.05)] ?? 0,
+      p50: column[Math.floor(column.length * 0.5)] ?? 0,
+      p95: column[Math.floor(column.length * 0.95)] ?? 0,
+      failed: failed / Math.max(1, simulation.paths),
+    });
+  }, [sliceAge, plotted, simulation]);
+
+  /* ---- geometry ---- */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const gl = (canvas.getContext("webgl", { antialias: true, alpha: true }) || canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
+    if (!gl) { setSupported(false); return; }
+    const program = compileVolumeProgram(gl);
+    if (!program) { setSupported(false); return; }
+    const segments = VOLUME_POINTS - 1;
+    const positions = new Float32Array(simulation.paths * segments * 6);
+    const attributes = new Float32Array(simulation.paths * segments * 4);
+    const spread = Math.max(1e-6, simulation.high - simulation.low);
+    let cursor = 0;
+    let attributeCursor = 0;
+    for (let run = 0; run < simulation.paths; run += 1) {
+      const depth = ((simulation.realised[run] - simulation.low) / spread) * 2 - 1;
+      const alive = simulation.survived[run];
+      for (let step = 0; step < segments; step += 1) {
+        for (let end = 0; end < 2; end += 1) {
+          const index = step + end;
+          positions[cursor] = (index / segments) * 2 - 1;
+          positions[cursor + 1] = clamp(plotted[run * VOLUME_POINTS + index] / ceilingValue, 0, 1.06) * 2 - 1;
+          positions[cursor + 2] = depth;
+          cursor += 3;
+          attributes[attributeCursor] = alive;
+          attributes[attributeCursor + 1] = 60 + index;
+          attributeCursor += 2;
+        }
+      }
+    }
+    const spinePoints = [percentiles.low, percentiles.mid, percentiles.high, deterministic];
+    const spinePositions = new Float32Array(spinePoints.length * segments * 6);
+    const spineAttributes = new Float32Array(spinePoints.length * segments * 4);
+    let spineCursor = 0;
+    let spineAttributeCursor = 0;
+    spinePoints.forEach((line) => {
+      for (let step = 0; step < segments; step += 1) {
+        for (let end = 0; end < 2; end += 1) {
+          const index = step + end;
+          spinePositions[spineCursor] = (index / segments) * 2 - 1;
+          spinePositions[spineCursor + 1] = clamp((line[index] ?? 0) / ceilingValue, 0, 1.06) * 2 - 1;
+          spinePositions[spineCursor + 2] = 0;
+          spineCursor += 3;
+          spineAttributes[spineAttributeCursor] = 1;
+          spineAttributes[spineAttributeCursor + 1] = 60 + index;
+          spineAttributeCursor += 2;
+        }
+      }
+    });
+    const cloud = gl.createBuffer();
+    const cloudAttr = gl.createBuffer();
+    const spine = gl.createBuffer();
+    const spineAttr = gl.createBuffer();
+    if (!cloud || !cloudAttr || !spine || !spineAttr) { setSupported(false); return; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, cloud);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cloudAttr);
+    gl.bufferData(gl.ARRAY_BUFFER, attributes, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, spine);
+    gl.bufferData(gl.ARRAY_BUFFER, spinePositions, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, spineAttr);
+    gl.bufferData(gl.ARRAY_BUFFER, spineAttributes, gl.STATIC_DRAW);
+    glRef.current = {
+      gl, program, cloud, cloudAttr, spine, spineAttr,
+      count: simulation.paths * segments * 2,
+      spineCount: spinePoints.length * segments * 2,
+    };
+    setSupported(true);
+    return () => {
+      gl.deleteBuffer(cloud); gl.deleteBuffer(cloudAttr); gl.deleteBuffer(spine); gl.deleteBuffer(spineAttr);
+      gl.deleteProgram(program);
+      glRef.current = null;
+    };
+  }, [simulation, plotted, ceilingValue, percentiles, deterministic]);
+
+  /* ---- draw loop ---- */
+  useEffect(() => {
+    let active = true;
+    const render = () => {
+      if (!active) return;
+      frameRef.current = requestAnimationFrame(render);
+      const state = glRef.current;
+      const canvas = canvasRef.current;
+      const overlay = overlayRef.current;
+      const wrap = wrapRef.current;
+      if (!state || !canvas || !overlay || !wrap) return;
+      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      const cssWidth = Math.max(240, wrap.clientWidth);
+      const cssHeight = Math.round(clamp(cssWidth * 0.64, 300, 540));
+      [canvas, overlay].forEach((target) => {
+        if (target.style.width !== `${cssWidth}px`) { target.style.width = `${cssWidth}px`; target.style.height = `${cssHeight}px`; }
+        const wantWidth = Math.round(cssWidth * ratio);
+        const wantHeight = Math.round(cssHeight * ratio);
+        if (target.width !== wantWidth || target.height !== wantHeight) { target.width = wantWidth; target.height = wantHeight; }
+      });
+      const camera = cameraRef.current;
+      if (spinning) camera.angle += 0.0035;
+      const { gl, program } = state;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND);
+      gl.useProgram(program);
+      const eye = [
+        Math.sin(camera.angle) * Math.cos(camera.elevation) * camera.radius,
+        Math.sin(camera.elevation) * camera.radius + camera.panY,
+        Math.cos(camera.angle) * Math.cos(camera.elevation) * camera.radius,
+      ];
+      const matrix = mat4Multiply(
+        mat4Perspective(0.95, canvas.width / Math.max(1, canvas.height), 0.1, 40),
+        // The plotted band runs from -1 to about +1.12, so the camera aims a little high.
+        mat4LookAt(eye, [camera.panX, camera.panY + 0.07, 0], [0, 1, 0]),
+      );
+      const uniform = (name: string) => gl.getUniformLocation(program, name);
+      gl.uniformMatrix4fv(uniform("m"), false, matrix);
+      gl.uniform1f(uniform("cut"), revealAge);
+      gl.uniform1f(uniform("slab"), slab);
+      gl.uniform1f(uniform("vmode"), filter === "all" ? 0 : filter === "survivors" ? 1 : 2);
+      const position = gl.getAttribLocation(program, "p");
+      const attribute = gl.getAttribLocation(program, "a");
+      gl.enableVertexAttribArray(position);
+      gl.enableVertexAttribArray(attribute);
+
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.uniform1f(uniform("useTint"), 0);
+      // Additive blending means brightness is lines per pixel: hold that constant
+      // so a phone-sized canvas does not blow out at the same path count.
+      const density = (cssWidth * cssHeight) / (900 * 560);
+      gl.uniform1f(uniform("alpha"), clamp(0.5 * density / (simulation.paths / 1_500), 0.02, 0.3));
+      gl.bindBuffer(gl.ARRAY_BUFFER, state.cloud);
+      gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, state.cloudAttr);
+      gl.vertexAttribPointer(attribute, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.LINES, 0, state.count);
+
+      if (showSpine) {
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.uniform1f(uniform("useTint"), 1);
+        gl.uniform1f(uniform("alpha"), 0.95);
+        gl.uniform1f(uniform("vmode"), 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, state.spine);
+        gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, state.spineAttr);
+        gl.vertexAttribPointer(attribute, 2, gl.FLOAT, false, 0, 0);
+        const quarter = state.spineCount / 4;
+        const tints = [[0.55, 0.63, 1], [0.44, 0.55, 1], [0.55, 0.63, 1], [0.93, 0.95, 1]];
+        tints.forEach((tint, index) => {
+          gl.uniform3f(uniform("tint"), tint[0], tint[1], tint[2]);
+          gl.uniform1f(uniform("alpha"), index === 3 ? 1 : 0.55);
+          gl.drawArrays(gl.LINES, index * quarter, quarter);
+        });
+      }
+
+      /* ---- 2D overlay: axes, the slice plane and its distribution ---- */
+      const context = overlay.getContext("2d");
+      if (!context) return;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, cssWidth, cssHeight);
+      const ink = themeInk(wrap, "--muted", "#87a0c5");
+      const textInk = themeInk(wrap, "--text", "#e3ecff");
+      const to2d = (x: number, y: number, z: number) => projectPoint(matrix, x, y, z, cssWidth, cssHeight);
+      context.font = "10.5px Arial, Helvetica, sans-serif";
+      context.fillStyle = ink;
+      context.textAlign = "center";
+      // Ticks belong on the edge nearest the camera, or they hide inside the cloud.
+      const nearZ = (eye[2] >= 0 ? 1 : -1) * Math.min(1, slab);
+      [60, 70, 80, 90, 95].forEach((ageTick) => {
+        if (ageTick > revealAge) return;
+        const at = to2d(((ageTick - 60) / 35) * 2 - 1, -1, nearZ);
+        if (at.w <= 0 || at.x < 4 || at.x > cssWidth - 4) return;
+        context.fillText(String(ageTick), at.x, clamp(at.y + 15, 12, cssHeight - 4));
+      });
+      context.textAlign = "left";
+      [0, 0.5, 1].forEach((share) => {
+        const at = to2d(-1, share * 2 - 1, 0);
+        if (at.w <= 0 || at.y < 8 || at.y > cssHeight - 8) return;
+        context.fillText(compactMoney(ceilingValue * share), clamp(at.x - 44, 2, cssWidth - 50), at.y);
+      });
+
+      // Fixed captions, so the axes stay readable from any camera angle.
+      context.textAlign = "left";
+      context.fillStyle = textInk;
+      context.fillText(`height = ${metricLabel}`, 10, 16);
+      context.fillStyle = ink;
+      context.fillText("depth = realised average return", 10, 30);
+      context.fillText("age 60 → 95", 10, cssHeight - 10);
+
+      const sliceX = ((sliceAge - 60) / 35) * 2 - 1;
+      const corners = [to2d(sliceX, -1, -slab), to2d(sliceX, 1, -slab), to2d(sliceX, 1, slab), to2d(sliceX, -1, slab)];
+      if (corners.every((corner) => corner.w > 0)) {
+        context.beginPath();
+        context.moveTo(corners[0].x, corners[0].y);
+        corners.slice(1).forEach((corner) => context.lineTo(corner.x, corner.y));
+        context.closePath();
+        context.fillStyle = "rgba(111,140,255,.12)";
+        context.strokeStyle = "rgba(111,140,255,.65)";
+        context.fill();
+        context.stroke();
+      }
+      // The inset distribution needs room; on a phone the readouts below carry it.
+      if (sliceReadout && cssWidth >= 560) {
+        const boxWidth = 168;
+        const boxHeight = 92;
+        const left = cssWidth - boxWidth - 12;
+        const top = 12;
+        context.fillStyle = "rgba(7,19,33,.82)";
+        context.strokeStyle = "rgba(111,140,255,.45)";
+        context.fillRect(left, top, boxWidth, boxHeight);
+        context.strokeRect(left, top, boxWidth, boxHeight);
+        const column: number[] = [];
+        const step = clamp(sliceAge - 60, 0, 35);
+        for (let run = 0; run < simulation.paths; run += 1) column.push(plotted[run * VOLUME_POINTS + step]);
+        const bins = new Array(26).fill(0);
+        column.forEach((value) => { bins[clamp(Math.floor((value / ceilingValue) * 26), 0, 25)] += 1; });
+        const tallest = Math.max(...bins, 1);
+        bins.forEach((count, index) => {
+          const barHeight = (count / tallest) * 44;
+          context.fillStyle = index === 0 ? "rgba(255,114,140,.9)" : "rgba(71,214,160,.75)";
+          context.fillRect(left + 8 + index * 6, top + 52 - barHeight, 5, barHeight);
+        });
+        context.fillStyle = textInk;
+        context.textAlign = "left";
+        context.fillText(`Age ${sliceReadout.age} distribution`, left + 8, top + 14);
+        context.fillStyle = ink;
+        context.fillText(`P5 ${compactMoney(sliceReadout.p5)} · P50 ${compactMoney(sliceReadout.p50)}`, left + 8, top + 68);
+        context.fillText(`P95 ${compactMoney(sliceReadout.p95)} · ${pct(sliceReadout.failed, 0)} broken`, left + 8, top + 82);
+      }
+    };
+    frameRef.current = requestAnimationFrame(render);
+    return () => { active = false; cancelAnimationFrame(frameRef.current); };
+  }, [spinning, revealAge, slab, filter, showSpine, sliceAge, sliceReadout, ceilingValue, plotted, simulation, theme]);
+
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    dragRef.current = { x: event.clientX, y: event.clientY };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer already released */ }
+  };
+  const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const from = dragRef.current;
+    if (!from) return;
+    const dx = event.clientX - from.x;
+    const dy = event.clientY - from.y;
+    dragRef.current = { x: event.clientX, y: event.clientY };
+    const camera = cameraRef.current;
+    if (tool === "orbit" && !event.shiftKey) {
+      camera.angle -= dx * 0.006;
+      camera.elevation = clamp(camera.elevation + dy * 0.005, -1.35, 1.35);
+    } else if (tool === "slice") {
+      setSlicePosition((value) => clamp(value + dx / 420, 0, 1));
+    } else {
+      camera.panX = clamp(camera.panX - dx * 0.004, -1.6, 1.6);
+      camera.panY = clamp(camera.panY + dy * 0.004, -1.6, 1.6);
+    }
+  };
+  const endPointer = () => { dragRef.current = null; };
+  const onWheel = (event: ReactWheelEvent<HTMLCanvasElement>) => {
+    const camera = cameraRef.current;
+    camera.radius = clamp(camera.radius * (event.deltaY > 0 ? 1.08 : 0.93), 0.9, 6);
+  };
+  const applyView = (view: "iso" | "front" | "depth" | "top") => {
+    const camera = cameraRef.current;
+    if (view === "iso") { camera.angle = 0.58; camera.elevation = 0.18; camera.radius = 2.42; }
+    if (view === "front") { camera.angle = 0; camera.elevation = 0.04; camera.radius = 2.12; }
+    if (view === "depth") { camera.angle = Math.PI / 2; camera.elevation = 0.08; camera.radius = 2.05; }
+    if (view === "top") { camera.angle = 0.001; camera.elevation = 0.9; camera.radius = 2.5; }
+    camera.panX = 0; camera.panY = 0;
+  };
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLCanvasElement>) => {
+    const camera = cameraRef.current;
+    const keys: Record<string, () => void> = {
+      ArrowLeft: () => { camera.angle -= 0.08; },
+      ArrowRight: () => { camera.angle += 0.08; },
+      ArrowUp: () => { camera.elevation = clamp(camera.elevation + 0.06, -1.35, 1.35); },
+      ArrowDown: () => { camera.elevation = clamp(camera.elevation - 0.06, -1.35, 1.35); },
+      "+": () => { camera.radius = clamp(camera.radius * 0.92, 0.9, 6); },
+      "=": () => { camera.radius = clamp(camera.radius * 0.92, 0.9, 6); },
+      "-": () => { camera.radius = clamp(camera.radius * 1.08, 0.9, 6); },
+      "1": () => applyView("iso"),
+      "2": () => applyView("front"),
+      "3": () => applyView("depth"),
+      "4": () => applyView("top"),
+      r: () => { applyView("iso"); setRevealAge(95); setSlab(1); setFilter("all"); },
+    };
+    const action = keys[event.key];
+    if (action) { action(); event.preventDefault(); }
+  };
+
+  const survivalShare = simulation.survivors / Math.max(1, simulation.paths);
+  const metricLabel = metric === "poolA" ? "Pool A" : metric === "poolC" ? "Pool C" : "total capital";
+
+  return <section className="panel probability-volume">
+    <div className="panel-head">
+      <div>
+        <h3>Probability volume</h3>
+        <p>Every simulated future drawn as its own line. Height is {metricLabel}; depth is that path’s realised average return, so the cloud’s thickness is luck and its floor is failure. The fan chart above is this volume seen from one side.</p>
+      </div>
+      <Badge tone="modelled">{simulation.paths.toLocaleString()} paths · seed {simulationSeed}</Badge>
+    </div>
+    {!supported && <div className="note warn"><b>WebGL is unavailable in this browser.</b> The simulation still ran — the percentile readouts and the age slice below are live — but the 3D volume cannot be drawn. The capital simulation fan above shows the same paths in two dimensions.</div>}
+    <div className="instrument-bar" role="group" aria-label="Volume controls">
+      <span className="instrument-label">Height</span>
+      <button type="button" className={metric === "poolA" ? "active" : ""} aria-pressed={metric === "poolA"} onClick={() => setMetric("poolA")}>Pool A</button>
+      <button type="button" className={metric === "total" ? "active" : ""} aria-pressed={metric === "total"} onClick={() => setMetric("total")}>Total capital</button>
+      <button type="button" className={metric === "poolC" ? "active" : ""} aria-pressed={metric === "poolC"} onClick={() => setMetric("poolC")}>Pool C</button>
+      <span className="instrument-sep" />
+      <span className="instrument-label">Drag</span>
+      <button type="button" className={tool === "orbit" ? "active" : ""} aria-pressed={tool === "orbit"} onClick={() => setTool("orbit")}>Orbit</button>
+      <button type="button" className={tool === "pan" ? "active" : ""} aria-pressed={tool === "pan"} onClick={() => setTool("pan")}>Pan</button>
+      <button type="button" className={tool === "slice" ? "active" : ""} aria-pressed={tool === "slice"} onClick={() => setTool("slice")}>Slice</button>
+      <span className="instrument-sep" />
+      <span className="instrument-label">Show</span>
+      <button type="button" className={filter === "all" ? "active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>All</button>
+      <button type="button" className={filter === "survivors" ? "active" : ""} aria-pressed={filter === "survivors"} onClick={() => setFilter("survivors")}>Survivors</button>
+      <button type="button" className={filter === "failures" ? "active" : ""} aria-pressed={filter === "failures"} onClick={() => setFilter("failures")}>Failures</button>
+    </div>
+    <div className="instrument-bar" role="group" aria-label="Volume view">
+      <span className="instrument-label">View</span>
+      <button type="button" onClick={() => applyView("iso")}>Iso</button>
+      <button type="button" onClick={() => applyView("front")}>Front</button>
+      <button type="button" onClick={() => applyView("depth")}>Return axis</button>
+      <button type="button" onClick={() => applyView("top")}>Top</button>
+      <button type="button" className={spinning ? "active" : ""} aria-pressed={spinning} onClick={() => setSpinning(!spinning)}>Auto-orbit</button>
+      <button type="button" className={showSpine ? "active" : ""} aria-pressed={showSpine} onClick={() => setShowSpine(!showSpine)}>Percentile spine</button>
+      <button type="button" onClick={() => { applyView("iso"); setRevealAge(95); setSlab(1); setFilter("all"); }}>Reset view</button>
+      <span className="instrument-sep" />
+      <span className="instrument-label">Paths</span>
+      {[1_500, 6_000, 12_000].map((count) => <button key={count} type="button" className={pathCount === count ? "active" : ""} aria-pressed={pathCount === count} onClick={() => setPathCount(count)}>{count.toLocaleString()}</button>)}
+    </div>
+    <div className="volume-sliders">
+      <label>Reveal to age <b>{revealAge}</b><input type="range" min={61} max={95} step={1} value={revealAge} onChange={(event) => setRevealAge(Number(event.target.value))} /></label>
+      <label>Luck band (depth slab) <b>{slab >= 1 ? "all paths" : `±${(slab * 100).toFixed(0)}%`}</b><input type="range" min={0.06} max={1} step={0.02} value={slab} onChange={(event) => setSlab(Number(event.target.value))} /></label>
+      <label>Volatility σ <b>{pct(volatility, 0)}</b><input type="range" min={0} max={0.2} step={0.01} value={volatility} onChange={(event) => setVolatility(Number(event.target.value))} /></label>
+      <label>Slice age <b>{sliceAge}</b><input type="range" min={0} max={1} step={1 / 35} value={slicePosition} onChange={(event) => setSlicePosition(Number(event.target.value))} /></label>
+    </div>
+    <div className="volume-wrap" ref={wrapRef}>
+      <canvas ref={canvasRef} className="volume-canvas" tabIndex={0}
+        aria-label={`Three-dimensional probability volume of ${metricLabel} from age 60 to 95. Drag to ${tool}, scroll to zoom, arrow keys rotate, 1 to 4 select views.`}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer}
+        onWheel={onWheel} onDoubleClick={() => applyView("iso")} onKeyDown={onKeyDown} />
+      <canvas ref={overlayRef} className="volume-overlay" aria-hidden="true" />
+    </div>
+    <div className="volume-readout">
+      <div><span>Paths with Pool A left at 95</span><b>{pct(survivalShare, 0)}</b><small>{simulation.survivors.toLocaleString()} of {simulation.paths.toLocaleString()} · not a forecast probability</small></div>
+      <div><span>At age {sliceReadout?.age ?? sliceAge}</span><b>{sliceReadout ? `${compactMoney(sliceReadout.p5)} – ${compactMoney(sliceReadout.p95)}` : "—"}</b><small>P5 to P95 of {metricLabel}; median {sliceReadout ? money(sliceReadout.p50) : "—"}</small></div>
+      <div><span>Broken by that age</span><b>{sliceReadout ? pct(sliceReadout.failed, 0) : "—"}</b><small>share of paths with Pool A already exhausted</small></div>
+    </div>
+    <div className="note"><b>Set σ to 0</b> and the cloud collapses onto the single bright deterministic line, because every path is a full canonical ledger with the sampled returns removed — the zero-volatility parity your gate enforces, made visible. The same 12% default, capped normal distribution and seeded sampling as the fan above apply; this does not forecast regimes, fees, legislation or spending shocks.</div>
+  </section>;
 }
 
 function LineChart({ labels, series, height = 280 }: { labels: (string | number)[]; series: { name: string; values: number[]; color: string }[]; height?: number }) {
@@ -1390,6 +2617,17 @@ export default function RetirementDashboard() {
         <div className="ledger-equation"><b>Annual reconciliation:</b> ending capital = opening capital + net investment growth − planning portfolio draw + reinvested surplus. The table separates the target spend from the amount actually funded; Pool C is a reserve unless an explicit draw policy is modelled.</div>
         <div className="assumption-row"><Badge tone="modelled">Birthday-year planning bands</Badge><Badge tone="modelled">Current ABP rates, provider-calculated by FY</Badge><Badge tone="modelled">Pool C 0.35% annual drag</Badge><Badge tone="modelled">Real dollars</Badge><Badge tone="speculative">Current law held constant</Badge></div>
       </section>
+
+      <InverseSolveLab
+        rail={rail}
+        spend={spend}
+        realReturn={realReturn}
+        electionOptions={activePssElectionKeys.map((key) => ({ key, label: activePssElections[key]!.label, grossPension: activePssElections[key]!.grossPension }))}
+        onAdopt={(next) => {
+          if (next.spend !== undefined) setSpend(clamp(next.spend, 76_000, MAX_FLAT_SPEND));
+          if (next.realReturn !== undefined) setRealReturn(clamp(next.realReturn, 0.02, 0.075));
+        }}
+      />
     </>
   );
 
@@ -1571,6 +2809,8 @@ export default function RetirementDashboard() {
         <FanChart key={`fan-${targetAge}`} fan={fan} targetAge={targetAge} />
         <div className="note warn"><b>Read the band, not just the median:</b> 600 seeded paths use a constant real mean, 12% annual volatility and a capped normal distribution. They preserve the three-pool ledger but do not forecast regimes, fees, legislation, provider financial-year payment timing or personal spending shocks. Sample seed: {simulationSeed}.</div>
       </section>
+
+      <ProbabilityVolume rail={rail} spend={spend} realReturn={realReturn} simulationSeed={simulationSeed} theme={theme} />
       <section className="panel">
         <div className="panel-head"><div><h3>Sequence-risk heatmap</h3><p>Prescribed single-shock library: ending investment capital after one adverse return at different early-retirement ages; all other years use the selected real return.</p></div><Badge tone="modelled">Timing sensitivity</Badge></div>
         <div className="heatmap" role="table" aria-label="Sequence risk heatmap">
@@ -1789,12 +3029,28 @@ export default function RetirementDashboard() {
     <VisualExplorerPanel key={explorerPanel} scenario={currentScenario} theme={theme} panel={explorerPanel} view={visualView} onSpend={setSpend} onView={setVisualView}/>
   </>;
 
+  const renderSurface = () => <>
+    <SectionHeading eyebrow="Decision workspace" title="Every plan at once" copy={`Frontier answers one question along a line: what does more spending cost at ${pct(realReturn, 1)} real? This answers it across the whole plane, so the return assumption stops being a setting you have to trust and becomes an axis you can see. Your Frontier tab is drawn on it as the single row it is.`} />
+    <DecisionSurface
+      rail={rail}
+      spend={spend}
+      realReturn={realReturn}
+      targetAge={targetAge}
+      theme={theme}
+      frontierSpends={FRONTIER_SPENDS}
+      onAdopt={({ spend: nextSpend, realReturn: nextReturn }) => {
+        setSpend(clamp(nextSpend, 76_000, MAX_FLAT_SPEND));
+        setRealReturn(clamp(nextReturn, 0.02, 0.075));
+      }}
+    />
+  </>;
+
   const renderScenarioWorkspace=()=>{
     const selected=SCENARIO_TOOLS.find(item=>item.key===scenarioTool)!;
-    const body=scenarioTool==="explore"?renderExplorer():scenarioTool==="compare"?renderCompare():scenarioTool==="frontier"?renderFrontier():scenarioTool==="risk"?renderRisk():renderScenario();
+    const body=scenarioTool==="explore"?renderExplorer():scenarioTool==="compare"?renderCompare():scenarioTool==="frontier"?renderFrontier():scenarioTool==="surface"?renderSurface():scenarioTool==="risk"?renderRisk():renderScenario();
     return <>
       <section className="scenario-hub" aria-labelledby="scenario-hub-title">
-        <div><span>Scenario workspace</span><h2 id="scenario-hub-title">One active plan. Five ways to work with it.</h2><p>{selected.hint} The active comparison plan above applies to every tab.</p></div>
+        <div><span>Scenario workspace</span><h2 id="scenario-hub-title">One active plan. Six ways to work with it.</h2><p>{selected.hint} The active comparison plan above applies to every tab.</p></div>
         <div className="scenario-hub-tabs" role="tablist" aria-label="Scenario tools">
           {SCENARIO_TOOLS.map(item=><button type="button" role="tab" aria-selected={scenarioTool===item.key} className={scenarioTool===item.key?"active":""} key={item.key} onClick={()=>openScenarioTool(item.key)}><b>{item.label}</b><small>{item.hint}</small></button>)}
         </div>

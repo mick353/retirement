@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 const read=async p=>(await readFile(new URL("../"+p,import.meta.url),"utf8")).replace(/\r\n/g,"\n");
-const [entry,app,atlas,css,v23]=await Promise.all(["public/atlas-entry.js","app/retirement-dashboard.tsx","public/atlas.js","public/atlas.css","public/deep-model.html"].map(read));
+const [entry,app,atlas,css,v23,appCss]=await Promise.all(["public/atlas-entry.js","app/retirement-dashboard.tsx","public/atlas.js","public/atlas.css","public/deep-model.html","app/globals.css"].map(read));
 const query="shared=1&rail=B&pss=70-30&basis=prudent-630&spend=120000&return=0.075&age=91&home=800000&taxYear=2027-28&reserveMonths=0&seed=44&theme=dark&view=river";
 const cases={trajectory:["scenario","explore","studio"],cashflow:["scenario","explore","cashflow"],architecture:["scenario","explore","map"],objectives:["scenario","explore","map"],lifecycle:["scenario","explore","map"],frontier:["scenario","frontier",null],tax:["estate",null,null],governance:["evidence",null,null]};
 let count=0;
@@ -30,11 +30,20 @@ assert.match(app,/plan keeps its last valid value/);
 assert.match(app,/shared-plan-controls/);
 assert.match(app,/query.set\("section",section\)/);
 assert.match(app,/query.set\("tool",scenarioTool\)/);
-assert.match(app,/One active plan\. Five ways to work with it\./);
-for(const tool of ["lab","explore","compare","frontier","risk"])assert.ok(app.includes('key: "'+tool+'"'));
+assert.match(app,/One active plan\. Six ways to work with it\./);
+for(const tool of ["lab","explore","compare","frontier","surface","risk"])assert.ok(app.includes('key: "'+tool+'"'));
+// Scenario instruments: the inverse solver, the decision surface and the probability volume.
+for(const instrument of ["InverseSolveLab","DecisionSurface","ProbabilityVolume"]){
+  assert.ok(app.includes("function "+instrument+"({"),instrument+" must stay a maintained component");
+  assert.ok(app.includes("<"+instrument),instrument+" must stay mounted in the Scenario workspace");
+}
+// Every instrument reads the canonical ledger; none may carry its own arithmetic.
+assert.match(app,/function poolPath\(rail: Rail[\s\S]{0,400}calculateCanonicalFlatRetirementLedger/,"poolPath must delegate to the canonical ledger");
+assert.ok(app.includes("renderSurface"),"The surface tab needs its renderer");
+for(const control of ["instrument-bar","solve-canvas","surface-canvas","volume-canvas"])assert.ok(appCss.includes("."+control),"Missing instrument style: "+control);
 assert.match(app,/scenario=\{currentScenario\} theme=\{theme\}/);
 assert.doesNotMatch(app,/function HorizonTerrainCanvas|function HorizonExplorer/,"Only one maintained six-view renderer");
 for(const mode of ["horizon","river","orbit","waterfall","sunburst","table"])assert.ok(atlas.includes('"'+mode+'"'));
 for(const panel of ["studio","cashflow","returns","map","trade"])assert.ok(css.includes('data-embed-panel="'+panel+'"'));
 assert.match(v23,/Visual explorer/);
-console.log("Integrated explorer guards: "+count+" legacy routes preserve all scenario fields; embedded ownership, message origins, six modes, five panels and V23 handoff verified.");
+console.log("Integrated explorer guards: "+count+" legacy routes preserve all scenario fields; embedded ownership, message origins, six modes, five panels, three scenario instruments and V23 handoff verified.");

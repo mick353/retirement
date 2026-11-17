@@ -1046,10 +1046,50 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .scenario-hub>div:first-child>span {color:var(--green);font-size:11px;font-weight:850;letter-spacing:.14em;text-transform:uppercase;}
 .scenario-hub h2 {margin:7px 0 5px;font-size:clamp(22px,2.4vw,32px);}
 .scenario-hub p {margin:0;color:var(--muted);line-height:1.55;}
-.scenario-hub-tabs {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:18px;}
+.scenario-hub-tabs {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:18px;}
 .scenario-hub-tabs button {min-width:0;min-height:82px;padding:12px;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);cursor:pointer;}
 .scenario-hub-tabs button b,.scenario-hub-tabs button small {display:block;}
 .scenario-hub-tabs button small {margin-top:5px;color:var(--muted);font-size:10px;line-height:1.35;}
 .scenario-hub-tabs button.active {border-color:var(--blue);background:linear-gradient(145deg,var(--blue-soft),var(--panel));box-shadow:inset 3px 0 0 var(--blue);}
-@media(max-width:850px){.scenario-hub-tabs{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:1180px){.scenario-hub-tabs{grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media(max-width:650px){.scenario-hub{padding:15px}.scenario-hub-tabs{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.scenario-hub-tabs button{flex:0 0 118px;min-height:62px;scroll-snap-align:start}.scenario-hub-tabs button small{display:none}}
+
+/* ---- scenario instruments: solve lab, decision surface, probability volume ---- */
+.instrument-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+.instrument-bar+.instrument-bar{margin-top:-6px}
+.instrument-label{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--soft);font-weight:700;margin-right:2px}
+.instrument-sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+.instrument-bar button{min-height:32px;padding:5px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:11.5px;font-weight:600;cursor:pointer}
+.instrument-bar button:hover:not(:disabled){color:var(--text);border-color:var(--blue)}
+.instrument-bar button:disabled{opacity:.42;cursor:not-allowed}
+.instrument-bar button.active{background:color-mix(in srgb,var(--blue) 18%,transparent);border-color:var(--blue);color:var(--text)}
+.solve-canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}
+.solve-readout{margin-top:14px}
+.solve-prompt{margin:0;color:var(--muted);font-size:11.5px}
+.solve-kv,.solve-facts,.surface-readout,.volume-readout{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end}
+.solve-facts{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.solve-kv>div,.solve-facts>div,.surface-readout>div,.volume-readout>div{min-width:0}
+.solve-kv span,.solve-facts span,.surface-readout span,.volume-readout span{display:block;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--soft);font-weight:700}
+.solve-kv b,.solve-facts b,.surface-readout b,.volume-readout b{display:block;font-size:17px;letter-spacing:-.02em;margin-top:3px;font-variant-numeric:tabular-nums}
+.solve-kv small,.solve-facts small,.volume-readout small{display:block;color:var(--muted);font-size:10.5px;line-height:1.4;margin-top:2px}
+.solve-kv button{align-self:center}
+.surface-wrap,.volume-wrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel-3)}
+.surface-canvas{display:block;width:100%;cursor:crosshair}
+.surface-readout{margin-top:13px}
+.volume-wrap{touch-action:none}
+.volume-canvas{display:block;width:100%;cursor:grab}
+.volume-canvas:active{cursor:grabbing}
+.volume-overlay{position:absolute;inset:0;pointer-events:none}
+.volume-readout{margin-top:13px}
+.volume-sliders{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:12px}
+.volume-sliders label{display:block;font-size:10.5px;color:var(--muted)}
+.volume-sliders label b{color:var(--text);font-variant-numeric:tabular-nums}
+.volume-sliders input[type=range]{width:100%;accent-color:var(--blue);margin-top:4px}
+@media(max-width:650px){
+  .instrument-bar{padding:7px}
+  .instrument-bar button{min-height:40px;font-size:11px;padding:5px 9px}
+  .instrument-sep{display:none}
+  .solve-kv,.solve-facts,.surface-readout,.volume-readout{grid-template-columns:1fr}
+  .solve-kv button{align-self:stretch}
+  .volume-sliders{grid-template-columns:1fr}
+}
