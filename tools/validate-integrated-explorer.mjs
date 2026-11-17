@@ -47,4 +47,5 @@ for(const mode of ["horizon","river","orbit","waterfall","sunburst","table"])ass
 for(const panel of ["studio","cashflow","returns","map","trade"])assert.ok(css.includes('data-embed-panel="'+panel+'"'));
 assert.match(v23,/Visual explorer/);
 await import('./validate-inverse-solver.mjs');
+await import('./validate-solve-experience.mjs');
 console.log("Integrated explorer guards: "+count+" legacy routes preserve all scenario fields; embedded ownership, message origins, six modes, five panels, three scenario instruments and V23 handoff verified.");

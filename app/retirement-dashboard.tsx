@@ -343,7 +343,7 @@ const SECTION_GUIDES: Partial<Record<SectionKey, GuideCopy>> = {
   evidence: { use: "Check the source register and the EXACT, ESTIMATED, MODELLED and SPECULATIVE labels.", read: "Trace an important figure to its active rail, election, provider basis and dated source.", limit: "The site publishes derived figures, not the private source PDFs; revisit source and rule changes before acting." },
 };
 const SCENARIO_GUIDES: Record<ScenarioTool, GuideCopy> = {
-  lab: { use: "Change one flat annual spending plan in Adjust and inspect the resulting annual ledger.", read: "Compare target spend, funded spend, pool balances and any shortfall at the selected age.", limit: "This flat real-dollar comparison does not replace your V23 age-band plan." },
+  lab: { use: "Adjust your plan and inspect the annual ledger. In Solve and spend, choose a question, enter a Pool A balance and age, and calculate the assumptions that could reach it.", read: "Compare the result with your current plan. For two targets, keep the first balance and age, then enter a second at a different age. Apply a result only if you want to update the shared plan.", limit: "Results use a constant real return and flat annual net spending in today's dollars. Pool A is one part of your investments. V23 keeps your separate age-band plan." },
   explore: { use: "Choose an illustration or income view, then select an age to inspect the same active plan.", read: "Use Income by year for funding and the exact table for annual values; return comparison changes the assumed return, not the odds.", limit: "Visual shapes and return sensitivities are model outputs, not forecasts." },
   compare: { use: "Compare the labelled preset cards under the active return and target-age assumptions; select a card only if you want its spend and rail.", read: "Read spending, capital and gross estate together. The simulated frequency is the share of this model's sampled paths above its stated threshold.", limit: "The presets express different preferences. A higher capital result can come from spending less." },
   frontier: { use: "Move the flat spending point and choose the comparison age.", read: "Read the investment-capital cost of additional spending alongside gross estate, which adds the selected home value.", limit: "The coloured investment bands and property-inclusive estate floor answer different questions; neither is a personal guarantee." },
@@ -804,25 +804,39 @@ function themeInk(element: Element | null, token: string, fallback: string) {
 type SolveMode = "spend" | "ret" | "head" | "two";
 
 const SOLVE_MODES: { key: SolveMode; label: string; hint: string }[] = [
-  { key: "spend", label: "Flat spend", hint: "Drag a Pool A level and read the flat annual spend that lands on it." },
-  { key: "ret", label: "Real return", hint: "Hold your spending and read the real return the dragged level would require." },
-  { key: "head", label: "TBC headroom", hint: "Ask what opening Pool A you want, and what pension would have to release it." },
-  { key: "two", label: "Spend and return", hint: "Pin one age, drag another, and solve both unknowns together." },
+  { key: "spend", label: "How much can I spend?", hint: "Set the Pool A balance you want at an age. The calculation keeps your current return and estimates annual spending." },
+  { key: "ret", label: "What return would I need?", hint: "Set the Pool A balance you want at an age. The calculation keeps your current spending and estimates the return needed." },
+  { key: "head", label: "Opening Pool A and pension", hint: "There is a limit on how much can start in your account-based pension. Set a desired opening Pool A at age 60 to compare the available PSS elections." },
+  { key: "two", label: "Meet two balance goals", hint: "Keep a first balance and age, then enter a second at a different age. The calculation searches for a spending and return combination to meet both." },
 ];
 
-function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: {
+function InverseSolveLab({ rail, spend, realReturn, targetAge, electionOptions, onAdopt }: {
   rail: Rail;
   spend: number;
   realReturn: number;
-  electionOptions: { key: string; label: string; grossPension: number }[];
+  targetAge: number;
+  electionOptions: { key: string; label: string; grossPension: number; poolA: number }[];
   onAdopt: (next: { spend?: number; realReturn?: number }) => void;
 }) {
   const [mode, setMode] = useState<SolveMode>("spend");
-  const [age, setAge] = useState(75);
+  const [age, setAge] = useState(targetAge);
   const [target, setTarget] = useState<number | null>(null);
   const [pin, setPin] = useState<{ age: number; value: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [ageInput, setAgeInput] = useState(String(targetAge));
+  const [balanceInput, setBalanceInput] = useState("");
+  const [inputError, setInputError] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (mode !== "head") {
+      setAge(targetAge);
+      setAgeInput(String(targetAge));
+      setBalanceInput("");
+      setTarget(null);
+      setPin(null);
+    }
+  }, [targetAge]);
 
   const width = 920;
   const height = 332;
@@ -844,15 +858,12 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
     if (target === null) return null;
     const headroomFactor = rail.grossPension > 0 ? rail.dbSpecialValue / rail.grossPension : 16;
     if (mode === "head") {
-      const wanted = Math.min(target, rail.capital);
-      const requiredGross = (TRANSFER_BALANCE_CAP - TRANSFER_BALANCE_BUFFER - wanted) / headroomFactor;
-      const clearing = electionOptions.filter((option) => option.grossPension <= requiredGross);
+      const requiredGross = (TRANSFER_BALANCE_CAP - TRANSFER_BALANCE_BUFFER - target) / headroomFactor;
+      const clearing = electionOptions.filter((option) => option.poolA + 0.5 >= target);
       return {
         kind: "head" as const,
-        wanted,
         requiredGross,
         clearing,
-        capped: target > rail.capital,
       };
     }
     const reachable = ceilingAt(age);
@@ -860,19 +871,24 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
       return {
         kind: "unreachable" as const,
         reachable,
-        message: `At ${pct(realReturn, 2)} real the most Pool A can hold at age ${age} is ${money(reachable)} — the path where you draw nothing beyond the statutory ABP minimum. Spending cannot lift it above that line, because every dollar of extra capital at 60 landed in Pool C, not Pool A.`,
+        message: `At your current ${pct(realReturn, 2)} real return, Pool A reaches at most ${money(reachable)} at age ${age} when only the minimum pension withdrawal is taken. Try a lower Pool A goal or explore a different return.`,
       };
     }
     if (mode === "spend") {
+      if (target <= 0.5) return { kind: "empty" as const };
+      if (target >= reachable - 1) return { kind: "ceiling" as const, reachable };
       const solvedSpend = solveSpendForPoolA(rail, age, target, realReturn);
       return { kind: "spend" as const, spend: solvedSpend, path: poolPath(rail, solvedSpend, realReturn) };
     }
     if (mode === "ret") {
+      if (target <= 0.5) return { kind: "empty" as const };
       const solvedReturn = solveReturnForPoolA(rail, age, target, spend);
       const pinnedToEdge = solvedReturn <= -0.0795 || solvedReturn >= 0.2495;
       return { kind: "ret" as const, realReturn: solvedReturn, pinnedToEdge, path: poolPath(rail, spend, solvedReturn) };
     }
     if (!pin) return { kind: "needpin" as const };
+    if (age === pin.age) return { kind: "sameage" as const };
+    if (target <= 0.5 || pin.value <= 0.5) return { kind: "joint-empty" as const };
     const joint = solveSpendAndReturn(rail, pin, { age, value: target });
     if (!joint.ok) return { kind: "joint-fail" as const, ...joint };
     return { kind: "two" as const, ...joint, path: poolPath(rail, joint.spend, joint.realReturn) };
@@ -899,8 +915,32 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
 
   const applyAt = (x: number, y: number) => {
     const nextAge = mode === "head" ? 60 : ageAt(x);
+    const nextTarget = Math.round(valueAt(y));
     setAge(nextAge);
-    setTarget(valueAt(y));
+    setAgeInput(String(nextAge));
+    setTarget(nextTarget);
+    setBalanceInput(String(nextTarget));
+    setInputError("");
+  };
+
+  const setGoal = (useCurrentPlan = false) => {
+    const nextAge = mode === "head" ? 60 : Number(ageInput);
+    if (mode !== "head" && (!ageInput.trim() || !Number.isInteger(nextAge) || nextAge < 61 || nextAge > 95)) {
+      setInputError("Enter a whole age from 61 to 95.");
+      return;
+    }
+    const nextTarget = useCurrentPlan
+      ? Math.round(planPath[nextAge - 60]?.poolA ?? 0)
+      : Number(balanceInput);
+    if ((!useCurrentPlan && !balanceInput.trim()) || !Number.isFinite(nextTarget) || nextTarget < 0 || nextTarget > 10_000_000) {
+      setInputError("Enter a Pool A balance from $0 to $10,000,000.");
+      return;
+    }
+    setAge(nextAge);
+    setAgeInput(String(nextAge));
+    setTarget(nextTarget);
+    setBalanceInput(String(nextTarget));
+    setInputError("");
   };
 
   const handleDown = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -922,10 +962,18 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
   const nudge = (event: React.KeyboardEvent<SVGSVGElement>) => {
     if (target === null) return;
     const step = event.shiftKey ? scale / 20 : scale / 120;
-    if (event.key === "ArrowUp") { setTarget(clamp(target + step, 0, scale)); event.preventDefault(); }
-    if (event.key === "ArrowDown") { setTarget(clamp(target - step, 0, scale)); event.preventDefault(); }
-    if (event.key === "ArrowLeft" && mode !== "head") { setAge(clamp(age - 1, 61, 95)); event.preventDefault(); }
-    if (event.key === "ArrowRight" && mode !== "head") { setAge(clamp(age + 1, 61, 95)); event.preventDefault(); }
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      const nextTarget = Math.round(clamp(target + (event.key === "ArrowUp" ? step : -step), 0, scale));
+      setTarget(nextTarget);
+      setBalanceInput(String(nextTarget));
+      event.preventDefault();
+    }
+    if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && mode !== "head") {
+      const nextAge = clamp(age + (event.key === "ArrowRight" ? 1 : -1), 61, 95);
+      setAge(nextAge);
+      setAgeInput(String(nextAge));
+      event.preventDefault();
+    }
   };
 
   const adoptSpend = (value: number) => {
@@ -939,32 +987,41 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
 
   const solvedPath = solved && "path" in solved ? solved.path : null;
   const activeMode = SOLVE_MODES.find((item) => item.key === mode)!;
+  const draftAge = mode === "head" ? 60 : Number(ageInput);
+  const currentAtDraftAge = Number.isInteger(draftAge) && draftAge >= 60 && draftAge <= 95 ? planPath[draftAge - 60]?.poolA : undefined;
 
   return <section className="panel solve-lab">
     <div className="panel-head">
       <div>
         <h3>Solve and spend</h3>
-        <p>Your Lab answers “what does this plan do?”. This answers the other direction: name the Pool A balance you want at an age and read the assumption that reaches it. {activeMode.hint}</p>
+        <p>Start with an amount you would like left in Pool A, then explore what your plan would need to reach it. Pool A is your account-based pension investment pool.</p>
       </div>
-      <Badge tone="modelled">Inverse of the same ledger</Badge>
+      <Badge tone="modelled">Explore a goal</Badge>
     </div>
-    <div className="instrument-bar" role="group" aria-label="Solve for">
-      <span className="instrument-label">Solve for</span>
+    <div className="instrument-bar" role="group" aria-label="Choose a question">
+      <span className="instrument-label">Choose a question</span>
       {SOLVE_MODES.map((item) => <button
         key={item.key}
         type="button"
         className={mode === item.key ? "active" : ""}
         aria-pressed={mode === item.key}
-        onClick={() => { setMode(item.key); setTarget(null); if (item.key === "head") setAge(60); else if (age === 60) setAge(75); }}
+        onClick={() => { const nextAge = item.key === "head" ? 60 : targetAge; setMode(item.key); setAge(nextAge); setAgeInput(String(nextAge)); setBalanceInput(""); setTarget(null); setPin(null); setInputError(""); }}
       >{item.label}</button>)}
-      {mode === "two" && <>
-        <span className="instrument-sep" />
-        <button type="button" onClick={() => { if (target !== null) { setPin({ age, value: target }); setTarget(null); } }} disabled={target === null}>Pin this point</button>
-        <button type="button" onClick={() => setPin(null)} disabled={!pin}>Clear pin</button>
-      </>}
-      <span className="instrument-sep" />
-      <button type="button" onClick={() => { setTarget(null); setPin(null); }}>Reset</button>
     </div>
+    <p className="solve-question">{activeMode.hint}</p>
+    <p className="solve-context">Current plan: {money(spend)} net spending a year · {pct(realReturn, 2)} real return after inflation · Command Centre target age {targetAge} · {rail.electionLabel}. {currentAtDraftAge !== undefined && `Pool A at age ${draftAge}: ${money(currentAtDraftAge)}.`}</p>
+    {mode === "two" && <div className="solve-step">
+      {pin ? <><b>Step 2 of 2. First goal kept: {money(pin.value)} at age {pin.age}.</b> Enter a second goal at a different age and calculate. <button type="button" className="text-button" onClick={() => { setPin(null); setTarget(null); setBalanceInput(""); }}>Start again</button></>
+        : <><b>Step 1 of 2.</b> Enter the first balance and age. Select “Set first goal”, then “Keep first goal”.</>}
+    </div>}
+    <form className="solve-inputs" onSubmit={(event) => { event.preventDefault(); setGoal(); }}>
+      {mode !== "head" && <label>Age for this goal<input type="number" min={61} max={95} step={1} value={ageInput} onChange={(event) => { setAgeInput(event.target.value); setTarget(null); setInputError(""); }} /></label>}
+      <label>Desired Pool A balance ($)<input type="number" min={0} max={10_000_000} step={1} inputMode="numeric" value={balanceInput} placeholder={currentAtDraftAge === undefined ? "Enter an amount" : String(Math.round(currentAtDraftAge))} onChange={(event) => { setBalanceInput(event.target.value); setTarget(null); setInputError(""); }} /></label>
+      <div className="solve-actions"><button type="submit" className="primary">{mode === "two" && !pin ? "Set first goal" : "Calculate"}</button><button type="button" className="secondary" onClick={() => setGoal(true)}>Use current plan balance</button></div>
+    </form>
+    {inputError && <p className="solve-error" role="alert">{inputError}</p>}
+    {mode === "two" && !pin && target !== null && <div className="solve-step"><b>First goal: {money(target)} at age {age}.</b> <button type="button" className="secondary" onClick={() => { setPin({ age, value: target }); setTarget(null); setBalanceInput(""); }}>Keep first goal</button></div>}
+    <p className="solve-chart-help">You can also click or drag on the chart to set the age and balance. The grey line shows your current plan; the green line shows a calculated plan. The dashed line shows Pool A with minimum withdrawals at your current return.</p>
     <div className="chart-shell">
       <svg
         ref={svgRef}
@@ -1003,7 +1060,7 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
           <circle cx={xAge(age)} cy={yValue(target)} r="7" fill="var(--green)" stroke="var(--panel)" strokeWidth="2" />
           <text x={xAge(age) + (age > 88 ? -12 : 12)} y={yValue(target) - 10} textAnchor={age > 88 ? "end" : "start"} fontSize="11.5" fill="var(--text)">{money(target)} at {age}</text>
         </g>}
-        <text x={pad.l} y={pad.t - 8} fontSize="10.5" fill="var(--blue)">statutory ceiling — minimum draw only</text>
+        <text x={pad.l} y={pad.t - 8} fontSize="10.5" fill="var(--blue)">minimum draw at current return</text>
         <g fontSize="10.5">
           <line x1={width - pad.r - 232} x2={width - pad.r - 216} y1={pad.t - 11} y2={pad.t - 11} stroke="var(--muted)" strokeWidth="2" />
           <text x={width - pad.r - 211} y={pad.t - 8} fill="var(--muted)">active plan</text>
@@ -1012,53 +1069,56 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
         </g>
       </svg>
     </div>
-    <div className="solve-readout">
-      {target === null && <p className="solve-prompt">Drag anywhere on the chart to name a Pool A balance. The shaded field is everything this election can reach; the dashed line is the ceiling, where you draw nothing beyond the statutory ABP minimum.</p>}
+    <div className="solve-readout" aria-live="polite">
+      {target === null && <p className="solve-prompt">Enter a goal above or choose a point on the chart. Your active plan changes only when you apply a result.</p>}
+      {target !== null && target > scale && <p className="solve-prompt">Your entered balance is above the chart's displayed range, so its marker is shown at the top. The calculation uses the amount you entered.</p>}
       {solved?.kind === "unreachable" && <div className="note warn"><b>Unreachable by spending.</b> {solved.message}</div>}
+      {solved?.kind === "ceiling" && <div className="note"><b>Several spending amounts lead to this balance.</b> Pool A reaches approximately {money(solved.reachable)} at age {age} when the minimum withdrawal already covers the spending gap. {band ? `At this return, annual spending up to about ${money(band.lo)} produces the same Pool A balance.` : "Changing spending does not identify one answer here."} Any surplus withdrawal goes to Pool C.</div>}
+      {solved?.kind === "empty" && <div className="note warn"><b>A zero balance does not identify one answer.</b> Pool A may reach zero before age {age} under many assumptions. Try a positive balance to compare a specific goal.</div>}
       {solved?.kind === "spend" && <div className="solve-kv">
-        <div><span>Flat annual spend required</span><b>{money(solved.spend)}</b><small>{solved.spend <= deadZone ? "Inside the dead zone — any spend at or below the ceiling gives this same path." : `${solved.spend > spend ? "+" : ""}${money(solved.spend - spend)} against your active plan`}</small></div>
-        <div><span>Pool A at {age}</span><b>{money(target ?? 0)}</b><small>{pct((target ?? 0) / Math.max(1, ceilingAt(age)), 0)} of the statutory ceiling at that age</small></div>
+        <div><span>Estimated net spending per year</span><b>{money(solved.spend)}</b><small>{`${solved.spend > spend ? "+" : ""}${money(solved.spend - spend)} compared with your current plan, holding the return at ${pct(realReturn, 2)} real`}</small></div>
+        <div><span>Goal at age {age}</span><b>{money(target ?? 0)}</b><small>Pool A balance in today's dollars</small></div>
         <button type="button" className="secondary" disabled={solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND} onClick={() => adoptSpend(solved.spend)}>
-          {solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND ? "Outside the plan control range" : "Adopt this spend"}
+          {solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND ? `Outside plan range ${money(76_000)}–${money(MAX_FLAT_SPEND)}` : "Apply this spending to my plan"}
         </button>
       </div>}
       {solved?.kind === "ret" && <div className="solve-kv">
         <div><span>Real return required</span><b>{solved.pinnedToEdge ? "No solution" : pct(solved.realReturn, 2)}</b><small>{solved.pinnedToEdge ? "Not reachable inside −8% to 25% real" : `holding ${money(spend)} a year`}</small></div>
         <div><span>Against your plan</span><b>{solved.pinnedToEdge ? "—" : `${solved.realReturn > realReturn ? "+" : ""}${((solved.realReturn - realReturn) * 100).toFixed(2)} pts`}</b><small>active assumption {pct(realReturn, 1)} real</small></div>
         <button type="button" className="secondary" disabled={solved.pinnedToEdge || solved.realReturn < 0.02 || solved.realReturn > 0.075} onClick={() => adoptReturn(solved.realReturn)}>
-          {!solved.pinnedToEdge && solved.realReturn >= 0.02 && solved.realReturn <= 0.075 ? "Adopt this return" : "Outside the plan control range"}
+          {!solved.pinnedToEdge && solved.realReturn >= 0.02 && solved.realReturn <= 0.075 ? "Apply this return to my plan" : "Plan return range is 2%–7.5% real"}
         </button>
       </div>}
       {solved?.kind === "head" && <>
         <div className="solve-kv">
-          <div><span>Opening Pool A wanted</span><b>{money(solved.wanted)}</b><small>{solved.capped ? `capped at the ${money(rail.capital)} of capital that lands at 60` : "dragged target at age 60"}</small></div>
-          <div><span>Gross pension that would release it</span><b>{money(solved.requiredGross)}</b><small>against {money(rail.grossPension)} on this election</small></div>
+          <div><span>Desired opening Pool A</span><b>{money(target ?? 0)}</b><small>at age 60</small></div>
+          <div><span>Indicative gross pension limit</span><b>{target === 0 ? "Not needed for a $0 goal" : solved.requiredGross >= 0 ? money(solved.requiredGross) : "Above the modelled cap"}</b><small>For a positive balance, this is the headroom test using the model's cap and buffer. Your current gross pension is {money(rail.grossPension)}.</small></div>
         </div>
         <div className={solved.clearing.length ? "note" : "note warn"}>
-          <b>{solved.clearing.length ? `${solved.clearing.length} election${solved.clearing.length > 1 ? "s" : ""} clear${solved.clearing.length > 1 ? "" : "s"} it:` : "No available election clears it."}</b>{" "}
-          {solved.clearing.length
-            ? `${solved.clearing.map((option) => option.label).join(", ")} — each has a gross pension at or below ${money(solved.requiredGross)}.`
-            : `The lowest gross pension on offer is ${money(Math.min(...electionOptions.map((option) => option.grossPension)))}. `}
-          Pool A opens at <b>min(capital, headroom − buffer)</b>, and on this plan the headroom side binds: you hold {money(rail.capital)} of capital but only {money(rail.tbcHeadroom)} of transfer-balance headroom. Extra capital cannot enter Pool A at all — it lands in Pool C. The only lever that lifts Pool A is a lower defined-benefit special value, which means a lower gross pension, which means a different election.
+          <b>{solved.clearing.length ? `${solved.clearing.length} modelled election${solved.clearing.length > 1 ? "s meet" : " meets"} this opening goal.` : "None of the modelled elections meets this opening goal."}</b>{" "}
+          These comparisons use each election's own pension and available capital. Changing an election can change both your pension and your lump sum. {rail.key === "A" && "The options below use the selected Rail B provider basis; your current Rail A is a historical comparison."}
+          <div className="solve-elections">{electionOptions.map((option) => <div key={option.key}><b>{option.label}</b><span>Opening Pool A {money(option.poolA)} · gross pension {money(option.grossPension)} / year {option.poolA + 0.5 >= (target ?? 0) ? "· meets goal" : "· below goal"}</span></div>)}</div>
+          Review the full pension, lump sum and Pool C together in PSS &amp; three pools before choosing an election.
         </div>
       </>}
-      {solved?.kind === "needpin" && <p className="solve-prompt">Drag a point, press <b>Pin this point</b>, then drag a second one. Two targets fix both unknowns, so the pair is solved jointly.</p>}
+      {solved?.kind === "needpin" && <p className="solve-prompt">Keep this first goal above, then choose your second balance and age.</p>}
+      {solved?.kind === "sameage" && <div className="note warn">Choose a different age for the second goal. Two goals at the same age cannot identify a spending and return combination.</div>}
+      {solved?.kind === "joint-empty" && <div className="note warn">Choose positive balances for both goals. A zero balance can mean Pool A ran out earlier, so it does not identify a unique combination.</div>}
       {solved?.kind === "joint-fail" && <div className="note warn">
-        <b>No pair reaches both.</b> Holding Pool A at {money(pin?.value ?? 0)} at age {pin?.age ?? 0} leaves one free combination of spend and return, so age {age} is not independently yours to choose. Across the {solved.sampled} spend levels that can hold the pin, Pool A at {age} only lands between <b>{money(solved.min)}</b> and <b>{money(solved.max)}</b>; you asked for {money(target ?? 0)}.
-        {solved.max - solved.min < 1_000 && " That range is under $1,000 wide, which means the pin is sitting on the statutory ceiling — every dead-zone spend gives the identical path, so there is nothing left to solve. Pin a point inside the live band instead."}
+        <b>No combination found in the search.</b> The first goal is {money(pin?.value ?? 0)} at age {pin?.age}; the second is {money(target ?? 0)} at age {age}. {solved.sampled > 0 ? `For ${solved.sampled} sampled spending levels that met the first goal, the second balance ranged from ${money(solved.min)} to ${money(solved.max)}.` : "The search found no sampled spending level that met the first goal within its return range."} Try changing one goal. The search samples combinations and can miss a narrow solution.
       </div>}
       {solved?.kind === "two" && <div className="solve-kv">
-        <div><span>Flat annual spend</span><b>{money(solved.spend)}</b><small>solved jointly</small></div>
-        <div><span>Real return</span><b>{pct(solved.realReturn, 2)}</b><small>the only pair that hits both points</small></div>
-        <button type="button" className="secondary" disabled={solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND || solved.realReturn < 0.02 || solved.realReturn > 0.075} onClick={() => onAdopt({ spend: Math.round(solved.spend), realReturn: Number(solved.realReturn.toFixed(4)) })}>Adopt both</button>
+        <div><span>Estimated net spending per year</span><b>{money(solved.spend)}</b><small>for both balance goals</small></div>
+        <div><span>Real return needed</span><b>{pct(solved.realReturn, 2)}</b><small>after inflation, held constant</small></div>
+        <button type="button" className="secondary" disabled={solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND || solved.realReturn < 0.02 || solved.realReturn > 0.075} onClick={() => onAdopt({ spend: Math.round(solved.spend), realReturn: Number(solved.realReturn.toFixed(4)) })}>{solved.spend < 76_000 || solved.spend > MAX_FLAT_SPEND || solved.realReturn < 0.02 || solved.realReturn > 0.075 ? "Outside the plan control ranges" : "Apply both to my plan"}</button>
       </div>}
-      <div className="solve-facts">
-        <div><span>Live spend band at {age}</span><b>{band && band.hi - band.lo > 1 ? `${money(band.lo)} – ${money(band.hi)}` : "none"}</b><small>{band && band.hi - band.lo > 1 ? `${money(band.hi - band.lo)} wide — outside it Pool A is pinned on the ceiling or already gone` : "Pool A is already exhausted at this age on every spend"}</small></div>
-        <div><span>Dead-zone ceiling</span><b>{money(deadZone)}</b><small>at or below this the statutory minimum already covers the gap, so spending changes nothing</small></div>
-        <div><span>Exchange rate</span><b>{exchange === null ? "n/a in the dead zone" : `${money(exchange)}/yr`}</b><small>extra annual spend that +0.25% real return would fund at age {age}</small></div>
-      </div>
+      {mode !== "head" && <details className="solve-details"><summary>More about the spending range and minimum withdrawals</summary><div className="solve-facts">
+        <div><span>Spending range affecting Pool A at {age}</span><b>{band && band.hi - band.lo > 1 ? `${money(band.lo)} – ${money(band.hi)}` : "No range found"}</b><small>{band && band.hi - band.lo > 1 ? "At the current return, Pool A changes across this estimated annual spending range." : "There is no distinct positive Pool A range at this age under these assumptions."}</small></div>
+        <div><span>Starting minimum-draw threshold</span><b>{money(deadZone)}</b><small>At the start, spending below this amount is covered by pension and the minimum Pool A withdrawal. A lower spend can leave more to reinvest in Pool C.</small></div>
+        <div><span>Effect of a higher return</span><b>{exchange === null ? "Not available here" : `${money(exchange)}/yr`}</b><small>Estimated extra annual spend with a return 0.25 percentage points higher, while retaining the current Pool A balance at age {age}.</small></div>
+      </div></details>}
     </div>
-    <div className="note"><b>What this is for:</b> the Lab moves assumptions and reports outcomes. This moves the outcome and reports the assumption, against the same canonical ledger — so every answer here is one your Lab would reproduce if you typed it in. It does not set age-band spending; that stays in V23.</div>
+    <div className="note"><b>How to interpret this:</b> Results use the same annual model as the Lab, with flat net spending in today's dollars and a constant return after inflation. Pool A is one part of your investments; check Pool C and any spending shortfall in the Lab too. The return is an assumption, not a forecast. Applying a result updates the shared Command Centre plan, while your V23 age-band plan stays separate.</div>
   </section>;
 }
 
@@ -2623,7 +2683,11 @@ export default function RetirementDashboard() {
         rail={rail}
         spend={spend}
         realReturn={realReturn}
-        electionOptions={activePssElectionKeys.map((key) => ({ key, label: activePssElections[key]!.label, grossPension: activePssElections[key]!.grossPension }))}
+        targetAge={targetAge}
+        electionOptions={activePssElectionKeys.map((key) => {
+          const option = railBForElection(key, pssProjectionBasis);
+          return { key, label: option.electionLabel, grossPension: option.grossPension, poolA: option.poolA };
+        })}
         onAdopt={(next) => {
           if (next.spend !== undefined) setSpend(clamp(next.spend, 76_000, MAX_FLAT_SPEND));
           if (next.realReturn !== undefined) setRealReturn(clamp(next.realReturn, 0.02, 0.075));
