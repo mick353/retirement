@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import ts from 'typescript';
+
+const app=await readFile(new URL('../app/retirement-dashboard.tsx',import.meta.url),'utf8');
+const core=await readFile(new URL('../app/retirement-core.ts',import.meta.url),'utf8');
+const compile=source=>ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const exports={};
+vm.runInNewContext(compile(core),{exports});
+const context={calculateCanonicalFlatRetirementLedger:exports.calculateFlatRetirementLedger,POOL_C_DRAG:exports.POOL_C_MODELLED_DRAG,clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v)),drawRate:exports.abpMinimumRateAtAgeOn1July};
+vm.createContext(context);
+vm.runInContext(compile(app.slice(app.indexOf('type PoolPath ='),app.indexOf('function themeInk('))),context);
+context.rail=exports.railBOpeningPosition('70-30','source-825');
+const result=vm.runInContext(`(()=>{const spend=119000,ret=.0614;const pin={age:70,value:poolAAtAge(rail,spend,ret,70)};const point={age:75,value:poolAAtAge(rail,spend,ret,75)};return {joint:solveSpendAndReturn(rail,pin,point),spend:solveSpendForPoolA(rail,75,point.value,ret),ret:solveReturnForPoolA(rail,75,point.value,spend),aboveCurrentCeiling:point.value>poolAAtAge(rail,rail.netPension,.02,75)};})()`,context);
+assert.ok(result.joint.ok,'Joint solve must recover two points from a known plan');
+assert.ok(Math.abs(result.joint.spend-119000)<10);
+assert.ok(Math.abs(result.joint.realReturn-.0614)<.0001);
+assert.ok(Math.abs(result.spend-119000)<1);
+assert.ok(Math.abs(result.ret-.0614)<.00001);
+assert.ok(result.aboveCurrentCeiling,'Fixture must require a return above the active lower-return ceiling');
+assert.match(app,/if \(target > reachable \+ 1 && mode === "spend"\)/,'Only fixed-return spending solves may reject against the current-return ceiling');
+console.log('Inverse solver: spend, return and joint round-trips passed, including a target above the current-return ceiling.');
