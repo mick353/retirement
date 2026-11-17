@@ -1288,26 +1288,27 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
   };
 
   const activeMetric = SURFACE_METRICS.find((item) => item.key === metric)!;
+  const metricLabel = (item: (typeof SURFACE_METRICS)[number]) => item.key === "poolA-target" ? `Pool A at age ${targetAge}` : item.label;
   const readout = hover ?? { spend, realReturn, value: 0 };
 
   return <section className="panel decision-surface">
     <div className="panel-head">
       <div>
-        <h3>Decision surface</h3>
-        <p>Your Frontier tab is five spending points at one return assumption. This is the same question in its plane: {(SURFACE_COLUMNS * SURFACE_ROWS).toLocaleString()} live ledgers across every flat spend and every real return your controls allow, shaded by {activeMetric.label.toLowerCase()}. Click a point to adopt it.</p>
+        <h3>Decision surface · target age {targetAge}</h3>
+        <p>Your target age comes from Command Centre. Choose Pool A at age {targetAge} to see how much is left at that age across different spending and return assumptions. Hover for the result or click to adopt that spending and return.</p>
       </div>
       <Badge tone="modelled">{(SURFACE_COLUMNS * SURFACE_ROWS).toLocaleString()} ledgers</Badge>
     </div>
     <div className="instrument-bar" role="group" aria-label="Surface metric">
       <span className="instrument-label">Shade by</span>
-      {SURFACE_METRICS.map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{item.label}</button>)}
+      {SURFACE_METRICS.map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{metricLabel(item)}</button>)}
     </div>
     <div className="surface-wrap" ref={wrapRef}>
       <canvas
         ref={canvasRef}
         className="surface-canvas"
         role="img"
-        aria-label={`Heat map of ${activeMetric.label} across flat spend and real return. Your active plan is ${money(spend)} a year at ${pct(realReturn, 1)} real.`}
+        aria-label={`Heat map of ${metricLabel(activeMetric)} across flat spend and real return. Your active plan is ${money(spend)} a year at ${pct(realReturn, 1)} real.`}
         onPointerMove={(event) => setHover(locate(event))}
         onPointerLeave={() => setHover(null)}
         onClick={(event) => { const at = locate(event); if (at) onAdopt({ spend: Math.round(at.spend / 1_000) * 1_000, realReturn: Number(at.realReturn.toFixed(4)) }); }}
@@ -1315,7 +1316,7 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
     </div>
     <div className="surface-readout">
       <div><span>{hover ? "Under the cursor" : "Active plan"}</span><b>{money(readout.spend)} · {pct(readout.realReturn, 2)} real</b></div>
-      <div><span>{activeMetric.label}</span><b>{hover ? (metric === "exhaustion" ? (readout.value >= 96 ? "never" : `age ${Math.round(readout.value)}`) : money(readout.value)) : "hover to read"}</b></div>
+      <div><span>{metricLabel(activeMetric)}</span><b>{hover ? (metric === "exhaustion" ? (readout.value >= 96 ? "never" : `age ${Math.round(readout.value)}`) : money(readout.value)) : "hover to read"}</b></div>
       <div><span>Dead-zone ceiling</span><b>{money(deadZone)}</b></div>
     </div>
     <div className="note"><b>How to read it:</b> the vertical wall is the dead-zone ceiling — left of it every spend produces the identical Pool A path, because the statutory minimum draw already exceeds the lifestyle gap. The white row is the single return assumption your Frontier tab holds fixed, with its five spending points marked on it. Moving up the plane buys outcomes with return; moving left buys them with restraint. Clicking sets both controls for the whole Command Centre.</div>
