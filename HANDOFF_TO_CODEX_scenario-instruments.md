@@ -1,9 +1,11 @@
 # Handoff to Codex — three scenario instruments (mirror to ChatGPT Sites)
 
-**From:** Claude Code, 17 Nov 2026
-**State:** prepared on local branch `scenario-instruments`, **not pushed**. Mick reviews the diff and
-decides whether it goes up. If it has landed by the time you read this, find it by searching `main`
-for `InverseSolveLab` rather than by commit hash.
+**From:** Claude Code, 18 Nov 2026
+**State:** **merged to `main` and deployed.** It landed as a squash of PR
+[mick353/retirement#14](https://github.com/mick353/retirement/pull/14). `Validate` was green on that PR
+before the merge, and the `Deploy GitHub Pages` run triggered by the merge published it to the live
+site. Locate the code by searching `main` for `InverseSolveLab`, never by commit hash — `main` may
+have moved since this was written.
 **Base it was built and verified against:** `main` @ `4f15f9a` (clean tree, no rebase).
 
 ## Governing stance (same as the doc that produced this change)
@@ -113,7 +115,7 @@ not defects — do not "fix" them, and do not quietly soften the copy that expla
    $27–31k wide depending on the return. The Lab shows the band and the dead-zone ceiling; the Surface
    draws the ceiling as a vertical wall.
 
-## Gate this passed locally against `main` @ `4f15f9a`
+## Gate this passed, locally against `main` @ `4f15f9a` and again on CI
 `typecheck` → `validate:model` → `validate:policy` → `validate:visuals` → `validate:mobile` →
 `validate-integrated-explorer` → `vite build`. Validator output is identical to the pre-change baseline
 except the one intended line (see above):
@@ -127,6 +129,10 @@ Mobile layout guardrails passed for Command Centre, VR, V23 and Atlas.
 Integrated explorer guards: 16 legacy routes preserve all scenario fields; embedded ownership, message origins, six modes, five panels, three scenario instruments and V23 handoff verified.
 ```
 
+The `Validate` workflow reproduced that output line-for-line on a clean checkout on PR #14, so the
+summary above is not a local artefact — it is what a fresh `npm ci` produces. Compare against it
+exactly.
+
 Browser-verified in Chromium at 1400×900, 1024 and 375×812, in both themes:
 zero console errors; six hub tabs on one row; Surface hover readout and click-to-adopt propagate to the
 whole Command Centre (plan bar and URL both update); Lab drag solves without the axis rescaling;
@@ -137,9 +143,18 @@ zero-volatility parity invariant made visible; 1,500 / 6,000 / 12,000 paths all 
 context loss; no horizontal overflow at 375px.
 
 ## Your task
-1. Pull `main` and re-verify this change with your own gate run, against the **promoted GitHub
-   version** — not against this document.
-2. Apply the same three instruments to the **ChatGPT Sites surface** (the usual-use surface). Same tool
+Two steps with a gate between them. **Do not start step 2 until step 1 is clean.**
+
+1. **Verify GitHub first.** Pull `main`, then run the full gate yourself: `npm ci`, then
+   `npm run build:pages`, which chains `typecheck`, `validate:model`, `validate:policy`,
+   `validate:visuals`, `validate:mobile`, `validate-integrated-explorer` and `vite build`. Verify
+   against the **promoted GitHub version**, not against this document. Diff the validator summary lines
+   string-for-string against the block quoted above. Then load the live site and confirm six hub tabs
+   on one row, a working Surface tab, and no console errors.
+   **If anything fails or differs, stop there. Report it and leave the ChatGPT Sites version alone.**
+   A mirror of a broken state is worse than no mirror, and the discrepancy is the more useful finding.
+2. **Only once step 1 is clean,** apply the same three instruments to the **ChatGPT Sites surface**
+   (the usual-use surface). Same tool
    key `"surface"`, same URL contract (`?section=scenario&tool=surface` already works through the
    existing `legacyTool` / `openScenarioTool` plumbing — no new query parameters were added), same
    adopt-into-plan semantics clamped to the existing control ranges (spend 76,000 … `MAX_FLAT_SPEND`,
