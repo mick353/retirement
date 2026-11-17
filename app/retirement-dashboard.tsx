@@ -923,7 +923,7 @@ function InverseSolveLab({ rail, spend, realReturn, targetAge, electionOptions, 
     setInputError("");
   };
 
-  const setGoal = (useCurrentPlan = false) => {
+  const setGoal = (useCurrentPlan = false, keepFirst = false) => {
     const nextAge = mode === "head" ? 60 : Number(ageInput);
     if (mode !== "head" && (!ageInput.trim() || !Number.isInteger(nextAge) || nextAge < 61 || nextAge > 95)) {
       setInputError("Enter a whole age from 61 to 95.");
@@ -938,8 +938,14 @@ function InverseSolveLab({ rail, spend, realReturn, targetAge, electionOptions, 
     }
     setAge(nextAge);
     setAgeInput(String(nextAge));
-    setTarget(nextTarget);
-    setBalanceInput(String(nextTarget));
+    if (keepFirst) {
+      setPin({ age: nextAge, value: nextTarget });
+      setTarget(null);
+      setBalanceInput("");
+    } else {
+      setTarget(nextTarget);
+      setBalanceInput(String(nextTarget));
+    }
     setInputError("");
   };
 
@@ -1005,22 +1011,21 @@ function InverseSolveLab({ rail, spend, realReturn, targetAge, electionOptions, 
         type="button"
         className={mode === item.key ? "active" : ""}
         aria-pressed={mode === item.key}
-        onClick={() => { const nextAge = item.key === "head" ? 60 : targetAge; setMode(item.key); setAge(nextAge); setAgeInput(String(nextAge)); setBalanceInput(""); setTarget(null); setPin(null); setInputError(""); }}
+        onClick={() => { if (mode === item.key) return; const nextAge = item.key === "head" ? 60 : targetAge; setMode(item.key); setAge(nextAge); setAgeInput(String(nextAge)); setBalanceInput(""); setTarget(null); setPin(null); setInputError(""); }}
       >{item.label}</button>)}
     </div>
     <p className="solve-question">{activeMode.hint}</p>
     <p className="solve-context">Current plan: {money(spend)} net spending a year · {pct(realReturn, 2)} real return after inflation · Command Centre target age {targetAge} · {rail.electionLabel}. {currentAtDraftAge !== undefined && `Pool A at age ${draftAge}: ${money(currentAtDraftAge)}.`}</p>
     {mode === "two" && <div className="solve-step">
       {pin ? <><b>Step 2 of 2. First goal kept: {money(pin.value)} at age {pin.age}.</b> Enter a second goal at a different age and calculate. <button type="button" className="text-button" onClick={() => { setPin(null); setTarget(null); setBalanceInput(""); }}>Start again</button></>
-        : <><b>Step 1 of 2.</b> Enter the first balance and age. Select “Set first goal”, then “Keep first goal”.</>}
+        : <><b>Step 1 of 2.</b> Enter the first balance and age, then select “Keep first goal”.</>}
     </div>}
-    <form className="solve-inputs" onSubmit={(event) => { event.preventDefault(); setGoal(); }}>
+    <form className="solve-inputs" onSubmit={(event) => { event.preventDefault(); setGoal(false, mode === "two" && !pin); }}>
       {mode !== "head" && <label>Age for this goal<input type="number" min={61} max={95} step={1} value={ageInput} onChange={(event) => { setAgeInput(event.target.value); setTarget(null); setInputError(""); }} /></label>}
       <label>Desired Pool A balance ($)<input type="number" min={0} max={10_000_000} step={1} inputMode="numeric" value={balanceInput} placeholder={currentAtDraftAge === undefined ? "Enter an amount" : String(Math.round(currentAtDraftAge))} onChange={(event) => { setBalanceInput(event.target.value); setTarget(null); setInputError(""); }} /></label>
-      <div className="solve-actions"><button type="submit" className="primary">{mode === "two" && !pin ? "Set first goal" : "Calculate"}</button><button type="button" className="secondary" onClick={() => setGoal(true)}>Use current plan balance</button></div>
+      <div className="solve-actions"><button type="submit" className="primary">{mode === "two" && !pin ? "Keep first goal" : "Calculate"}</button><button type="button" className="secondary" onClick={() => setGoal(true)}>Use current plan balance</button></div>
     </form>
     {inputError && <p className="solve-error" role="alert">{inputError}</p>}
-    {mode === "two" && !pin && target !== null && <div className="solve-step"><b>First goal: {money(target)} at age {age}.</b> <button type="button" className="secondary" onClick={() => { setPin({ age, value: target }); setTarget(null); setBalanceInput(""); }}>Keep first goal</button></div>}
     <p className="solve-chart-help">You can also click or drag on the chart to set the age and balance. The grey line shows your current plan; the green line shows a calculated plan. The dashed line shows Pool A with minimum withdrawals at your current return.</p>
     <div className="chart-shell">
       <svg
