@@ -856,7 +856,7 @@ function InverseSolveLab({ rail, spend, realReturn, electionOptions, onAdopt }: 
       };
     }
     const reachable = ceilingAt(age);
-    if (target > reachable + 1 && mode !== "ret") {
+    if (target > reachable + 1 && mode === "spend") {
       return {
         kind: "unreachable" as const,
         reachable,
@@ -1821,11 +1821,11 @@ function ProbabilityVolume({ rail, spend, realReturn, simulationSeed, theme }: {
     <div className="panel-head">
       <div>
         <h3>Probability volume</h3>
-        <p>Every simulated future drawn as its own line. Height is {metricLabel}; depth is that path’s realised average return, so the cloud’s thickness is luck and its floor is failure. The fan chart above is this volume seen from one side.</p>
+        <p>Each line is one sampled path. Height is {metricLabel}; depth is that path’s realised average return. A zero balance in one pool does not by itself mean essential spending failed. This view has its own path count and volatility controls; the fan above stays at 600 paths and 12% volatility.</p>
       </div>
       <Badge tone="modelled">{simulation.paths.toLocaleString()} paths · seed {simulationSeed}</Badge>
     </div>
-    {!supported && <div className="note warn"><b>WebGL is unavailable in this browser.</b> The simulation still ran — the percentile readouts and the age slice below are live — but the 3D volume cannot be drawn. The capital simulation fan above shows the same paths in two dimensions.</div>}
+    {!supported && <div className="note warn"><b>WebGL is unavailable in this browser.</b> The simulation still ran and the percentile readouts below are live. The fan above provides a separate 2D comparison at 600 paths and 12% volatility.</div>}
     <div className="instrument-bar" role="group" aria-label="Volume controls">
       <span className="instrument-label">Height</span>
       <button type="button" className={metric === "poolA" ? "active" : ""} aria-pressed={metric === "poolA"} onClick={() => setMetric("poolA")}>Pool A</button>
@@ -3099,7 +3099,7 @@ export default function RetirementDashboard() {
           <details className="workspace-guide">
             <summary>Help · how to use {pageGuideName || "this page"}</summary>
             {pageGuide && <><p><b>Start here:</b> {pageGuide.use}</p><p><b>Read the result:</b> {pageGuide.read}</p><p><b>Keep in mind:</b> {pageGuide.limit}</p></>}
-            <p><b>Across Command Centre:</b> The active comparison plan above holds total annual net spending flat in today's dollars. Its CSC source basis creates retirement-day PSS figures; the real-return control applies after retirement. Scenario's five tabs share this plan.</p>
+            <p><b>Across Command Centre:</b> The active comparison plan above holds total annual net spending flat in today's dollars. Its CSC source basis creates retirement-day PSS figures; the real-return control applies after retirement. Scenario's six tabs share this plan. Lab solves assumptions from a target; Surface lets you adopt a spending and return pair; Risk's 3D controls apply to that view only.</p>
             <p><b>For spending by age:</b> V23 Income &amp; draws holds your detailed age-band plan. Its Guardrail spending page compares advisory and opt-in adaptive policies; enter essential total spending first, then read spending and capital together. Opening either page does not replace your saved V23 plan.</p>
             <a href={v23SpendPlanUrl}>Open V23 Income &amp; draws ↗</a>{" · "}<a href={v23PolicyUrl}>Open V23 Policy Comparator ↗</a>{" · "}<a href="./model-reference.html">Read model reference ↗</a>
           </details>
