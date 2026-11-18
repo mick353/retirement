@@ -14,7 +14,7 @@ vm.runInNewContext(compile(core), { exports: coreExports });
 
 const state = [];
 let nextState = 0;
-const jsx = (type, props) => ({ type, props: props ?? {} });
+const jsx = (type, props) => typeof type === 'function' ? type(props) : { type, props: props ?? {} };
 const canvas = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 600, height: 310 }) };
 const context = {
   exports: {},
@@ -54,7 +54,7 @@ const button = (tree, label) => {
 let tree = render();
 const projection = vm.runInContext('surfaceProjection(props.rail, props.spend, props.realReturn, props.targetAge)', context);
 assert.ok(Math.abs(projection.total - projection.poolA - projection.poolC) < 0.001);
-assert.match(content(tree), /Modelled investments at 75/);
+assert.match(content(tree), /Investments left at age 75/);
 assert.ok(content(tree).includes(context.money(projection.total)), 'The exact current total is visible without pointer movement');
 assert.ok(content(tree).includes(context.money(projection.poolA)));
 assert.ok(content(tree).includes(context.money(projection.poolC)));
@@ -65,18 +65,20 @@ const chart = children(tree).find((node) => node.type === 'canvas');
 chart.props.onClick({ clientX: 300, clientY: 150 });
 tree = render();
 assert.match(content(tree), /Selected alternative/);
+const preview = children(tree).find((node) => node.props.className === 'surface-alternative');
+assert.match(content(preview), /Use Pool C to cover gaps[\s\S]*Keep Pool C in reserve/);
 assert.equal(adopted.length, 0, 'Selecting a point must not change the plan');
-button(tree, 'Apply this alternative').props.onClick();
+button(tree, 'Apply spending and return').props.onClick();
 assert.equal(adopted.length, 1, 'Applying a selection changes the plan once');
 assert.ok(adopted[0].spend >= 76_000 && adopted[0].spend <= 200_000);
 
 state.length = 0;
 Object.assign(context.props, { spend: 160_000, realReturn: 0.0519 });
 tree = render();
-assert.match(content(tree), /\$435,474/);
-assert.match(content(tree), /full spending target is funded through age 75/);
-assert.match(content(tree), /Pool C contributed \$398,386/);
-assert.doesNotMatch(content(tree), /\$894,790/, 'Do not display the protected reserve as a full-spending result');
+const policies = children(tree).filter((node) => node.props.className === 'surface-policy');
+assert.equal(policies.length, 2);
+assert.match(content(policies[0]), /Use Pool C to cover gaps[\s\S]*Full spending funded through age 75[\s\S]*Spending actually funded\$2,400,000[\s\S]*Spending left unfunded\$0[\s\S]*Withdrawn from Pool C\$398,386[\s\S]*Investments left at age 75\$435,474/);
+assert.match(content(policies[1]), /Keep Pool C in reserve[\s\S]*Spending shortfall starts at age 69[\s\S]*Spending actually funded\$2,001,614[\s\S]*Spending left unfunded\$398,386[\s\S]*Withdrawn from Pool C\$0[\s\S]*Investments left at age 75\$894,790/);
 
 const reserveOnly = coreExports.calculateFlatRetirementLedger({ ...rail, spend: 160_000, realReturn: 0.0519, endAge: 75 });
 assert.equal(Math.round(reserveOnly.at(-1).ending), 894_790, 'Existing reserve policy remains available to Lab');
@@ -89,6 +91,6 @@ for (const row of withdrawals.slice(1)) {
 context.props.spend = 200_000;
 context.props.realReturn = 0.02;
 tree = render();
-assert.match(content(tree), /Spending target is not fully funded. The first shortfall is at age/);
+assert.match(content(children(tree).find((node) => node.props.className === 'surface-policy')), /Spending shortfall starts at age/);
 assert.match(content(tree), /Grey means a spending shortfall by age 75/);
 console.log('Surface experience: pictured $160k scenario, reserve-only parity, funding shortfalls and explicit apply passed.');

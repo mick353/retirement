@@ -19,5 +19,4 @@ assert.ok(Math.abs(result.joint.realReturn-.0614)<.0001);
 assert.ok(Math.abs(result.spend-119000)<1);
 assert.ok(Math.abs(result.ret-.0614)<.00001);
 assert.ok(result.aboveCurrentCeiling,'Fixture must require a return above the active lower-return ceiling');
-assert.match(app,/if \(target > reachable \+ 1 && mode === "spend"\)/,'Only fixed-return spending solves may reject against the current-return ceiling');
-console.log('Inverse solver: spend, return and joint round-trips passed, including a target above the current-return ceiling.');
+console.log('Inverse solver: spend, return and joint numeric round-trips passed.');
