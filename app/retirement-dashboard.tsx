@@ -347,7 +347,7 @@ const SCENARIO_GUIDES: Record<ScenarioTool, GuideCopy> = {
   explore: { use: "Choose an illustration or income view, then select an age to inspect the same active plan.", read: "Use Income by year for funding and the exact table for annual values; return comparison changes the assumed return, not the odds.", limit: "Visual shapes and return sensitivities are model outputs, not forecasts." },
   compare: { use: "Compare the labelled preset cards under the active return and target-age assumptions; select a card only if you want its spend and rail.", read: "Read spending, capital and gross estate together. The simulated frequency is the share of this model's sampled paths above its stated threshold.", limit: "The presets express different preferences. A higher capital result can come from spending less." },
   frontier: { use: "Move the flat spending point and choose the comparison age.", read: "Read the investment-capital cost of additional spending alongside gross estate, which adds the selected home value.", limit: "The coloured investment bands and property-inclusive estate floor answer different questions; neither is a personal guarantee." },
-  surface: { use: "Read what is left at your selected age after funding spending. Tap a point to see another annual spending amount and real return.", read: "Spending comes from the PSS pension and Pool A first. Pool C, the invested reserve outside super, covers any gap it can. Grey areas show plans with a spending shortfall.", limit: "The Surface allows Pool C withdrawals. Lab holds Pool C in reserve. Applying a point shares its spending and return assumptions across the dashboard." },
+  surface: { use: "Compare the two withdrawal rules for your current plan. Tap a point to preview both rules with another spending amount and return.", read: "Check spending funded and any shortfall alongside the investment balance at your selected age. Holding Pool C in reserve is the same rule Lab uses.", limit: "The chart uses Pool C for spending gaps and marks shortfalls in grey. Applying a point updates spending and return. Each tab uses its own withdrawal rule." },
   risk: { use: "Keep the same plan while varying volatility, return sequence or stress inputs.", read: "Inspect the percentile fan and exact target test; compare lower-tail outcomes with spending shortfalls.", limit: "Sample frequencies depend on the chosen model, volatility and seed. They omit unmodelled future events." },
 };
 
@@ -1145,22 +1145,64 @@ const SURFACE_SPEND_HIGH = 200_000;
 const SURFACE_RETURN_LOW = 0.02;
 const SURFACE_RETURN_HIGH = 0.075;
 
-function surfaceProjection(rail: Rail, spend: number, realReturn: number, targetAge: number) {
+function surfaceProjection(rail: Rail, spend: number, realReturn: number, targetAge: number, drawPoolCForShortfall = true) {
   const rows = calculateCanonicalFlatRetirementLedger({
     poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension,
-    spend, realReturn, poolCDrag: POOL_C_DRAG, startAge: 60, endAge: 95, drawPoolCForShortfall: true,
+    spend, realReturn, poolCDrag: POOL_C_DRAG, startAge: 60, endAge: 95, drawPoolCForShortfall,
   });
   const target = rows[clamp(Math.round(targetAge) - 60, 0, 35)];
   const final = rows[35];
-  const firstShortfall = rows.find((row) => row.shortfall >= 0.01);
   const exhaustion = rows.find((row) => row.poolA <= 0.5);
+  let firstShortfallAge: number | null = null;
+  let poolCDrawn = 0;
+  let funded = 0;
+  let unfunded = 0;
+  for (const row of rows) {
+    if (firstShortfallAge === null && row.shortfall >= 0.01) firstShortfallAge = row.age;
+    if (row.age > target.age) continue;
+    poolCDrawn += row.poolCDraw ?? 0;
+    funded += row.fundedSpend;
+    unfunded += row.shortfall;
+  }
   return {
     poolA: target.poolA, poolC: target.poolC, total: target.ending,
     poolA95: final.poolA, poolC95: final.poolC,
-    firstShortfallAge: firstShortfall?.age ?? null,
+    firstShortfallAge, poolCDrawn, funded, unfunded,
     exhaustionAge: exhaustion?.age ?? null,
-    poolCDrawn: rows.reduce((sum, row) => sum + (row.age <= target.age ? row.poolCDraw ?? 0 : 0), 0),
   };
+}
+
+function SurfaceWithdrawalComparison({ age, spend, withReserveDraw, withoutReserveDraw }: {
+  age: number;
+  spend: number;
+  withReserveDraw: ReturnType<typeof surfaceProjection>;
+  withoutReserveDraw: ReturnType<typeof surfaceProjection>;
+}) {
+  const policies = [
+    { title: "Use Pool C to cover gaps", rule: "Chart rule. The pension and Pool A pay first, then Pool C covers any gap it can.", result: withReserveDraw },
+    { title: "Keep Pool C in reserve", rule: "Lab rule. Spending comes from the pension and Pool A. Pool C stays invested.", result: withoutReserveDraw },
+  ];
+  return <div className="surface-policy-comparison" aria-label={`Withdrawal rules through age ${age}`}>
+    <p>Same target of {money(spend)} a year. Spending figures cover age 60 to {age} in today's dollars.</p>
+    <div className="surface-policy-grid">
+      {policies.map(({ title, rule, result }) => {
+        const gapAge = result.firstShortfallAge;
+        const hasGap = gapAge !== null && gapAge <= age;
+        return <section className="surface-policy" key={title}>
+          <h4>{title}</h4>
+          <p>{rule}</p>
+          <p className={hasGap ? "surface-funding warn" : "surface-funding"}>{hasGap ? `Spending shortfall starts at age ${gapAge}` : `Full spending funded through age ${age}`}</p>
+          <dl>
+            <div><dt>Spending actually funded</dt><dd>{money(result.funded)}</dd></div>
+            <div><dt>Spending left unfunded</dt><dd>{money(result.unfunded)}</dd></div>
+            <div><dt>Withdrawn from Pool C</dt><dd>{money(result.poolCDrawn)}</dd></div>
+            <div><dt>Investments left at age {age}</dt><dd>{money(result.total)}</dd></div>
+          </dl>
+          <p>Pool A {money(result.poolA)} + Pool C {money(result.poolC)}</p>
+        </section>;
+      })}
+    </div>
+  </div>;
 }
 
 function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }: {
@@ -1223,11 +1265,9 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }:
     return max || 1;
   }, [series, grid.firstShortfallAge, fundingAge]);
   const current = useMemo(() => surfaceProjection(rail, spend, realReturn, targetAge), [rail, spend, realReturn, targetAge]);
+  const reserveOnly = useMemo(() => surfaceProjection(rail, spend, realReturn, targetAge, false), [rail, spend, realReturn, targetAge]);
   const alternative = useMemo(() => selected ? surfaceProjection(rail, selected.spend, selected.realReturn, targetAge) : null, [rail, selected, targetAge]);
-  const fundingMessage = (result: typeof current) => result.firstShortfallAge !== null && result.firstShortfallAge <= fundingAge
-    ? `Spending target is not fully funded. The first shortfall is at age ${result.firstShortfallAge}.`
-    : `The full spending target is funded through age ${fundingAge} in this projection.`;
-  const hasShortfall = (result: typeof current) => result.firstShortfallAge !== null && result.firstShortfallAge <= fundingAge;
+  const alternativeReserveOnly = useMemo(() => selected ? surfaceProjection(rail, selected.spend, selected.realReturn, targetAge, false) : null, [rail, selected, targetAge]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1395,27 +1435,21 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }:
     <div className="panel-head">
       <div>
         <h3>Your investments at age {targetAge}</h3>
-        <p>See what your current plan leaves invested after withdrawals, then try a different annual spend or return.</p>
+        <p>Compare how much of your budget is funded and how much is left invested under each withdrawal rule.</p>
       </div>
       <Badge tone="modelled">Modelled in today's dollars</Badge>
     </div>
     <div className="surface-current" aria-label="Current plan investment balances">
       <p><b>Current plan</b> · {money(spend)} net spending a year · {pct(realReturn, 2)} real return after inflation · target age {targetAge}</p>
-      <div className="surface-readout">
-        <div><span>Modelled investments at {targetAge}</span><b>{money(current.total)}</b><small>Pool A + Pool C after withdrawals</small></div>
-        <div><span>Pool A at {targetAge}</span><b>{money(current.poolA)}</b><small>Account-based pension</small></div>
-        <div><span>Pool C at {targetAge}</span><b>{money(current.poolC)}</b><small>Invested reserve outside super</small></div>
-      </div>
-      <p className={hasShortfall(current) ? "surface-funding warn" : "surface-funding"}>{fundingMessage(current)}</p>
-      {current.poolCDrawn > 0.5 && <p>Pool C contributed {money(current.poolCDrawn)} to spending through age {targetAge}.</p>}
+      <SurfaceWithdrawalComparison age={targetAge} spend={spend} withReserveDraw={current} withoutReserveDraw={reserveOnly} />
     </div>
-    <p className="surface-explanation">Spending uses the PSS pension and Pool A first. Pool C, your modelled investment reserve outside super, covers any gap up to its available balance. The investment total adds Pool A and Pool C after withdrawals. Your home sits outside this total.</p>
+    <p className="surface-explanation">Pool A is your account-based pension balance. Pool C is your modelled investment reserve outside super. Investments left are the two balances after withdrawals, with your home shown separately.</p>
     <div className="instrument-bar" role="group" aria-label="Surface metric">
       <span className="instrument-label">Colour the chart by</span>
       {SURFACE_METRICS.slice(0, 4).map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{metricLabel(item)}</button>)}
     </div>
     <details className="surface-other-ages"><summary>Other views at age 95</summary><div className="instrument-bar" role="group" aria-label="Other surface metrics">{SURFACE_METRICS.slice(4).map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{metricLabel(item)}</button>)}</div></details>
-    <p className="surface-explanation">Left to right is yearly spending. Bottom to top is the assumed return after inflation. Tap or click a point to inspect it, then apply it only if you want to change your plan.</p>
+    <p className="surface-explanation"><b>The chart uses Pool C to cover spending gaps.</b> Yearly spending increases to the right and assumed return increases upwards. Tap a point to see both withdrawal rules below the chart.</p>
     <div className="surface-wrap" ref={wrapRef}>
       <canvas
         ref={canvasRef}
@@ -1437,14 +1471,13 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }:
     <div className="surface-scale"><span>{metric === "exhaustion" ? "Runs out earlier" : "Lower balance"}</span><i aria-hidden="true" /><span>{metric === "exhaustion" ? "Runs out later or after 95" : "Higher balance"}</span></div>
     <p className="surface-explanation"><span className="surface-unfunded-key" aria-hidden="true" /> Grey means a spending shortfall by age {fundingAge}, even after drawing on both pools.</p>
     {(spend < SURFACE_SPEND_LOW || spend > SURFACE_SPEND_HIGH) && <p className="surface-explanation">Your current spending is outside the chart's {money(SURFACE_SPEND_LOW)}–{money(SURFACE_SPEND_HIGH)} range, so its circle is not shown. The current-plan values above still use your actual setting.</p>}
-    {selected && alternative ? <div className="surface-alternative" aria-live="polite">
+    {selected && alternative && alternativeReserveOnly ? <div className="surface-alternative" aria-live="polite">
       <p><b>Selected alternative</b> · {money(selected.spend)} per year · {pct(selected.realReturn, 2)} real return</p>
-      <div className="surface-readout">{metric !== "total-target" && <div><span>{metricLabel(activeMetric)}</span><b>{alternativeValue}</b></div>}<div><span>Modelled investments at {targetAge}</span><b>{money(alternative.total)}</b><small>Pool A {money(alternative.poolA)} + Pool C {money(alternative.poolC)}</small></div></div>
-      <p className={hasShortfall(alternative) ? "surface-funding warn" : "surface-funding"}>{fundingMessage(alternative)}</p>
-      {alternative.poolCDrawn > 0.5 && <p>Pool C contributed {money(alternative.poolCDrawn)} to spending through age {targetAge}.</p>}
-      <div className="surface-actions"><button type="button" className="primary" onClick={() => { onAdopt(selected); setSelected(null); }}>Apply this alternative</button><button type="button" className="secondary" onClick={() => setSelected(null)}>Clear selection</button></div>
+      {metric !== "total-target" && <p>Chart result · {metricLabel(activeMetric)} · <b>{alternativeValue}</b>{metric.endsWith("-95") && alternative.firstShortfallAge !== null && ` · Spending shortfall starts at age ${alternative.firstShortfallAge}`}</p>}
+      <SurfaceWithdrawalComparison age={targetAge} spend={selected.spend} withReserveDraw={alternative} withoutReserveDraw={alternativeReserveOnly} />
+      <div className="surface-actions"><button type="button" className="primary" onClick={() => { onAdopt(selected); setSelected(null); }}>Apply spending and return</button><button type="button" className="secondary" onClick={() => setSelected(null)}>Clear selection</button></div>
     </div> : <p className="surface-explanation">Select a point to see an alternative here. Your current plan is shown above without selecting anything.</p>}
-    <div className="note">The Surface uses steady returns, flat annual spending and a {pct(POOL_C_DRAG, 2)} annual drag on Pool C. Lab holds Pool C in reserve, so its balances can differ for the same spending and return. Applying an alternative shares its spending and return assumptions.</div>
+    <div className="note">Both projections assume steady returns, flat annual spending and a {pct(POOL_C_DRAG, 2)} annual drag on Pool C. Applying an alternative updates your shared spending and return settings. Lab uses the reserve rule shown above.</div>
   </section>;
 }
 

@@ -105,12 +105,24 @@ typeValue(tree, 'Age for this goal', 75);
 tree = render();
 typeValue(tree, 'Desired Pool A balance', Math.round(atAge(75)));
 tree = render();
+const lowReturnCeiling = vm.runInContext('poolAAtAge(props.rail, props.rail.netPension, 0.02, 75)', context);
+assert.ok(Number(input(tree, 'Desired Pool A balance').props.value) > lowReturnCeiling + 1);
+context.props.realReturn = 0.02;
+tree = render();
 calculate(tree);
 tree = render();
 assert.equal(adopted.length, 0, 'Calculating must not alter the shared plan');
 click(tree, 'Apply both to my plan');
 assert.ok(Math.abs(adopted[0].spend - 119_000) < 100);
 assert.ok(Math.abs(adopted[0].realReturn - 0.0614) < 0.0002);
+
+click(tree, 'How much can I spend?');
+tree = render();
+typeValue(tree, 'Desired Pool A balance', Math.round(lowReturnCeiling + 10_000));
+tree = render();
+calculate(tree);
+tree = render();
+assert.match(content(tree), /Unreachable by spending/);
 
 click(tree, 'Opening Pool A and pension');
 tree = render();

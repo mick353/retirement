@@ -1,5 +1,12 @@
 # Handoff to Codex — three scenario instruments (mirror to ChatGPT Sites)
 
+**Current behavior, 18 November 2026.** The rest of this handoff records the original PR #14 and its implementation. The following updates supersede its interaction and funding descriptions.
+
+- **Scenario → Surface** shows both withdrawal rules for the current plan and for a selected alternative, including total spending funded, spending left unfunded, Pool C withdrawals and each investment balance at the target age. The chart colours use the rule that draws on Pool C after PSS income and Pool A, with grey showing a shortfall. The reserve comparison uses Lab's rule and keeps Pool C invested. Clicking or tapping previews a point. **Apply spending and return** updates those shared inputs.
+- **Scenario → Lab → Solve and spend** supports exact age and balance inputs, a two-goal workflow and an explicit Apply action. The return may change in joint mode, so the fixed-return ceiling only limits the spending-only solve. The component test exercises both outcomes rather than matching the source text.
+- The canonical ledger's default withdraws from Pool A and invests surplus into Pool C. The Surface explicitly opts into Pool C gap funding for its chart and first comparison card. The same $160,000/year at 5.19% example yields $435,474 remaining at age 75 with full spending, or $894,790 remaining with $398,386 of the intended spending left unfunded under the reserve rule.
+- The two production surfaces are [ChatGPT Sites](https://robinson-retirement.mick353.chatgpt.site/?section=scenario&tool=surface) and [GitHub Pages](https://mick353.github.io/retirement/?section=scenario&tool=surface). Check the live deployment separately from the source and build gates.
+
 **From:** Claude Code, 18 Nov 2026
 **State:** **merged to `main` and deployed.** It landed as a squash of PR
 [mick353/retirement#14](https://github.com/mick353/retirement/pull/14). `Validate` was green on that PR
