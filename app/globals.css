@@ -1101,6 +1101,7 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .surface-other-ages .instrument-bar{margin-top:8px}
 .surface-scale{display:flex;align-items:center;gap:10px;margin:10px 0 12px;color:var(--muted);font-size:11px}
 .surface-scale i{flex:1;max-width:240px;height:8px;border-radius:99px;background:linear-gradient(90deg,#ff728c,#ffa950,#47d6a0)}
+.surface-unfunded-key{display:inline-block;width:12px;height:12px;margin-right:4px;vertical-align:-1px;border-radius:3px;background:rgb(99,109,125)}
 .surface-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .surface-canvas:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .volume-wrap{touch-action:none}

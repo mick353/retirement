@@ -71,9 +71,24 @@ assert.equal(adopted.length, 1, 'Applying a selection changes the plan once');
 assert.ok(adopted[0].spend >= 76_000 && adopted[0].spend <= 200_000);
 
 state.length = 0;
-context.props.spend = 200_000;
+Object.assign(context.props, { spend: 160_000, realReturn: 0.0519 });
 tree = render();
-const stressed = vm.runInContext('surfaceProjection(props.rail, props.spend, props.realReturn, props.targetAge)', context);
-assert.ok(stressed.firstShortfallAge !== null && stressed.poolC > 0, 'Fixture has a shortfall alongside an invested reserve');
-assert.match(content(tree), /first shows a spending shortfall/, 'A positive total must not conceal the funding shortfall');
-console.log('Surface experience: visible A + C total, shortfall, and explicit apply checks passed.');
+assert.match(content(tree), /\$435,474/);
+assert.match(content(tree), /full spending target is funded through age 75/);
+assert.match(content(tree), /Pool C contributed \$398,386/);
+assert.doesNotMatch(content(tree), /\$894,790/, 'Do not display the protected reserve as a full-spending result');
+
+const reserveOnly = coreExports.calculateFlatRetirementLedger({ ...rail, spend: 160_000, realReturn: 0.0519, endAge: 75 });
+assert.equal(Math.round(reserveOnly.at(-1).ending), 894_790, 'Existing reserve policy remains available to Lab');
+const withdrawals = coreExports.calculateFlatRetirementLedger({ ...rail, spend: 160_000, realReturn: 0.0519, endAge: 75, drawPoolCForShortfall: true });
+for (const row of withdrawals.slice(1)) {
+  assert.ok(Math.abs(row.ending - (row.opening + row.investmentGrowth - row.draw - row.poolCDraw + row.reinvestment)) < 0.001);
+  assert.ok(Math.abs(row.fundedSpend - 160_000) < 0.001);
+}
+
+context.props.spend = 200_000;
+context.props.realReturn = 0.02;
+tree = render();
+assert.match(content(tree), /Spending target is not fully funded. The first shortfall is at age/);
+assert.match(content(tree), /Grey means a spending shortfall by age 75/);
+console.log('Surface experience: pictured $160k scenario, reserve-only parity, funding shortfalls and explicit apply passed.');
