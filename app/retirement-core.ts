@@ -279,7 +279,8 @@ export function calculateWashOutcome(
  * Deterministic flat-spend retirement comparison ledger.
  *
  * This is deliberately narrower than V23: it has a flat real annual spend,
- * two retirement pools, mandatory ABP draw rules and deposit-only Pool C.
+ * two retirement pools and mandatory ABP draw rules. Pool C is a reserve
+ * unless the caller explicitly uses it to cover a spending gap.
  * It gives Command Centre and its visual explorer one audited result for equivalent
  * scenarios without pretending to replace V23's age-banded workbench.
  */
@@ -290,6 +291,7 @@ export type FlatRetirementLedgerInput = {
   spend: number;
   realReturn: number;
   poolCDrag?: number;
+  drawPoolCForShortfall?: boolean;
   startAge?: number;
   endAge?: number;
   annualReturns?: readonly number[];
@@ -306,6 +308,7 @@ export type FlatRetirementLedgerRow = {
   mandatoryDraw: number;
   lifestyleGap: number;
   draw: number;
+  poolCDraw?: number;
   spend: number;
   fundedSpend: number;
   shortfall: number;
@@ -335,6 +338,7 @@ export function calculateFlatRetirementLedger(input: FlatRetirementLedgerInput):
     mandatoryDraw: 0,
     lifestyleGap: 0,
     draw: 0,
+    ...(input.drawPoolCForShortfall ? { poolCDraw: 0 } : {}),
     spend: 0,
     fundedSpend: 0,
     shortfall: 0,
@@ -354,16 +358,21 @@ export function calculateFlatRetirementLedger(input: FlatRetirementLedgerInput):
     const mandatoryDraw = openingPoolA * abpMinimumRateAtAgeOn1July(Math.max(0, age - 1));
     const lifestyleGap = Math.max(0, input.spend - input.netPension);
     const draw = Math.min(openingPoolA, Math.max(mandatoryDraw, lifestyleGap));
-    const netIncome = input.netPension + draw;
+    const incomeBeforePoolC = input.netPension + draw;
+    const externalTaxDrag = openingPoolC * poolCDrag;
+    const poolCBeforeDraw = openingPoolC * (1 + annualReturn) - externalTaxDrag;
+    // Match Pool A's withdrawal timing: available opening capital, with a
+    // further cap so an adverse return cannot leave an unfunded withdrawal.
+    const poolCDraw = input.drawPoolCForShortfall
+      ? Math.min(openingPoolC, Math.max(0, poolCBeforeDraw), Math.max(0, input.spend - incomeBeforePoolC))
+      : 0;
+    const netIncome = incomeBeforePoolC + poolCDraw;
     const fundedSpend = Math.min(input.spend, netIncome);
     const shortfall = Math.max(0, input.spend - netIncome);
     const reinvestment = Math.max(0, netIncome - input.spend);
-    const externalTaxDrag = openingPoolC * poolCDrag;
     const investmentGrowth = (openingPoolA + openingPoolC) * annualReturn - externalTaxDrag;
     poolA = Math.max(0, openingPoolA * (1 + annualReturn) - draw);
-    // Pool C receives surplus in this flat-comparison lens but is never used
-    // to silently meet a lifestyle shortfall.
-    poolC = Math.max(0, openingPoolC * (1 + annualReturn) - externalTaxDrag + reinvestment);
+    poolC = Math.max(0, poolCBeforeDraw + reinvestment - poolCDraw);
     rows.push({
       age,
       isOpening: false,
@@ -375,6 +384,7 @@ export function calculateFlatRetirementLedger(input: FlatRetirementLedgerInput):
       mandatoryDraw,
       lifestyleGap,
       draw,
+      ...(input.drawPoolCForShortfall ? { poolCDraw } : {}),
       spend: input.spend,
       fundedSpend,
       shortfall,
