@@ -347,7 +347,7 @@ const SCENARIO_GUIDES: Record<ScenarioTool, GuideCopy> = {
   explore: { use: "Choose an illustration or income view, then select an age to inspect the same active plan.", read: "Use Income by year for funding and the exact table for annual values; return comparison changes the assumed return, not the odds.", limit: "Visual shapes and return sensitivities are model outputs, not forecasts." },
   compare: { use: "Compare the labelled preset cards under the active return and target-age assumptions; select a card only if you want its spend and rail.", read: "Read spending, capital and gross estate together. The simulated frequency is the share of this model's sampled paths above its stated threshold.", limit: "The presets express different preferences. A higher capital result can come from spending less." },
   frontier: { use: "Move the flat spending point and choose the comparison age.", read: "Read the investment-capital cost of additional spending alongside gross estate, which adds the selected home value.", limit: "The coloured investment bands and property-inclusive estate floor answer different questions; neither is a personal guarantee." },
-  surface: { use: "Hover the plane to read any spend and real-return combination, then click to adopt it as the active plan.", read: "Read the shaded measure against the dead-zone wall and the marked Frontier row; left of the wall every spend gives the identical Pool A path.", limit: "Each cell is the same flat-spend lens as the Lab. It is a sensitivity plane, not a probability surface, and it does not model age-banded spending." },
+  surface: { use: "Start with the current plan's total investments at your selected age. Tap or click the chart to inspect another spending and return combination; choose Apply only if you want it in your shared plan.", read: "Total modelled investments are Pool A plus Pool C. Choose either pool to see it separately. The colours show lower to higher values for the selected measure, not the chance of achieving them.", limit: "The pension is income and the home is separate from these investment balances. Pool C is an invested reserve and this flat-spend model does not automatically draw it to cover a shortfall. Check the Lab ledger for funded spending." },
   risk: { use: "Keep the same plan while varying volatility, return sequence or stress inputs.", read: "Inspect the percentile fan and exact target test; compare lower-tail outcomes with spending shortfalls.", limit: "Sample frequencies depend on the chosen model, volatility and seed. They omit unmodelled future events." },
 };
 
@@ -1127,12 +1127,14 @@ function InverseSolveLab({ rail, spend, realReturn, targetAge, electionOptions, 
   </section>;
 }
 
-type SurfaceMetric = "poolA-target" | "poolA-95" | "exhaustion" | "poolC-95";
+type SurfaceMetric = "total-target" | "poolA-target" | "poolC-target" | "poolA-95" | "exhaustion" | "poolC-95";
 
 const SURFACE_METRICS: { key: SurfaceMetric; label: string; unit: string }[] = [
+  { key: "total-target", label: "Modelled investments at target age", unit: "$" },
   { key: "poolA-target", label: "Pool A at target age", unit: "$" },
-  { key: "poolA-95", label: "Pool A at 95", unit: "$" },
+  { key: "poolC-target", label: "Pool C at target age", unit: "$" },
   { key: "exhaustion", label: "Age Pool A runs out", unit: "age" },
+  { key: "poolA-95", label: "Pool A at 95", unit: "$" },
   { key: "poolC-95", label: "Pool C at 95", unit: "$" },
 ];
 
@@ -1143,19 +1145,32 @@ const SURFACE_SPEND_HIGH = 200_000;
 const SURFACE_RETURN_LOW = 0.02;
 const SURFACE_RETURN_HIGH = 0.075;
 
-function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSpends, onAdopt }: {
+function surfaceProjection(rail: Rail, spend: number, realReturn: number, targetAge: number) {
+  const rows = calculateCanonicalFlatRetirementLedger({
+    poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension,
+    spend, realReturn, poolCDrag: POOL_C_DRAG, startAge: 60, endAge: 95,
+  });
+  const target = rows[clamp(Math.round(targetAge) - 60, 0, 35)];
+  const final = rows[35];
+  const firstShortfall = rows.find((row) => !row.isOpening && row.age <= targetAge && row.shortfall > 0.5);
+  const exhaustion = rows.find((row) => !row.isOpening && row.poolA <= 0.5);
+  return { poolA: target.poolA, poolC: target.poolC, total: target.ending, poolA95: final.poolA, poolC95: final.poolC, firstShortfallAge: firstShortfall?.age ?? null, exhaustionAge: exhaustion?.age ?? null };
+}
+
+function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }: {
   rail: Rail;
   spend: number;
   realReturn: number;
   targetAge: number;
   theme: Theme;
-  frontierSpends: number[];
   onAdopt: (next: { spend: number; realReturn: number }) => void;
 }) {
-  const [metric, setMetric] = useState<SurfaceMetric>("poolA-target");
-  const [hover, setHover] = useState<{ spend: number; realReturn: number; value: number } | null>(null);
+  const [metric, setMetric] = useState<SurfaceMetric>("total-target");
+  const [selected, setSelected] = useState<{ spend: number; realReturn: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setSelected(null); }, [spend, realReturn, targetAge, rail.key, rail.electionKey, rail.poolA, rail.poolC, rail.netPension]);
 
   const spendAt = (column: number) => SURFACE_SPEND_LOW + (SURFACE_SPEND_HIGH - SURFACE_SPEND_LOW) * (column / (SURFACE_COLUMNS - 1));
   const returnAt = (row: number) => SURFACE_RETURN_LOW + (SURFACE_RETURN_HIGH - SURFACE_RETURN_LOW) * (row / (SURFACE_ROWS - 1));
@@ -1164,17 +1179,21 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
      or hovering never recomputes the plane. */
   const grid = useMemo(() => {
     const cells = SURFACE_COLUMNS * SURFACE_ROWS;
+    const totalTarget = new Float64Array(cells);
     const poolATarget = new Float64Array(cells);
+    const poolCTarget = new Float64Array(cells);
     const poolA95 = new Float64Array(cells);
     const exhaustion = new Float64Array(cells);
     const poolC95 = new Float64Array(cells);
-    const targetIndex = clamp(targetAge - 60, 0, 35);
+    const targetIndex = clamp(Math.round(targetAge) - 60, 0, 35);
     for (let row = 0; row < SURFACE_ROWS; row += 1) {
       const candidateReturn = returnAt(row);
       for (let column = 0; column < SURFACE_COLUMNS; column += 1) {
         const path = poolPath(rail, spendAt(column), candidateReturn);
         const index = row * SURFACE_COLUMNS + column;
         poolATarget[index] = path[targetIndex]?.poolA ?? 0;
+        poolCTarget[index] = path[targetIndex]?.poolC ?? 0;
+        totalTarget[index] = path[targetIndex]?.total ?? 0;
         poolA95[index] = path[35]?.poolA ?? 0;
         poolC95[index] = path[35]?.poolC ?? 0;
         let ranOut = 96;
@@ -1184,19 +1203,21 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
         exhaustion[index] = ranOut;
       }
     }
-    return { poolATarget, poolA95, exhaustion, poolC95 };
+    return { totalTarget, poolATarget, poolCTarget, poolA95, exhaustion, poolC95 };
   }, [rail, targetAge]);
 
-  const series = metric === "poolA-target" ? grid.poolATarget
-    : metric === "poolA-95" ? grid.poolA95
-      : metric === "exhaustion" ? grid.exhaustion
-        : grid.poolC95;
+  const series = metric === "total-target" ? grid.totalTarget
+    : metric === "poolA-target" ? grid.poolATarget
+      : metric === "poolC-target" ? grid.poolCTarget
+        : metric === "poolA-95" ? grid.poolA95
+          : metric === "exhaustion" ? grid.exhaustion : grid.poolC95;
   const peak = useMemo(() => {
     let max = 0;
     for (let i = 0; i < series.length; i += 1) if (series[i] > max) max = series[i];
     return max || 1;
   }, [series]);
-  const deadZone = deadZoneCeiling(rail);
+  const current = useMemo(() => surfaceProjection(rail, spend, realReturn, targetAge), [rail, spend, realReturn, targetAge]);
+  const alternative = useMemo(() => selected ? surfaceProjection(rail, selected.spend, selected.realReturn, targetAge) : null, [rail, selected, targetAge]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1295,19 +1316,7 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
       }
     });
 
-    // The dead-zone wall: left of it, spending changes nothing.
-    context.setLineDash([5, 4]);
-    context.strokeStyle = markInk;
-    context.beginPath();
-    context.moveTo(xOf(deadZone), padTop);
-    context.lineTo(xOf(deadZone), padTop + plotHeight);
-    context.stroke();
-    context.setLineDash([]);
-    context.textAlign = "left";
-    context.fillStyle = markInk;
-    context.fillText(compact ? "dead zone" : `dead zone ends ${money(deadZone)}`, xOf(deadZone) + 6, padTop + 14);
-
-    // Your Frontier tab is one horizontal slice of this plane.
+    // The horizontal line keeps the current plan's assumed return visible.
     context.strokeStyle = markInk;
     context.lineWidth = 1.4;
     context.beginPath();
@@ -1315,24 +1324,28 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
     context.lineTo(padLeft + plotWidth, yOf(realReturn));
     context.stroke();
     context.fillStyle = markInk;
-    context.fillText(compact ? "FRONTIER TAB ROW" : "YOUR FRONTIER TAB IS THIS ROW", padLeft + 8, yOf(realReturn) - 7);
-    frontierSpends.forEach((value) => {
-      if (value < SURFACE_SPEND_LOW || value > SURFACE_SPEND_HIGH) return;
-      context.beginPath();
-      context.arc(xOf(value), yOf(realReturn), 3.1, 0, Math.PI * 2);
-      context.fill();
-    });
+    context.textAlign = "left";
+    context.fillText("YOUR CURRENT RETURN", padLeft + 8, yOf(realReturn) - 7);
 
     // The active plan.
-    const planX = xOf(clamp(spend, SURFACE_SPEND_LOW, SURFACE_SPEND_HIGH));
-    const planY = yOf(clamp(realReturn, SURFACE_RETURN_LOW, SURFACE_RETURN_HIGH));
-    context.strokeStyle = textInk;
-    context.lineWidth = 2;
-    context.beginPath();
-    context.arc(planX, planY, 7, 0, Math.PI * 2);
-    context.stroke();
+    if (spend >= SURFACE_SPEND_LOW && spend <= SURFACE_SPEND_HIGH) {
+      context.strokeStyle = textInk;
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(xOf(spend), yOf(realReturn), 7, 0, Math.PI * 2);
+      context.stroke();
+    }
+    if (selected) {
+      context.strokeStyle = "#17263b";
+      context.fillStyle = "#ffffff";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(xOf(selected.spend), yOf(selected.realReturn), 5, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+    }
     context.lineWidth = 1;
-  }, [series, peak, metric, deadZone, realReturn, spend, frontierSpends, theme]);
+  }, [series, peak, metric, realReturn, spend, selected, theme]);
 
   const locate = (event: { clientX: number; clientY: number }) => {
     const canvas = canvasRef.current;
@@ -1349,42 +1362,69 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, frontierSp
     if (x < 0 || y < 0 || x > plotWidth || y > plotHeight) return null;
     const column = clamp(Math.round((x / plotWidth) * (SURFACE_COLUMNS - 1)), 0, SURFACE_COLUMNS - 1);
     const row = clamp(Math.round((1 - y / plotHeight) * (SURFACE_ROWS - 1)), 0, SURFACE_ROWS - 1);
-    return { spend: spendAt(column), realReturn: returnAt(row), value: series[row * SURFACE_COLUMNS + column] };
+    return { spend: Math.round(spendAt(column) / 1_000) * 1_000, realReturn: Number(returnAt(row).toFixed(4)) };
   };
 
   const activeMetric = SURFACE_METRICS.find((item) => item.key === metric)!;
-  const metricLabel = (item: (typeof SURFACE_METRICS)[number]) => item.key === "poolA-target" ? `Pool A at age ${targetAge}` : item.label;
-  const readout = hover ?? { spend, realReturn, value: 0 };
+  const metricLabel = (item: (typeof SURFACE_METRICS)[number]) => item.key.endsWith("-target") ? item.label.replace("target age", `age ${targetAge}`) : item.label;
+  const alternativeValue = alternative && (metric === "total-target" ? money(alternative.total)
+    : metric === "poolA-target" ? money(alternative.poolA)
+      : metric === "poolC-target" ? money(alternative.poolC)
+        : metric === "poolA-95" ? money(alternative.poolA95)
+          : metric === "poolC-95" ? money(alternative.poolC95)
+            : alternative.exhaustionAge === null ? "After age 95" : `Age ${alternative.exhaustionAge}`);
 
   return <section className="panel decision-surface">
     <div className="panel-head">
       <div>
-        <h3>Decision surface · target age {targetAge}</h3>
-        <p>Your target age comes from Command Centre. Choose Pool A at age {targetAge} to see how much is left at that age across different spending and return assumptions. Hover for the result or click to adopt that spending and return.</p>
+        <h3>Your investments at age {targetAge}</h3>
+        <p>See your current plan below. The chart lets you compare it with different annual spending and investment returns.</p>
       </div>
-      <Badge tone="modelled">{(SURFACE_COLUMNS * SURFACE_ROWS).toLocaleString()} ledgers</Badge>
+      <Badge tone="modelled">Modelled in today's dollars</Badge>
     </div>
+    <div className="surface-current" aria-label="Current plan investment balances">
+      <p><b>Current plan</b> · {money(spend)} net spending a year · {pct(realReturn, 2)} real return after inflation · target age {targetAge}</p>
+      <div className="surface-readout">
+        <div><span>Modelled investments at {targetAge}</span><b>{money(current.total)}</b><small>Pool A + Pool C</small></div>
+        <div><span>Pool A at {targetAge}</span><b>{money(current.poolA)}</b><small>Account-based pension</small></div>
+        <div><span>Pool C at {targetAge}</span><b>{money(current.poolC)}</b><small>Invested reserve outside super</small></div>
+      </div>
+      <p className={current.firstShortfallAge === null ? "surface-funding" : "surface-funding warn"}>{current.firstShortfallAge === null ? `The model funds the planned spending through age ${targetAge}.` : `The model first shows a spending shortfall at age ${current.firstShortfallAge}.`}</p>
+    </div>
+    <p className="surface-explanation">Pool C is a modelled external investment reserve. Its starting balance comes from the retirement assumptions, and it receives surplus pension income or minimum withdrawals that are not spent. It is invested and can grow or fall, with a {pct(POOL_C_DRAG, 2)} annual drag assumed. This flat-spending model does not automatically use it to cover a spending shortfall. Total investments here are Pool A plus Pool C; your PSS pension is income and your home is shown separately.</p>
     <div className="instrument-bar" role="group" aria-label="Surface metric">
-      <span className="instrument-label">Shade by</span>
-      {SURFACE_METRICS.map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{metricLabel(item)}</button>)}
+      <span className="instrument-label">Colour the chart by</span>
+      {SURFACE_METRICS.slice(0, 4).map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{metricLabel(item)}</button>)}
     </div>
+    <details className="surface-other-ages"><summary>Other views at age 95</summary><div className="instrument-bar" role="group" aria-label="Other surface metrics">{SURFACE_METRICS.slice(4).map((item) => <button key={item.key} type="button" className={metric === item.key ? "active" : ""} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{metricLabel(item)}</button>)}</div></details>
+    <p className="surface-explanation">Left to right is yearly spending. Bottom to top is the assumed return after inflation. Tap or click a point to inspect it, then apply it only if you want to change your plan.</p>
     <div className="surface-wrap" ref={wrapRef}>
       <canvas
         ref={canvasRef}
         className="surface-canvas"
-        role="img"
-        aria-label={`Heat map of ${metricLabel(activeMetric)} across flat spend and real return. Your active plan is ${money(spend)} a year at ${pct(realReturn, 1)} real.`}
-        onPointerMove={(event) => setHover(locate(event))}
-        onPointerLeave={() => setHover(null)}
-        onClick={(event) => { const at = locate(event); if (at) onAdopt({ spend: Math.round(at.spend / 1_000) * 1_000, realReturn: Number(at.realReturn.toFixed(4)) }); }}
+        role="application"
+        tabIndex={0}
+        aria-label={`Chart of ${metricLabel(activeMetric)} across spending and real return. Tap to select an alternative, or use arrow keys to adjust one. Applying it is a separate button.`}
+        onClick={(event) => { const at = locate(event); if (at) setSelected(at); }}
+        onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+          event.preventDefault();
+          const base = selected ?? { spend: clamp(spend, SURFACE_SPEND_LOW, SURFACE_SPEND_HIGH), realReturn: clamp(realReturn, SURFACE_RETURN_LOW, SURFACE_RETURN_HIGH) };
+          const nextSpend = base.spend + (event.key === "ArrowRight" ? 1_000 : event.key === "ArrowLeft" ? -1_000 : 0);
+          const nextReturn = base.realReturn + (event.key === "ArrowUp" ? 0.0025 : event.key === "ArrowDown" ? -0.0025 : 0);
+          setSelected({ spend: clamp(nextSpend, SURFACE_SPEND_LOW, SURFACE_SPEND_HIGH), realReturn: Number(clamp(nextReturn, SURFACE_RETURN_LOW, SURFACE_RETURN_HIGH).toFixed(4)) });
+        }}
       />
     </div>
-    <div className="surface-readout">
-      <div><span>{hover ? "Under the cursor" : "Active plan"}</span><b>{money(readout.spend)} · {pct(readout.realReturn, 2)} real</b></div>
-      <div><span>{metricLabel(activeMetric)}</span><b>{hover ? (metric === "exhaustion" ? (readout.value >= 96 ? "never" : `age ${Math.round(readout.value)}`) : money(readout.value)) : "hover to read"}</b></div>
-      <div><span>Dead-zone ceiling</span><b>{money(deadZone)}</b></div>
-    </div>
-    <div className="note"><b>How to read it:</b> the vertical wall is the dead-zone ceiling — left of it every spend produces the identical Pool A path, because the statutory minimum draw already exceeds the lifestyle gap. The white row is the single return assumption your Frontier tab holds fixed, with its five spending points marked on it. Moving up the plane buys outcomes with return; moving left buys them with restraint. Clicking sets both controls for the whole Command Centre.</div>
+    <div className="surface-scale"><span>{metric === "exhaustion" ? "Runs out earlier" : "Lower balance"}</span><i aria-hidden="true" /><span>{metric === "exhaustion" ? "Runs out later or after 95" : "Higher balance"}</span></div>
+    {(spend < SURFACE_SPEND_LOW || spend > SURFACE_SPEND_HIGH) && <p className="surface-explanation">Your current spending is outside the chart's {money(SURFACE_SPEND_LOW)}–{money(SURFACE_SPEND_HIGH)} range, so its circle is not shown. The current-plan values above still use your actual setting.</p>}
+    {selected && alternative ? <div className="surface-alternative" aria-live="polite">
+      <p><b>Selected alternative</b> · {money(selected.spend)} per year · {pct(selected.realReturn, 2)} real return</p>
+      <div className="surface-readout">{metric !== "total-target" && <div><span>{metricLabel(activeMetric)}</span><b>{alternativeValue}</b></div>}<div><span>Modelled investments at {targetAge}</span><b>{money(alternative.total)}</b><small>Pool A {money(alternative.poolA)} + Pool C {money(alternative.poolC)}</small></div></div>
+      <p className={alternative.firstShortfallAge === null ? "surface-funding" : "surface-funding warn"}>{alternative.firstShortfallAge === null ? `The model funds planned spending through age ${targetAge}.` : `The model first shows a spending shortfall at age ${alternative.firstShortfallAge}.`}</p>
+      <div className="surface-actions"><button type="button" className="primary" onClick={() => { onAdopt(selected); setSelected(null); }}>Apply this alternative</button><button type="button" className="secondary" onClick={() => setSelected(null)}>Clear selection</button></div>
+    </div> : <p className="surface-explanation">Select a point to see an alternative here. Your current plan is shown above without selecting anything.</p>}
+    <div className="note">The colours compare modelled outcomes under steady returns and flat annual spending. They do not show probabilities. A higher investment balance can coincide with a spending shortfall because Pool C is not automatically drawn in this comparison.</div>
   </section>;
 }
 
@@ -3100,14 +3140,13 @@ export default function RetirementDashboard() {
   </>;
 
   const renderSurface = () => <>
-    <SectionHeading eyebrow="Decision workspace" title="Every plan at once" copy={`Frontier answers one question along a line: what does more spending cost at ${pct(realReturn, 1)} real? This answers it across the whole plane, so the return assumption stops being a setting you have to trust and becomes an axis you can see. Your Frontier tab is drawn on it as the single row it is.`} />
+    <SectionHeading eyebrow="Decision workspace" title="Compare spending and returns" copy={`See your investments at age ${targetAge} under your current plan, then explore other spending and return assumptions.`} />
     <DecisionSurface
       rail={rail}
       spend={spend}
       realReturn={realReturn}
       targetAge={targetAge}
       theme={theme}
-      frontierSpends={FRONTIER_SPENDS}
       onAdopt={({ spend: nextSpend, realReturn: nextReturn }) => {
         setSpend(clamp(nextSpend, 76_000, MAX_FLAT_SPEND));
         setRealReturn(clamp(nextReturn, 0.02, 0.075));

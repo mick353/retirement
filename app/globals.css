@@ -1090,6 +1090,19 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .surface-wrap,.volume-wrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel-3)}
 .surface-canvas{display:block;width:100%;cursor:crosshair}
 .surface-readout{margin-top:13px}
+.surface-readout small{display:block;color:var(--muted);font-size:11px;line-height:1.4;margin-top:4px}
+.surface-current,.surface-alternative{margin:14px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2)}
+.surface-current p,.surface-alternative p{font-size:12px;line-height:1.5;margin:0}
+.surface-explanation{font-size:12px;line-height:1.55;color:var(--muted);margin:12px 0}
+.surface-funding{margin-top:12px!important;color:var(--muted)}
+.surface-funding.warn{color:var(--danger);font-weight:600}
+.surface-other-ages{margin:4px 0 12px;font-size:12px;color:var(--muted)}
+.surface-other-ages summary{cursor:pointer;color:var(--text);font-weight:600}
+.surface-other-ages .instrument-bar{margin-top:8px}
+.surface-scale{display:flex;align-items:center;gap:10px;margin:10px 0 12px;color:var(--muted);font-size:11px}
+.surface-scale i{flex:1;max-width:240px;height:8px;border-radius:99px;background:linear-gradient(90deg,#ff728c,#ffa950,#47d6a0)}
+.surface-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.surface-canvas:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .volume-wrap{touch-action:none}
 .volume-canvas{display:block;width:100%;cursor:grab}
 .volume-canvas:active{cursor:grabbing}
