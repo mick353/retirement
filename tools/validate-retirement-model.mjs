@@ -435,6 +435,20 @@ v23('selectPssElection("70-30",{spendTarget:null}); STATE.gapBands=[{age:60,amou
 const cappedDrawBand = v23("runModel({}).rows[1]");
 close(cappedDrawBand.gap, cappedDrawBand.mandDraw, "A previously saved band cannot spend more than 100% of the mandatory draw");
 
+const moves = v23(`["70-30","100"].flatMap(election=>{
+  selectPssElection(election,{spendTarget:122000});
+  return ["preserve","after-abp"].map(poolCPolicy=>{
+    const {rows}=runModel({poolCPolicy,oneOff:190000,annualReturns:[{A:-.15,B:-.1275}]});
+    return capitalMovement(rows,15);
+  });
+})`);
+for(const change of moves){
+  close(change.opening+change.investmentGrowth+change.pensionSaved-change.portfolioSpent-change.oneOffPaid,
+    change.closing,"The capital breakdown reconciles a loss, pension savings and spending under each policy");
+}
+assert.equal(moves[2].oneOffPaid,0,"The capital breakdown excludes an unfunded request");
+assert.equal(moves[3].oneOffPaid,190_000,"The capital breakdown includes a funded one-off once");
+
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(atlasSource, /theme:\s*activeTheme\(\)/, "Atlas shared links carry the selected colour theme");

@@ -558,10 +558,10 @@ hr.sep{border:0;border-top:1px solid var(--border);margin:14px 0}
 /* ── WATERFALL ── */
 .wf-container{display:flex;flex-direction:column;gap:6px;padding:8px 0}
 .wf-row{display:flex;align-items:center;gap:10px}
-.wf-label{width:170px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0;font-weight:500}
+.wf-label{width:min(170px,42%);font-size:12px;color:var(--muted);text-align:right;flex-shrink:0;font-weight:500}
 .wf-bar-wrap{flex:1;height:28px;background:var(--panel2);border-radius:6px;overflow:hidden;position:relative}
 .wf-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:11.5px;font-weight:700;white-space:nowrap}
-.wf-val{width:110px;font-size:12px;font-weight:700;flex-shrink:0;font-variant-numeric:tabular-nums}
+.wf-val{width:min(132px,40%);font-size:12px;font-weight:700;flex-shrink:0;font-variant-numeric:tabular-nums}
 
 /* ── ESTATE ── */
 .estate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
@@ -1358,8 +1358,8 @@ main{min-width:0;}
         <div class="chart-wrap tall"><canvas id="tj_chart"></canvas></div>
       </div>
       <div class="panel">
-        <h2>Capital waterfall: age 60 → target age (likely path)</h2>
-        <div class="muted smaller" style="margin-bottom:8px">Illustrative flows — not a strict balance-sheet identity. "Mandatory draws" includes the surplus that becomes Pool C, and "Pool C accumulation" shows the resulting end balance, so the bars intentionally overlap rather than sum exactly.</div>
+        <h2 id="wf-title">Opening to closing capital on the likely path</h2>
+        <div class="muted smaller" style="margin-bottom:8px">Opening investments plus the increases and decreases below reconcile to closing investments. Money transferred between investment pools stays in the total. Amounts are in today’s dollars.</div>
         <div class="wf-container" id="wf_container"></div>
       </div>
       <div class="panel">
@@ -3170,6 +3170,20 @@ function renderTwoPool(){
 }
 
 /* ========== TRAJECTORY ========== */
+function capitalMovement(rows,targetIndex){
+  const opening=rows[0].total+rows[0].oneOffFunded;
+  const movement={opening,investmentGrowth:0,pensionSaved:0,portfolioSpent:0,oneOffPaid:rows[0].oneOffFunded,closing:rows[targetIndex].total};
+  for(let index=1;index<=targetIndex;index++){
+    const previous=rows[index-1];
+    const current=rows[index];
+    movement.investmentGrowth+=previous.poolA*current.rA+previous.poolB*current.rB+previous.poolC*current.rC;
+    movement.pensionSaved+=current.pensionToPoolC;
+    movement.portfolioSpent+=current.fundedGap;
+    movement.oneOffPaid+=current.oneOffFunded;
+  }
+  return movement;
+}
+
 function renderTrajectory(){
   const p=getProfile();const tc=getThemeColors();const ta=STATE.targetAge;const idx=tIdx();
   const conserv=runModel({profile:p,abpReturn:SCENARIOS.conservative.abp,accumReturn:SCENARIOS.conservative.accum});
@@ -3187,28 +3201,26 @@ function renderTrajectory(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}},_milestones:[{age:65,label:"65"},{age:75,label:"75"},{age:80,label:"80"}]});
-  // Waterfall
-  const likelySim=likely;const r0=likelySim.rows[0];const rT=likelySim.rows[idx];
-  const startCap=(p.poolA_day1??tbcAlloc_waterfall(p))+(p.poolB_day1??0)+(p.poolC_day1??0);const endCap=rT.total;
-  let cumReturns=0,cumMandDraws=0,cumGap=0,cumSurplusC=0;
-  for(let i=0;i<=idx;i++){const r=likelySim.rows[i];cumReturns+=(r.rA*r.abp/(1+r.rA))+(r.rB*r.acc/(1+r.rB));cumMandDraws+=r.mandDraw;cumGap+=r.realExit;cumSurplusC+=r.toPoolC;}
+  document.getElementById("wf-title").textContent=`Opening to closing capital · ages ${p.retireAge}–${ta} (likely path)`;
+  const movement=capitalMovement(likely.rows,idx);
   const wfItems=[
-    {label:"Capital @60 (A+B+C)",val:startCap,type:"base"},
-    {label:"Investment returns",val:cumReturns,type:"pos"},
-    {label:"Pool C accumulation",val:rT.poolC,type:"pos"},
-    {label:"Mandatory draws",val:-cumMandDraws,type:"neg"},
-    {label:"Lifestyle spending",val:-cumGap,type:"neg"},
-    {label:`Capital @${ta} (total)`,val:endCap,type:"total"}
+    {label:`Opening investments at age ${p.retireAge}`,val:movement.opening,type:"base"},
+    {label:"Net investment growth",val:movement.investmentGrowth},
+    {label:"PSS pension saved",val:movement.pensionSaved},
+    {label:"Spending from investments",val:-movement.portfolioSpent},
+    {label:"One-offs paid",val:-movement.oneOffPaid},
+    {label:`Closing investments at age ${ta}`,val:movement.closing,type:"total"}
   ];
-  const maxAbs=Math.max(...wfItems.map(w=>Math.abs(w.val)));
+  const maxAbs=Math.max(1,...wfItems.map(w=>Math.abs(w.val)));
   const container=document.getElementById("wf_container");container.innerHTML="";
   wfItems.forEach(item=>{
     const row=document.createElement("div");row.className="wf-row";
     const pct=(Math.abs(item.val)/maxAbs*80).toFixed(1);
-    const color=item.type==="base"?tc.acc:item.type==="pos"?tc.good:item.type==="total"?tc.acc2:tc.warn;
+    const color=item.type==="base"?tc.acc:item.type==="total"?tc.acc2:item.val<0?tc.warn:tc.good;
+    const sign=item.val<-.005?"−":!item.type&&item.val>=.005?"+":"";
     row.innerHTML=`<div class="wf-label">${item.label}</div>
-      <div class="wf-bar-wrap"><div class="wf-bar" style="width:${pct}%;background:${color};color:#0b1020">${item.val>0?"+":""}${fmt$(item.val)}</div></div>
-      <div class="wf-val">${item.val>0?"+":""}${fmt$(item.val)}</div>`;
+      <div class="wf-bar-wrap" aria-hidden="true"><div class="wf-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="wf-val">${sign}${fmtCents(Math.abs(item.val))}</div>`;
     container.appendChild(row);
   });
   makeChart("tj_pools",{type:"line",data:{labels:ages,datasets:[
@@ -3220,7 +3232,6 @@ function renderTrajectory(){
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
 }
-function tbcAlloc_waterfall(p){const a=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);return a.poolA+a.poolB;}
 
 /* ========== INCOME ========== */
 function safePercent(numerator,denominator,{cap=false}={}){
@@ -5422,9 +5433,9 @@ twopool:{t:"Three-pool structure",w:"Mechanics and balances of Pool A (ABP, 0% e
 ["'own earnings only'","Pool B grows only by its own earnings while non-zero — never by new deposits except wash re-contributions."],
 ["'accumulated surplus'","Pool C growth = market return + every dollar of mandatory draw not consumed by spending."],
 ["Chart series: Pool A (ABP) / Pool B (Accum) / Pool C (External ETF)","Balance of each pool by age. Pool B tracks flat at $0 for the whole projection — that is correct, it is a transit vehicle only."]]},
-trajectory:{t:"Capital trajectory",w:"Total and per-pool capital paths by age under the three return scenarios, with a year-by-year waterfall on the likely path.",h:["Hover/tap any age for exact real-dollar figures.","The waterfall decomposes each year: investment growth + pension surplus − lifestyle gap − any one-off."],f:[
+trajectory:{t:"Capital trajectory",w:"Total and per-pool investments by age, with a breakdown of how opening capital reaches the target-age balance on the likely path.",h:["Hover/tap any age for exact real-dollar figures.","Add net investment growth and pension saved to opening investments, then subtract funded spending from investments and any one-offs paid."],f:[
 ["Three-scenario chart","Conservative / Base / Strong total-capital lines against the floor, target and strong reference bands."],
-["Waterfall","Each bar is one year's net capital change on the likely path, split into its drivers."],
+["Opening to closing capital","The bars show cumulative amounts from retirement to the target age. Transfers between investment pools do not change total capital."],
 ["Pools chart","Pool A vs B vs C vs Total on the likely path — shows the A-shrinks/C-grows crossover."]]},
 income:{t:"Income & draws",w:"Set your spending in Plan controls and check how much the pension and investments fund.",h:["For one budget, choose Total annual spending and select Apply spending. To vary it over time, choose Spending by age. Pick Total spending for a whole budget or Extra above net PSS for a top-up.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
 ["Average annual spending funded","Average amount the plan actually spends each year from pension and investments, in today’s dollars."],
@@ -6182,15 +6193,15 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   }
   function deterministicOutputs(profile){
     try{
-      const targetAge=Number(STATE.targetAge);const keyAges=[profile.retireAge,65,70,targetAge,80,85,90,95];
+      const targetAge=Number(STATE.targetAge);const keyAges=[profile.retireAge,profile.retireAge+1,65,70,targetAge,80,85,90,95];
       const scenarios=Object.entries(SCENARIOS).map(([key,scenario])=>{
         const sim=runModel({profile,abpReturn:scenario.abp,accumReturn:scenario.accum});
-        return{key,name:scenario.name,returnA:scenario.abp,returnB:scenario.accum,rows:sim.rows.filter(row=>keyAges.includes(row.age)).map(row=>({age:row.age,poolA:row.abp,poolB:row.acc,poolC:row.poolC,total:row.total,targetTotalSpend:row.targetSpend,lifestyleGap:row.gap,pssPensionAvailable:row.pension,pssPensionConsumed:row.pensionSpent,pssPensionSurplusToPoolC:row.pensionSurplus,actualPortfolioExit:row.realExit,mandatoryDraw:row.mandDraw,extraPoolADraw:row.extraDraw}))};
+        return{key,name:scenario.name,returnA:scenario.abp,returnB:scenario.accum,rows:sim.rows.filter(row=>keyAges.includes(row.age)).map(row=>({age:row.age,openingSnapshot:Boolean(row.launchSnapshot),poolA:row.abp,poolB:row.acc,poolC:row.poolC,total:row.total,targetTotalSpend:row.targetSpend,lifestyleGap:row.gap,pssPensionAvailable:row.pension,pssPensionConsumed:row.pensionSpent,pssPensionSurplusToPoolC:row.pensionToPoolC,actualPortfolioExit:row.fundedGap,spentFromMandatoryDraw:row.realExit,mandatoryDraw:row.mandDraw,extraPoolADraw:row.extraDraw}))};
       });
       const likely=runModel({profile,abpReturn:STATE.likely,accumReturn:STATE.likely*.85});
       const target=likely.rows.find(row=>row.age===targetAge)||likely.rows[likely.rows.length-1];
       const start=likely.rows[0]||{};
-      return{scenarios,likelyTarget:target,likelyStart:start};
+      return{scenarios,likelyTarget:target,likelyStart:start,likelyFirstYear:likely.rows.find(row=>!row.launchSnapshot)};
     }catch(e){return{error:"The live calculation snapshot could not be serialised."};}
   }
   function buildContext(){
@@ -6198,19 +6209,30 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     try{state=JSON.parse(JSON.stringify(STATE,(key,value)=>key==="charts"?undefined:value));}catch(e){}
     try{profile={...getProfile()};}catch(e){}
     const outputs=deterministicOutputs(profile);const shared=state.sharedImport?.scenario||sharedScenario();
+    const firstYear=outputs.likelyFirstYear;
     const rail=state.profile==="michael"?"A":(isRailBProfile(profile)?"B":"Custom");
     const pageText=cleanText(page?.innerText,35000);
     const pageTables=Array.from(page?.querySelectorAll("table")||[]).slice(0,12).map((table,index)=>({index,text:cleanText(table.innerText,12000)}));
     const globalRoot=document.querySelector(".control-bar");
     return{
       metadata:{modelVersion:APP_VERSION,baselineDate:"2026-09-01",currency:"AUD",valueBasis:"Real dollars unless labelled otherwise",surface:"V23 detailed workbench",activePageId:activePageId(),activePageTitle:activeTitle(),capturedAt:now()},
-      activeScenario:{rail,railName:profile.name||rail,pssElection:profile.pssElection||null,pssProjectionBasis:state.pssProjectionBasis,pssProjectionBasisDetail:PSS_PROJECTION_BASES[state.pssProjectionBasis]||PSS_PROJECTION_BASES["source-825"],totalSpendTarget:state.totalSpendTarget,annualNetSpending:Number(outputs.likelyStart?.fundedTotalSpend??((outputs.likelyStart?.pensionSpent??profile.netPension??0)+Number(outputs.likelyStart?.realExit||0))),pssPensionSurplusToPoolC:Number(outputs.likelyStart?.pensionSurplus||0),realReturn:Number(state.likely||0),targetAge:Number(state.targetAge||75),annualPortfolioDraw:Number(outputs.likelyStart?.realExit||0),modelledInvestmentCapitalAtTarget:Number(outputs.likelyTarget?.total||0),sharedCommandCentreScenario:shared},
+      activeScenario:{
+        rail,railName:profile.name||rail,pssElection:profile.pssElection||null,pssProjectionBasis:state.pssProjectionBasis,
+        pssProjectionBasisDetail:PSS_PROJECTION_BASES[state.pssProjectionBasis]||PSS_PROJECTION_BASES["source-825"],
+        totalSpendTarget:state.totalSpendTarget,realReturn:Number(state.likely||0),targetAge:Number(state.targetAge||75),
+        firstOperatingPeriod:firstYear?{fromAge:firstYear.age-1,toAge:firstYear.age}:null,
+        annualNetSpending:firstYear?.fundedTotalSpend??null,
+        pssPensionSurplusToPoolC:firstYear?.pensionToPoolC??null,
+        annualPortfolioDraw:firstYear?.fundedGap??null,
+        modelledInvestmentCapitalAtTarget:outputs.likelyTarget?.total??null,
+        sharedCommandCentreScenario:shared
+      },
       v23State:state,
       activeProfile:profile,
       activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:controlSnapshot(page,100),charts:chartSnapshots(page)},
       globalControls:controlSnapshot(globalRoot,40),
       deterministicOutputs:outputs,
-      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% basis has four direct elections; its 100% pension estimate uses the later 9 September snapshot and $162,485.36 FAS."],
+      interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Use firstOperatingPeriod for the annual cashflow summary. The opening snapshot contains balances and any one-off at retirement.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% basis has four direct elections; its 100% pension estimate uses the later 9 September snapshot and $162,485.36 FAS."],
       links:{commandCentre:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./"):"./",document.baseURI).toString(),atlas:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./atlas.html"):"atlas.html",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
     };
   }
