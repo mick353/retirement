@@ -370,6 +370,28 @@ async function exerciseV23EdgeCases(page, base) {
   slots.searchParams.set("page", "saveslots");
   await open(page, slots);
   assert.match(await page.locator("#slot_tbl tbody tr").first().innerText(), /\$90k total.*\$99k total/);
+
+  destination.searchParams.set("spend", "180000");
+  destination.searchParams.set("return", "0.02");
+  await visit("tornado");
+  await page.locator("#profile-controls-toggle").click();
+  await page.locator("#cf_hostplus").fill("0");
+  await page.locator("#cf_hostplus").press("Tab");
+  const baseBalance = page.locator("#tor_tbl tbody tr").first().locator("td");
+  assert.equal(await baseBalance.nth(2).innerText(), "$0");
+  assert.equal(await baseBalance.nth(4).innerText(), "—");
+  assert.equal(await baseBalance.nth(5).innerText(), "—");
+  const invalidAmounts = await page.evaluate(() => {
+    const routes = [...document.querySelectorAll("nav.side [data-page]")].map((link) => link.dataset.page);
+    const invalid = [];
+    for (const route of routes) {
+      showPage(route);
+      if (/(?:NaN%|Infinity%|\$NaN|\$Infinity)/.test(document.getElementById("page-" + route).innerText)) invalid.push(route);
+    }
+    return { checked: routes.length, invalid };
+  });
+  assert.equal(invalidAmounts.checked, 33);
+  assert.deepEqual(invalidAmounts.invalid, [], "Every V23 page renders at zero investment capital without invalid amounts");
 }
 
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();

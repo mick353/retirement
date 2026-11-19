@@ -32,4 +32,6 @@ The V23 edge cases verify that an imported flat budget leaves Scenario B, Sensit
 
 Capital Trajectory must reconcile to its chart balance. The browser suite also captures the synthetic AI Review request locally and checks the first-year cashflow fields under both pension elections.
 
+A zero-investment scenario verifies that Tornado leaves percentages undefined when the base is zero and renders all 33 V23 pages to check for invalid dollar and percentage displays.
+
 Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
