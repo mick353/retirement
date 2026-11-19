@@ -26,4 +26,6 @@ npm run test:browser -- --url https://robinson-retirement.mick353.chatgpt.site/
 npm run test:browser -- --url https://mick353.github.io/retirement/
 ```
 
-Run live checks with the suite's isolated browser contexts. It opens synthetic plan links and discards browser storage. The journeys cover Command Centre hand-off, Surface and the integrated Atlas, plus V23 opening-pool edits, resets, pension elections, flat and age-based spending, chart calculations, and reload persistence at desktop and phone widths. Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
+Run live checks with the suite's isolated browser contexts. It opens synthetic plan links and discards browser storage. Tests cover the Command Centre hand-off, Surface preview and explicit apply, and the integrated Atlas ledger. V23 checks cover opening-pool edits, resets, pension elections, flat and age-based spending, reload, save slots, and settings export and import. The first-year capital check uses independently calculated amounts so the browser test can detect a surplus omitted from Pool C even if the surplus label still renders correctly.
+
+Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
