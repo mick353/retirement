@@ -244,6 +244,87 @@ async function exerciseExplorer(page, base) {
   assert.equal(await frame.locator("#visualTableBody tr").count(), 36);
 }
 
+async function exerciseV23EdgeCases(page, base) {
+  const destination = new URL("deep-model.html", base);
+  destination.search = new URLSearchParams({
+    shared: "1", rail: "B", pss: "70-30", basis: "prudent-630", spend: "124000",
+    return: "0.065", age: "75", theme: "light",
+  });
+  const visit = (id) => {
+    destination.searchParams.set("page", id);
+    return open(page, destination);
+  };
+  const setRange = (selector, value) => page.locator(selector).evaluate((input, amount) => {
+    input.value = String(amount);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+
+  await visit("scencomp");
+  const restore = page.getByRole("button", { name: "Restore imported plan" });
+  if (await restore.isVisible()) await restore.click();
+  const alternativeCapital = async () => (await chartValues(page, "#sc_right_chart", "Alternative"))[15];
+  const activeCapital = await chartValues(page, "#sc_left_chart", "Current likely");
+  await setRange("#sc_sl_gap", 20000);
+  const lowerGapCapital = await alternativeCapital();
+  const lowerGapRisk = await page.locator("#sc_right_cards .card").filter({ hasText: "MC P(>= floor)" }).innerText();
+  await setRange("#sc_sl_gap", 60000);
+  assert.ok(await alternativeCapital() < lowerGapCapital, "A higher Scenario B gap reduces B capital");
+  assert.notEqual(await page.locator("#sc_right_cards .card").filter({ hasText: "MC P(>= floor)" }).innerText(), lowerGapRisk);
+  await page.locator("#sc_sl_gap").press("Home");
+  assert.match(await page.locator("#sc_right_title").innerText(), /\$0 flat/);
+  assert.ok(await alternativeCapital() > lowerGapCapital, "Scenario B accepts zero extra spending");
+  assert.deepEqual(await chartValues(page, "#sc_left_chart", "Current likely"), activeCapital);
+
+  await visit("sensitivity");
+  const sensitivity = page.locator("#ss_tbl tbody tr");
+  assert.equal(await sensitivity.filter({ hasText: "Default gap ($24k), likely" }).locator("td").nth(1).innerText(), "$24k");
+  assert.equal(await sensitivity.filter({ hasText: "Higher lifestyle ($36k), likely" }).locator("td").nth(1).innerText(), "$36k");
+  await visit("tornado");
+  const spendingFactor = page.locator("#tor_tbl tbody tr").filter({ hasText: "Annual spending budget" });
+  assert.notEqual(await spendingFactor.locator("td").nth(1).innerText(), await spendingFactor.locator("td").nth(3).innerText());
+
+  await visit("recalibrate");
+  const gap = page.locator("#rc_gap");
+  await gap.fill("0");
+  const noGap = await chartValues(page, "#rc_chart", "Recalibrated total");
+  await gap.fill("60000");
+  const highGap = await chartValues(page, "#rc_chart", "Recalibrated total");
+  assert.ok(highGap[15] < noGap[15], "Recalibration uses the entered gap instead of the shared budget");
+
+  destination.searchParams.set("pss", "100");
+  await visit("oneoff");
+  await page.locator("#plan-controls-toggle").click();
+  await setRange("#sl_oo", 190000);
+  const capacity = page.locator("#oo_cards .card");
+  assert.equal(await capacity.filter({ hasText: "Max @ Likely" }).locator(".value").innerText(), "$0");
+  const funding = capacity.filter({ hasText: "One-off funding at retirement" });
+  assert.match(await funding.innerText(), /\$0 funded.*\$190,000 unfunded/s);
+  const csvDownload = page.waitForEvent("download");
+  await page.locator("#btn-csv").click();
+  const csv = await readFile(await (await csvDownload).path(), "utf8");
+  const [header, launch] = csv.split("\n").map((row) => row.split(","));
+  assert.deepEqual(header.slice(-3), ["One-off Requested", "One-off Funded", "One-off Unfunded"]);
+  assert.deepEqual(launch.slice(-3), ["190000", "0", "190000"]);
+  const likely = await chartValues(page, "#oo_chart", "Likely (6.5%)");
+  assert.ok(likely[0] > 0);
+  assert.ok(likely.slice(1).every((value) => value === null), "The chart omits unfunded one-off points");
+  await page.locator("#sel_poolcpolicy").selectOption("after-abp");
+  assert.match(await funding.innerText(), /\$190,000 funded.*\$0 unfunded/s);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await Promise.all([
+    page.waitForURL((current) => !current.searchParams.has("shared")),
+    page.getByRole("button", { name: /Reset V23/ }).click(),
+  ]);
+  assert.equal(new URL(page.url()).searchParams.get("page"), "oneoff");
+  assert.equal(await page.locator("#v23-shared-banner").isVisible(), false);
+  assert.match(await page.locator("#v23-plan-authority-copy").innerText(), /\$110,000/);
+  const slots = new URL(page.url());
+  slots.searchParams.set("page", "saveslots");
+  await open(page, slots);
+  assert.match(await page.locator("#slot_tbl tbody tr").first().innerText(), /\$90k total.*\$99k total/);
+}
+
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
 let browser;
 try {
@@ -256,6 +337,7 @@ try {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await exerciseV23(page, preview.base);
+      await exerciseV23EdgeCases(page, preview.base);
       await exerciseExplorer(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px on ${preview.base.href}`);

@@ -411,6 +411,30 @@ close(comparedGaps[1], 3_565.70, "Same-gap comparison carries that amount across
 v23("loadState()");
 assert.equal(v23("STATE.gapBands[0].unit"), "totalDollar", "Total age bands survive reload");
 
+v23(`STATE.pssProjectionBasis="prudent-630"; selectPssElection("100",{spendTarget:122000});
+  STATE.targetAge=75; STATE.poolCPolicy="preserve"; STATE.oneOff=0; STATE.gapGrowth=0;`);
+const unavailableOneOff = v23("runModel({oneOff:190000}).rows[0]");
+close(unavailableOneOff.oneOffRequested, 190_000, "The ledger records the request even when it cannot be paid");
+close(unavailableOneOff.oneOffFunded, 0, "A preserved Pool C cannot fund the request");
+close(unavailableOneOff.oneOffShortfall, 190_000, "An inaccessible withdrawal shows a separate shortfall");
+assert.equal(v23("findMaxOneOff()"), 0, "One-off capacity does not count an unfunded withdrawal as affordable");
+const availableOneOff = v23('runModel({oneOff:190000,poolCPolicy:"after-abp"}).rows[0]');
+close(availableOneOff.oneOffFunded, 190_000, "An explicitly available Pool C funds the one-off");
+close(availableOneOff.poolC, 127_447.66, "A funded one-off reconciles to the remaining opening capital");
+assert.equal(v23('findMaxOneOff({floor:0,poolCPolicy:"after-abp"})'), 317_447, "One-off capacity is bounded by spendable opening funds");
+const spreadOneOff = v23('runModel({oneOff:350000,oneOffSpread:2,poolCPolicy:"preserve"}).rows.slice(0,2)');
+close(spreadOneOff.reduce((sum,row)=>sum+row.oneOffShortfall,0), 350_000, "Separate unfunded instalments reconcile to the original one-off");
+v23('selectPssElection("70-30",{spendTarget:122000});');
+const recalculatedAlternative = (gap) => v23(`runMC({mean:.04,sd:0,runs:1,endAge:75,gapBands:makeBandsFromGap(${gap},60),totalSpendTarget:null,gapGrowth:0}).percentiles[2][15]`);
+assert.ok(recalculatedAlternative(20000)>recalculatedAlternative(60000), "An explicit alternative spending rule reaches the Monte Carlo ledger");
+assert.equal(v23("STATE.totalSpendTarget"), 122000, "Testing an alternative retains the active shared plan");
+v23Context.URL = URL;
+const resetDestination = v23('v23ResetUrl("https://example.test/deep-model.html?page=oneoff&theme=light&shared=1&rail=B&pss=100&spend=122000#chart").href');
+assert.equal(resetDestination, "https://example.test/deep-model.html?page=oneoff&theme=light#chart", "Reset keeps the page and theme and removes the import parameters");
+v23('selectPssElection("70-30",{spendTarget:null}); STATE.gapBands=[{age:60,amount:160,unit:"drawPct"}];');
+const cappedDrawBand = v23("runModel({}).rows[1]");
+close(cappedDrawBand.gap, cappedDrawBand.mandDraw, "A previously saved band cannot spend more than 100% of the mandatory draw");
+
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(atlasSource, /theme:\s*activeTheme\(\)/, "Atlas shared links carry the selected colour theme");
