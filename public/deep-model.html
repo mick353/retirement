@@ -336,6 +336,8 @@ body.print-pack section.page.print-pack-include{display:flex}
 }
 .band-row .age-tag{font-size:11px;color:var(--acc);min-width:70px;font-weight:700;font-variant-numeric:tabular-nums}
 .band-row label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);min-width:0}
+.band-budget-preview{grid-column:1/-1;color:var(--muted);font-size:11px;line-height:1.5}
+.band-budget-preview b{color:var(--text)}
 .band-row input[type=number]{
   width:100%;min-width:0;font-size:13px;padding:5px 8px;
   background:var(--chip);color:var(--text);
@@ -838,9 +840,6 @@ main{min-width:0;}
 /* spend slider inert state */
 .slider-block.v23-inert{opacity:.45;filter:saturate(.4)}
 .slider-block.v23-inert input[type=range]{cursor:not-allowed}
-#v23-spendnote{font-size:11.5px;line-height:1.45;padding:7px 10px;margin:2px 0 8px;
-  border-left:3px solid var(--acc,#7aa2f7);border-radius:0 6px 6px 0;
-  background:color-mix(in srgb, var(--acc,#7aa2f7) 8%, transparent);opacity:.92}
 
 /* Grid children default to min-width:auto and refuse to shrink below their content,
    which pushed the Audit page's file-register panel 85px past the viewport.
@@ -1125,7 +1124,7 @@ main{min-width:0;}
           <div class="lab"><label for="sel_spendmode">Spending rule</label><span class="val" id="lbl-spendmode"></span></div>
           <select id="sel_spendmode">
             <option value="flatTotal">Total annual spending</option>
-            <option value="fixed">Age bands (spending above your PSS pension)</option>
+            <option value="fixed">Spending by age (age bands)</option>
             <option value="returnPct">% of investment earnings above PSS</option>
             <option value="drawPct">% of mandatory draw above PSS</option>
           </select>
@@ -1160,7 +1159,7 @@ main{min-width:0;}
           </div>
         </div>
         <div class="slider-block highlight">
-          <div class="lab"><span>📍 Target age (all outputs)</span><span class="val" id="lbl-targetage"></span></div>
+          <div class="lab"><span>📍 Target age for capital checks</span><span class="val" id="lbl-targetage"></span></div>
           <input type="range" id="sl_targetage" min="70" max="95" step="1" value="75"/>
         </div>
         <div class="slider-block">
@@ -1369,11 +1368,11 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-income">
-      <div class="note good"><b>Set your spending in Plan controls above.</b> Use <b>Total annual spending</b> for one budget, or <b>Age bands</b> to set different amounts above your PSS pension at different ages.</div>
+      <div class="note good"><b>Set your spending in Plan controls above.</b> Use <b>Total annual spending</b> for one budget, or <b>Spending by age</b> for several. A band can set your entire budget, or just the extra spending above net PSS.</div>
       <div class="cards" id="in_cards"></div>
       <div class="panel">
         <h2>Income composition by year (likely path)</h2>
-        <div class="muted smaller">Net PSS pension plus the investment pools actually used. The amber line is the ceiling you can spend WITHOUT exceeding the compulsory ABP minimum (PSS + mandatory draw). Extra Pool A/B and any policy-authorised Pool C support are shown as separate stacks. Dashed lines mark the brief's $95k–$105k usable income band.</div>
+        <div class="muted smaller">Bars show what the plan actually spends from PSS and each investment pool. Compare them with the planned spending line to see any shortfall. The other line shows net PSS plus the required ABP draw.</div>
         <div class="chart-wrap"><canvas id="in_chart"></canvas></div>
       </div>
       <div class="panel">
@@ -2069,6 +2068,7 @@ function bandAtAge(age,bands){
   for(const b of s){if(age>=b.age)v=b;else break;}
   return v;
 }
+function hasTotalSpendingBands(bands){return bands.some(b=>b.unit==="totalDollar");}
 function bandsToString(bands){
   if(!bands||!bands.length)return"(no gap)";
   const s=sortBands(bands);
@@ -2077,8 +2077,12 @@ function bandsToString(bands){
     return `${rng}: ${formatBandValue(b)}`;
   }).join(" · ");
 }
-function formatBandValue(b){const u=b.unit||"dollar";return u==="returnPct"?`${b.amount}% return`:(u==="drawPct"?`${b.amount}% draw`:fmt$(b.amount));}
-function formatBandValueExact(b){const u=b.unit||"dollar";return u==="returnPct"?`${b.amount}% return`:(u==="drawPct"?`${b.amount}% draw`:`${fmtFull(b.amount)} p.a.`);}
+function formatBandValue(b,formatMoney=fmt$){
+  const u=b.unit||"dollar";
+  if(u==="returnPct")return `${b.amount}% return`;
+  if(u==="drawPct")return `${b.amount}% draw`;
+  return `${formatMoney(b.amount)} ${u==="totalDollar"?"total":"extra"}`;
+}
 function avgGapBand(bands,s,e){let sum=0,n=0;for(let a=s;a<=e;a++){const b=bandAtAge(a,bands);if((b?.unit||"dollar")==="dollar")sum+=b.amount;n++;}return n?sum/n:0;}
 function avgSimGap(rows,s,e){
   const picked=rows.filter(r=>!r.launchSnapshot&&r.age>=s&&r.age<=e);
@@ -2113,11 +2117,12 @@ function lifestylePhaseDefinitions(sim,p){
     const rule=STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of mandatory draw`:`${fmtPctClean(STATE.spendReturnPct,0)} of investment earnings`;
     return[{start:firstOperatingAge,end:lastOperatingAge,label:`Spend override (age ${p.retireAge}–${lastOperatingAge})`,input:rule}];
   }
-  const bands=sortBands(STATE.gapBands).filter(b=>b.age<=lastOperatingAge);
+  const offset=hasTotalSpendingBands(STATE.gapBands)?1:0;
+  const bands=sortBands(STATE.gapBands).filter(b=>b.age+offset<=lastOperatingAge);
   return bands.map((band,index)=>{
     const nextAge=bands[index+1]?.age;
-    const displayEnd=Math.min(lastOperatingAge,nextAge?nextAge-1:lastOperatingAge);
-    return{start:Math.max(firstOperatingAge,band.age),end:displayEnd,label:`Lifestyle phase ${index+1} (age ${band.age}–${displayEnd})`,input:`From age ${band.age}: ${formatBandValueExact(band)}`};
+    const displayEnd=Math.min(lastOperatingAge,nextAge?nextAge+offset-1:lastOperatingAge);
+    return{start:Math.max(firstOperatingAge,index===0?firstOperatingAge:band.age+offset),end:displayEnd,label:`Lifestyle phase ${index+1} (age ${band.age}–${displayEnd})`,input:`From age ${band.age}: ${formatBandValue(band,fmtFull)}`};
   }).filter(phase=>phase.end>=phase.start);
 }
 function cashflowRoutine(row){
@@ -2197,9 +2202,11 @@ function convertBandUnit(index,newUnit){
   const b=bandBasisAtAge(index);
   const basisFor=u=>u==="returnPct"?b.ret:(u==="drawPct"?b.draw:0);
   let dollars;
-  if(oldUnit==="dollar"){dollars=band.amount;}
+  if(oldUnit==="totalDollar"){dollars=Math.max(0,band.amount-getProfile().netPension);}
+  else if(oldUnit==="dollar"){dollars=band.amount;}
   else{const bs=basisFor(oldUnit);dollars=bs>0?bs*(band.amount/100):0;}
-  if(newUnit==="dollar"){band.amount=Math.max(0,Math.round(dollars/500)*500);}
+  if(newUnit==="totalDollar"){band.amount=Math.round((dollars+getProfile().netPension)*100)/100;}
+  else if(newUnit==="dollar"){band.amount=oldUnit==="totalDollar"?Math.round(dollars*100)/100:Math.max(0,Math.round(dollars/500)*500);}
   else{const bs=basisFor(newUnit);band.amount=bs>0?Math.max(0,Math.round((dollars/bs)*1000)/10):0;}
   band.unit=newUnit;
   onBandChange();
@@ -2208,6 +2215,7 @@ function convertBandUnit(index,newUnit){
 /* ========== UTILITY ========== */
 const fmt$=n=>{const v=Math.round(n);if(Math.abs(v)>=1e6)return"$"+(v/1e6).toFixed(2)+"M";if(Math.abs(v)>=1e3)return"$"+(v/1e3).toFixed(0)+"k";return"$"+v.toLocaleString();};
 const fmtFull=n=>"$"+Math.round(n).toLocaleString();
+const fmtCents=n=>"$"+n.toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtPF=n=>"$"+Math.round(n).toLocaleString();
 const fmtPct=(n,d=1)=>(n*100).toFixed(d)+"%";
 const fmtPctClean=(n,d=1)=>Number((n*100).toFixed(d)).toString()+"%";
@@ -2340,6 +2348,13 @@ function routeSurplus(surplus,headroom,abp,acc){
 
 /* ========== SIMULATION ENGINE ========== */
 function annualTotalBudget(target,growth,yearIndex){return Math.max(0,Number(target))*Math.pow(1+growth,yearIndex);}
+function firstYearPlannedSpend(profile=getProfile()){
+  return runModel({profile,endAge:profile.retireAge+1}).rows[1].desiredTotal;
+}
+function scheduledTotalBudget(flatTarget,band,mode,growth,yearIndex){
+  const target=flatTarget??(mode==="fixed"&&band?.unit==="totalDollar"?band.amount:null);
+  return target===null?null:annualTotalBudget(target,growth,yearIndex);
+}
 
 function runModel(opts){
   const p=opts.profile||getProfile();
@@ -2353,6 +2368,7 @@ function runModel(opts){
   const accumReturn=opts.accumReturn??abpReturn*0.85;
   const poolCDrag=opts.poolCDrag??STATE.poolCDrag;
   const spendMode=opts.spendMode??STATE.spendMode;
+  const bandAgeOffset=spendMode==="fixed"&&hasTotalSpendingBands(gapBands)?1:0;
   const spendReturnPct=opts.spendReturnPct??STATE.spendReturnPct;
   const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
   const totalSpendTarget=opts.totalSpendTarget!==undefined?opts.totalSpendTarget:STATE.totalSpendTarget;
@@ -2385,13 +2401,15 @@ function runModel(opts){
     const rC=Math.max(-1,(annualReturns?annualReturns[t]?.A??abpReturn:abpReturn)-poolCDrag);
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
     const investmentReturn=Math.max(0,preAbp*rA+preAcc*rB+prePoolC*rC);
-    const requestedGap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age),spendMode,spendReturnPct});
-    const desiredTotal=totalSpendTarget===null||totalSpendTarget===undefined
-      ? (opts.referencePension??p.netPension)+requestedGap
-      : annualTotalBudget(totalSpendTarget,gapGrowth,t);
+    const bandAge=age-bandAgeOffset;
+    const band=bandAtAge(bandAge,gapBands);
+    const totalBudget=scheduledTotalBudget(totalSpendTarget,band,spendMode,gapGrowth,t);
+    const desiredTotal=totalBudget===null
+      ? (opts.referencePension??p.netPension)+annualLifestyleGap({age:bandAge,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age),spendMode,spendReturnPct})
+      : opts.totalBandGapReferencePension===undefined?totalBudget:p.netPension+Math.max(0,totalBudget-opts.totalBandGapReferencePension);
     // The decision sees only opening balances, age and the desired budget. Current returns
     // are used later by the existing ledger. Return-based spending is ex-post and excluded.
-    if(policy.mode==="adaptive"&&(spendMode==="returnPct"||bandAtAge(age,gapBands)?.unit==="returnPct"))throw Error("Adaptive mode cannot use current-year percentage-of-return spending.");
+    if(policy.mode==="adaptive"&&(spendMode==="returnPct"||band?.unit==="returnPct"))throw Error("Adaptive mode cannot use current-year percentage-of-return spending.");
     const decision=policy.mode==="adaptive"
       ? adaptivePolicyDecision({age,openingCapital:preAbp+preAcc+prePoolC,desiredTotal,essentialTotal:policy.essentialTotal,p, multipliers:policy.multipliers})
       : {permittedTotal:desiredTotal,multiplier:1,zone:"Advisory"};
@@ -2537,11 +2555,14 @@ function comparatorCandidates(profile,semantics,otherElection){
     if(semantics==="total"){
       // Carry the reference election's desired total through every candidate and age.
       if(STATE.totalSpendTarget!==null)common.totalSpendTarget=STATE.totalSpendTarget;
-      else if(STATE.spendMode==="fixed"&&common.gapBands.every(b=>b.unit==="dollar"))common.referencePension=profile.netPension;
-      else throw Error("Same-total comparison needs dollar gap bands or an explicit total-spend target.");
+      else if(STATE.spendMode==="fixed"&&common.gapBands.every(b=>b.unit==="dollar"||b.unit==="totalDollar"))common.referencePension=profile.netPension;
+      else throw Error("Same-total comparison needs fixed-dollar age bands or a total annual budget.");
     }else{
       if(STATE.totalSpendTarget!==null){common.totalSpendTarget=null;common.gapBands=[{age:profile.retireAge,amount:Math.max(0,STATE.totalSpendTarget-profile.netPension),unit:"dollar"}];}
-      else common.totalSpendTarget=null;
+      else{
+        common.totalSpendTarget=null;
+        if(STATE.spendMode==="fixed"&&hasTotalSpendingBands(common.gapBands))common.totalBandGapReferencePension=profile.netPension;
+      }
     }
     return{...candidate,options:common};
   });
@@ -2642,13 +2663,15 @@ function runHealth(scenarioKey,opts={}){
   const abpR=opts.abpReturn??STATE.likely;const accR=abpR*0.85;const poolCR=Math.max(-1,abpR-STATE.poolCDrag);
   const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
   const gapBands=opts.gapBands??STATE.gapBands;const gapGrowth=STATE.gapGrowth;
+  const bandAgeOffset=STATE.spendMode==="fixed"&&hasTotalSpendingBands(gapBands)?1:0;
   const rows=[{age:startAge,abp,acc,poolC,total:abp+acc+poolC,launchSnapshot:true}];
   for(let age=startAge+1;age<=endAge;age++){
     const t=age-startAge-1;
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
-    const totalBudget=STATE.totalSpendTarget===null?null:annualTotalBudget(STATE.totalSpendTarget,gapGrowth,t);
+    const bandAge=age-bandAgeOffset;
+    const totalBudget=scheduledTotalBudget(STATE.totalSpendTarget,bandAtAge(bandAge,gapBands),STATE.spendMode,gapGrowth,t);
     const gap=totalBudget===null
-      ? annualLifestyleGap({age,t,gapBands,gapGrowth,rA:abpR,rB:accR,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})
+      ? annualLifestyleGap({age:bandAge,t,gapBands,gapGrowth,rA:abpR,rB:accR,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})
       : Math.max(0,totalBudget-p.netPension);
     const mandDraw=preAbp*mandRate(age);
     abp=preAbp*(1+abpR)-mandDraw;acc*=(1+accR);poolC*=(1+poolCR);
@@ -2679,6 +2702,7 @@ function runCPI(opts={}){
   const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
   const shockMag=STATE.cpi/100;const shockDur=STATE.cpiDur;const shockStart=Math.max(startAge+1,STATE.cpiAge);const shockEnd=shockStart+shockDur-1;
   const gapBands=opts.gapBands??STATE.gapBands;const gapGrowth=STATE.gapGrowth;
+  const bandAgeOffset=STATE.spendMode==="fixed"&&hasTotalSpendingBands(gapBands)?1:0;
   let pensionReal=p.netPension;const rows=[{age:startAge,abp,acc,poolC,total:abp+acc+poolC,pensionReal:p.netPension,inShock:false,launchSnapshot:true}];
   for(let age=startAge+1;age<=endAge;age++){
     const t=age-startAge-1;const inShock=age>=shockStart&&age<=shockEnd;
@@ -2688,9 +2712,10 @@ function runCPI(opts={}){
     pensionReal=inShock?p.netPension*(1-shockMag):p.netPension;
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
     const pensionShortfall=Math.max(0,p.netPension-pensionReal);
-    const totalBudget=STATE.totalSpendTarget===null?null:annualTotalBudget(STATE.totalSpendTarget,gapGrowth,t);
+    const bandAge=age-bandAgeOffset;
+    const totalBudget=scheduledTotalBudget(STATE.totalSpendTarget,bandAtAge(bandAge,gapBands),STATE.spendMode,gapGrowth,t);
     const gap=totalBudget===null
-      ? annualLifestyleGap({age,t,gapBands,gapGrowth,rA:ageRetReal,rB:ageRetReal*0.85,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})+pensionShortfall
+      ? annualLifestyleGap({age:bandAge,t,gapBands,gapGrowth,rA:ageRetReal,rB:ageRetReal*0.85,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})+pensionShortfall
       : Math.max(0,totalBudget-pensionReal);
     const mandDraw=preAbp*mandRate(age);
     abp=preAbp*(1+ageRetReal)-mandDraw;acc*=(1+ageRetReal*0.85);poolC*=(1+poolCR);
@@ -2975,12 +3000,11 @@ function renderOverview(){
     <div class="tier"><div class="lbl">Aspirational</div><div class="v">${fmt$(2000000)} @${ta}</div></div>
   `;
   const operatingRows=likely.rows.filter(r=>!r.launchSnapshot);
-  let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumD+=r.realExit+r.extraDraw;});
-  const avgTotalIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
+  const avgTotalIncome=operatingRows.reduce((sum,row)=>sum+row.fundedTotalSpend,0)/Math.max(1,operatingRows.length);
   document.getElementById("ovCards").innerHTML=`
     <div class="card accent"><div class="label">Combined capital @${p.retireAge}</div><div class="value">${fmt$(openingA+(p.poolB_day1??tbcAlloc.poolB)+(p.poolC_day1??0))}</div><div class="sub">Pool A ${fmt$(openingA)} · Pool B ${fmt$(p.poolB_day1??tbcAlloc.poolB)} · Pool C ${fmt$(p.poolC_day1??0)}</div></div>
     <div class="card"><div class="label">Net PSS pension</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight · CPI-indexed floor</div></div>
-    <div class="card good"><div class="label">Avg usable income</div><div class="value">${fmt$(avgTotalIncome)}/yr</div><div class="sub">${fmt$(avgTotalIncome/26)}/pf</div></div>
+    <div class="card good"><div class="label">Average annual spending funded</div><div class="value">${fmt$(avgTotalIncome)}/yr</div><div class="sub">${fmtPF(avgTotalIncome/26)}/fortnight</div></div>
     <div class="card"><div class="label">Likely capital @${ta}</div><div class="value">${fmt$(likely.rows[idx].total)}</div><div class="sub">${fmtPct(STATE.likely)} real</div></div>
     <div class="card"><div class="label">Base capital @${ta}</div><div class="value">${fmt$(base.rows[idx].total)}</div><div class="sub">5.0% real</div></div>
     <div class="card warn"><div class="label">Conservative @${ta}</div><div class="value">${fmt$(conserv.rows[idx].total)}</div><div class="sub">4.0% real</div></div>
@@ -3205,13 +3229,13 @@ function renderIncome(){
   const operatingRows=sim.rows.filter(r=>!r.launchSnapshot);
   const operatingAges=operatingRows.map(r=>`${r.age-1}→${r.age}`);
   let cumP=0,cumPSurplus=0,cumD=0,cumX=0,cumC=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumPSurplus+=r.pensionSurplus||0;cumD+=r.realExit;cumX+=r.extraDraw;cumC+=r.poolCDraw||0;});
-  const lifetimeTotal=cumP+cumD+cumX+cumC;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
+  const lifetimeTotal=cumP+cumD+cumX+cumC;const yearCount=Math.max(1,operatingRows.length);const avgAnnualTotal=lifetimeTotal/yearCount;
   const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pensionSpent??firstYear?.pension??0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0)+(firstYear?.poolCDraw||0);
   document.getElementById("in_cards").innerHTML=`
-    <div class="card accent"><div class="label">Average annual spending funded</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
-    <div class="card"><div class="label">PSS net pension</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight${cumPSurplus>0?` · ${fmtFull(cumPSurplus/operatingRows.length)}/yr average surplus to Pool C`:``}</div></div>
+    <div class="card accent"><div class="label">Average annual spending funded</div><div class="value">${fmtFull(avgAnnualTotal)}/yr</div><div class="sub">${fmtFull(cumP/yearCount)} from net PSS + ${fmtFull((cumD+cumX+cumC)/yearCount)} from investments · average over ${yearCount} years to age 95</div></div>
+    <div class="card"><div class="label">Net PSS pension (after tax)</div><div class="value">${fmtCents(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight${cumPSurplus>0?` · ${fmtFull(cumPSurplus/yearCount)}/yr average surplus to Pool C`:``}</div></div>
     <div class="card good"><div class="label">Total spending funded to age 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS spent ${fmt$(cumP)} · mandatory draw spent ${fmt$(cumD)}${cumX>0?` · Pool A/B extra ${fmt$(cumX)}`:``}${cumC>0?` · Pool C ${fmt$(cumC)}`:``}</div></div>
-    <div class="card"><div class="label">Year 1 spending funded (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">${fmtPF(firstYearIncome/26)}/fortnight</div></div>
+    <div class="card"><div class="label">Year 1 spending funded (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmtFull(firstYearIncome)}/yr</div><div class="sub">Planned ${fmtFull(firstYear?.targetSpend??0)} · ${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
   makeChart("in_chart",{type:"bar",data:{labels:operatingAges,datasets:[
     {label:"PSS pension consumed",data:operatingRows.map(r=>r.pensionSpent??r.pension),backgroundColor:tc.pension,stack:"s"},
@@ -3219,8 +3243,7 @@ function renderIncome(){
     {label:"Pool A extra draw (gap above mandatory)",data:operatingRows.map(r=>r.extraDraw),backgroundColor:tc.poolB,stack:"s"},
     {label:"Pool C withdrawal (after A/B)",data:operatingRows.map(r=>r.poolCDraw||0),backgroundColor:tc.poolC,stack:"s"},
     {label:"Max without extra draw (PSS + mandatory draw)",data:operatingRows.map(r=>r.pension+r.mandDraw),type:"line",borderColor:tc.warn,borderDash:[7,3],borderWidth:2,pointRadius:0,fill:false,stack:"_c"},
-    {label:"Lifestyle band low ($95k)",data:operatingAges.map(()=>95000),type:"line",borderColor:tc.acc3,borderDash:[4,4],pointRadius:0,fill:false,stack:"_l"},
-    {label:"Lifestyle band high ($105k)",data:operatingAges.map(()=>105000),type:"line",borderColor:tc.good,borderDash:[4,4],pointRadius:0,fill:false,stack:"_h"}
+    {label:"Planned total spending",data:operatingRows.map(r=>r.targetSpend),type:"line",borderColor:tc.acc3,borderWidth:2,borderDash:[4,4],pointRadius:0,fill:false,stack:"_planned"}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{stacked:true,ticks:{callback:moneyTick}},x:{stacked:true}}}});
   const phases=lifestylePhaseDefinitions(sim,p);
@@ -4032,7 +4055,7 @@ function renderAudit(){
     ["ABP return (cons)",fmtPctClean(SCENARIOS.conservative.abp),"scenario"],
     ["Return vol (sd)",fmtPctClean(STATE.vol,0),"adjustable slider"],
     ["MC runs",STATE.runs,"adjustable slider"],
-    ["Spend mode",STATE.spendMode==="returnPct"?"Override: % of positive investment earnings":(STATE.spendMode==="drawPct"?"Override: % of mandatory ABP drawdown":"Age bands ($ / % return / % draw)"),"annual gap above PSS pension"],
+    ["Spend mode",STATE.totalSpendTarget!==null?"Total annual spending":STATE.spendMode==="returnPct"?"% of positive investment earnings":STATE.spendMode==="drawPct"?"% of mandatory ABP drawdown":"Spending by age","Active rule for retirement spending"],
     ["Spend %",fmtPctClean(STATE.spendReturnPct,0),STATE.spendMode==="drawPct"?"of the mandatory draw — cannot exceed it":(STATE.spendMode==="returnPct"?"of positive investment earnings — can exceed the mandatory draw":"inactive (age-band mode)")],
     ["Death benefits tax","17%","non-dependant taxable component"],
     ["Effective CGT (Pool C)","23.5%","47% × 50% CGT discount"],
@@ -4040,7 +4063,7 @@ function renderAudit(){
     ["Floor capital",fmtFull(p.floor*1000),"minimum acceptable"],
     ["Target capital",fmtFull(p.target*1000),"planning target"],
     ["Strong capital",fmtFull(p.strong*1000),"stretch target"],
-    ["Gap bands",bandsToString(STATE.gapBands),"lifestyle above PSS pension"]
+    ["Spending by age",STATE.totalSpendTarget===null?bandsToString(STATE.gapBands):"Total annual spending active","Each amount indicates total spending or extra spending"]
   ];
   renderTable("audit_tbl",rows,["Parameter","Value","Notes"]);
   renderTable("audit_source_tbl",[
@@ -4074,7 +4097,9 @@ function renderRecalibrate(){
   const actualA=parseFloat(document.getElementById("rc_poolA")?.value)||0;
   const actualB=parseFloat(document.getElementById("rc_poolB")?.value)||0;
   const actualC=parseFloat(document.getElementById("rc_poolC")?.value)||0;
-  const actualGap=parseFloat(document.getElementById("rc_gap")?.value)||gapAtAge(actualAge,STATE.gapBands);
+  const actualBand=bandAtAge(actualAge,STATE.gapBands);
+  const plannedTotal=scheduledTotalBudget(STATE.totalSpendTarget,actualBand,STATE.spendMode,STATE.gapGrowth,Math.max(0,actualAge-p.retireAge));
+  const actualGap=parseFloat(document.getElementById("rc_gap")?.value)||(plannedTotal===null?gapAtAge(actualAge,STATE.gapBands):Math.max(0,plannedTotal-p.netPension));
   const actualHostplus=parseFloat(document.getElementById("rc_hostplus")?.value)||p.hostplus;
   const modelAtAge=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85}).rows.find(r=>r.age===actualAge);
   const modelA=modelAtAge?.abp??calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc).poolA;
@@ -4649,7 +4674,7 @@ function updateLabels(){
   set("lbl-runs",STATE.runs);
   set("lbl-targetage","Age "+STATE.targetAge);
   set("lbl-gapgrowth",fmtPctClean(STATE.gapGrowth));
-  set("lbl-gapgrowth-basis",flatSpend?"Total spending growth above inflation":"Spending gap growth above inflation");
+  set("lbl-gapgrowth-basis",flatSpend?"Total spending growth above inflation":spendRule==="fixed"&&hasTotalSpendingBands(STATE.gapBands)?"Dollar budget growth above inflation":"Spending gap growth above inflation");
   const _W=STATE.wash||{};
   set("lbl-washon",_W.enabled?"On":"Off");
   set("lbl-washstart","Age "+_W.startAge);
@@ -4732,7 +4757,7 @@ function updateLabels(){
   if(ps){
     const al=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
     const pa=p.poolA_day1??al.poolA;const pb=p.poolB_day1??al.poolB;const pc=p.poolC_day1??0;
-    ps.innerHTML=`Pension <strong>$${p.grossPension.toLocaleString()}</strong> | Lump sum <strong>$${p.lumpSum.toLocaleString()}</strong> | Pool A <strong>$${pa.toLocaleString()}</strong> | Pool B <strong>$${pb.toLocaleString()}</strong> | Pool C <strong>$${pc.toLocaleString()}</strong> | TBC <strong>$${p.tbc.toLocaleString()}</strong>`;
+    ps.innerHTML=`Net PSS <strong>${fmtCents(p.netPension)}/yr</strong> | Gross PSS <strong>${fmtCents(p.grossPension)}/yr</strong> | Lump sum <strong>$${p.lumpSum.toLocaleString()}</strong> | Pool A <strong>$${pa.toLocaleString()}</strong> | Pool B <strong>$${pb.toLocaleString()}</strong> | Pool C <strong>$${pc.toLocaleString()}</strong> | TBC <strong>$${p.tbc.toLocaleString()}</strong>`;
     const status=document.getElementById("custom-profile-status");
     if(status)status.textContent=(customFigures?`Hostplus at retirement ${fmtFull(p.hostplus)}. Combined opening investments ${fmtFull(pa+pb+pc)}. Reset custom figures restores the selected source figures and keeps your spending plan. `:"Edit an opening assumption and press Tab or Enter to update V23. ")+"These inputs are saved in this browser for V23. Command Centre uses separate source assumptions.";
   }
@@ -4763,12 +4788,13 @@ function updateLabels(){
     planCopy.textContent=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined
       ? `${v23TotalSpendLabel()}; V23 derives the annual PSS gap or surplus.`
       : (STATE.spendMode==="fixed"
-        ? `Active age bands: ${bandsToString(STATE.gapBands)}. Every V23 calculation and chart uses this schedule.`
+        ? `Active age bands: ${bandsToString(STATE.gapBands)} per year.`
         : `${STATE.spendMode==="returnPct"?"Investment-earnings":"Mandatory-draw"} override active at ${fmtPctClean(STATE.spendReturnPct,0)}; saved age bands are temporarily ignored.`);
   }
   if(planBasis)planBasis.textContent=`Active V23 basis: ${fmtPct(STATE.likely)} post-retirement real return · target age ${STATE.targetAge}. Command Centre and its visual explorer use a flat-spending comparison, not this age-band schedule.`;
   syncSharedV23Banner();
   window.syncV23Navigation?.();
+  window.syncV23SpendControls?.();
   window.syncV23AssumptionLedger?.();
 }
 
@@ -4812,20 +4838,31 @@ function applyStateToInputs(){
 function renderBandRows(){
   const container=document.getElementById("band-rows");
   if(!container||STATE.totalSpendTarget!==null||STATE.spendMode!=="fixed")return;
-  const modeNote=`<div class="note" style="margin-bottom:8px">Each band sets extra spending above PSS. <span class="kbd">$ pa</span> = fixed dollars · <span class="kbd">% return</span> = share of positive investment earnings · <span class="kbd">% draw</span> = share of the mandatory ABP draw.</div>`;
-  container.innerHTML=STATE.gapBands.map((b,i)=>`
+  const p=getProfile();
+  const modeNote=`<div class="note" style="margin-bottom:8px">Choose <b>Total spending</b> for the whole after-tax budget, including a budget below net PSS. Choose <b>Extra above net PSS</b> to add spending on top of the pension. The dollar previews are shown before any annual growth you set.</div>`;
+  container.innerHTML=STATE.gapBands.map((b,i)=>{
+    const unit=b.unit||"dollar";
+    const total=unit==="totalDollar"?Number(b.amount):p.netPension+Number(b.amount);
+    const isDollar=unit==="dollar"||unit==="totalDollar";
+    const breakdown=total<p.netPension
+      ? `${fmtFull(p.netPension-total)} pension surplus goes to Pool C`
+      : `${fmtFull(p.netPension)} net PSS + ${fmtFull(total-p.netPension)} planned from investments`;
+    const amountLabel=isDollar?(unit==="totalDollar"?"Total spending ($/yr)":"Extra above net PSS ($/yr)"):unit==="returnPct"?"% of investment earnings":"% of mandatory draw";
+    return `
     <div class="band-row">
       <label>From age <input type="number" min="${BAND_MIN_AGE}" max="${BAND_MAX_AGE}" value="${b.age}" data-band-age="${i}"
         aria-describedby="band-age-validation-${i}"></label>
-      <label>${(b.unit||"dollar")==="returnPct"?"Spend % earnings":((b.unit||"dollar")==="drawPct"?"Spend % draw":"Gap $pa")} <input type="number" min="0" step="${(b.unit||"dollar")==="dollar"?"500":"0.5"}" value="${b.amount}"
-        onchange="STATE.gapBands[${i}].amount=+this.value;onBandChange()"></label>
-      <label>Unit <select onchange="convertBandUnit(${i},this.value)">
-        <option value="dollar" ${(b.unit||"dollar")==="dollar"?"selected":""}>$ pa</option>
-        <option value="returnPct" ${(b.unit||"dollar")==="returnPct"?"selected":""}>% return</option>
-        <option value="drawPct" ${(b.unit||"dollar")==="drawPct"?"selected":""}>% draw</option>
+      <label>${amountLabel} <input type="number" min="0" step="any" required value="${b.amount}" data-band-amount="${i}"></label>
+      <label>Budget basis <select onchange="convertBandUnit(${i},this.value)">
+        <option value="totalDollar" ${unit==="totalDollar"?"selected":""}>Total spending ($)</option>
+        <option value="dollar" ${unit==="dollar"?"selected":""}>Extra above net PSS ($)</option>
+        <option value="returnPct" ${unit==="returnPct"?"selected":""}>% return</option>
+        <option value="drawPct" ${unit==="drawPct"?"selected":""}>% draw</option>
       </select></label>
       ${STATE.gapBands.length>1?`<button class="rm" type="button" aria-label="Remove band from age ${b.age}" title="Remove this band" onclick="STATE.gapBands.splice(${i},1);onBandChange()">×</button>`:""}
-    </div>`).join("");
+      ${isDollar?`<div class="band-budget-preview"><b>${fmtFull(total)} planned total per year</b> · ${breakdown}</div>`:""}
+    </div>`;
+  }).join("");
   container.innerHTML=modeNote+container.innerHTML;
   container.querySelectorAll("input[data-band-age]").forEach(input=>{
     const index=Number(input.dataset.bandAge);
@@ -4833,11 +4870,19 @@ function renderBandRows(){
     input.addEventListener("change",()=>previewBandAge(input,index));
     input.addEventListener("blur",()=>commitBandAge(input,index));
   });
-  const p=getProfile();const tc=getThemeColors();
+  container.querySelectorAll("input[data-band-amount]").forEach(input=>{
+    const band=STATE.gapBands[Number(input.dataset.bandAmount)];
+    input.addEventListener("change",()=>{
+      const value=input.valueAsNumber;
+      if(!Number.isFinite(value)||value<0){input.reportValidity();input.value=String(band.amount);return;}
+      band.amount=value;onBandChange();
+    });
+  });
+  const tc=getThemeColors();
   const ages=[];for(let a=p.retireAge;a<=95;a++)ages.push(a);
   const units=[...new Set(STATE.gapBands.map(b=>b.unit||"dollar"))];
   const singleUnit=units.length===1?units[0]:null;
-  const bandAxisTick=v=>singleUnit==="returnPct"?`${v}%`:singleUnit==="dollar"?"$"+(v/1000).toFixed(0)+"k":String(v);
+  const bandAxisTick=v=>singleUnit==="returnPct"||singleUnit==="drawPct"?`${v}%`:singleUnit?"$"+(v/1000).toFixed(0)+"k":String(v);
   makeChart("band-mini-chart",{type:"bar",data:{labels:ages,datasets:[{label:"Band value",data:ages.map(a=>gapAtAge(a,STATE.gapBands)),backgroundColor:tc.acc+"99",borderWidth:0}]},
     options:{maintainAspectRatio:false,responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>formatBandValue(bandAtAge(Number(c.label),STATE.gapBands))}}},scales:{y:{ticks:{callback:bandAxisTick}}}}});
 }
@@ -4860,7 +4905,8 @@ function wireBandEditor(){
   if(add)add.addEventListener("click",()=>{
     const age=nextAvailableBandAge();
     if(age===null){alert(`Every age from ${BAND_MIN_AGE} to ${BAND_MAX_AGE} already has a band.`);return;}
-    STATE.gapBands.push({age,amount:20000,unit:"dollar"});onBandChange();
+    const previous=bandAtAge(age,STATE.gapBands);
+    STATE.gapBands.push(previous?.unit==="totalDollar"?{...previous,age}:{age,amount:20000,unit:"dollar"});onBandChange();
   });
   const reset=document.getElementById("btn-reset-bands");
   if(reset)reset.addEventListener("click",()=>{STATE.gapBands=[...getProfile().defaultGapBands.map(b=>({...b}))];onBandChange();});
@@ -4963,7 +5009,7 @@ function wireProfile(){
   const selectProjectionBasis=basisKey=>{
     STATE.pssProjectionBasis=normaliseProjectionBasis(basisKey);
     const current=getProfile();
-    const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
+    const currentSpend=firstYearPlannedSpend(current);
     selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,STATE.pssElection||"60-40"),{spendTarget:currentSpend,preserveSpendingPlan:true,preserveCustomProfile:true});
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
   };
@@ -4974,7 +5020,7 @@ function wireProfile(){
   document.querySelectorAll("[data-pss-election]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       const current=getProfile();
-      const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
+      const currentSpend=firstYearPlannedSpend(current);
       selectPssElection(btn.dataset.pssElection,{spendTarget:currentSpend,preserveSpendingPlan:true,preserveCustomProfile:true});
       applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     });
@@ -4990,7 +5036,7 @@ function wireProfile(){
       const cf=document.getElementById("customForm");
       if(cf)cf.classList.toggle("show",STATE.profile==="custom");
       if(STATE.profile==="custom")setProfileControlsExpanded(true);
-      updateLabels();rerenderAll();saveState();
+      syncFlatSpendBand();updateLabels();renderBandRows();rerenderAll();saveState();
     });
   });
   Object.entries(V23_CUSTOM_FIELDS).forEach(([id,prop])=>{
@@ -5334,7 +5380,7 @@ trajectory:{t:"Capital trajectory",w:"Total and per-pool capital paths by age un
 ["Three-scenario chart","Conservative / Base / Strong total-capital lines against the floor, target and strong reference bands."],
 ["Waterfall","Each bar is one year's net capital change on the likely path, split into its drivers."],
 ["Pools chart","Pool A vs B vs C vs Total on the likely path — shows the A-shrinks/C-grows crossover."]]},
-income:{t:"Income & draws",w:"Set your spending in Plan controls and check how much the pension and investments fund.",h:["For one budget choose Total annual spending, enter the after-tax amount, and select Apply spending. Choose Age bands to vary spending above PSS by age.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
+income:{t:"Income & draws",w:"Set your spending in Plan controls and check how much the pension and investments fund.",h:["For one budget, choose Total annual spending and select Apply spending. To vary it over time, choose Spending by age. Pick Total spending for a whole budget or Extra above net PSS for a top-up.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
 ["Average annual spending funded","Average amount the plan actually spends each year from pension and investments, in today’s dollars."],
 ["PSS net pension","Full after-tax pension in today’s dollars. The model invests any part left over after spending in Pool C."],
 ["Total spending funded to age 95","Cumulative amount spent over the modelled retirement years, in today’s dollars."],
@@ -5584,10 +5630,10 @@ const CONTROLS = [
 ["TBC at retirement","Transfer balance cap anchor ($2.1M real). Pool A is sized to this minus the special value minus the $5k buffer."],
 ["Default gap (pa)","Annual lifestyle spending ABOVE the net pension, in real dollars. The single most powerful lever in the model."],
 ["Floor / Target / Strong","Three investment-capital planning bands at the selected target age. A target-age pass does not test every intervening year."],
-["Annual gap by age band","Piecewise spending: different gap levels for different age ranges. Overrides the flat default gap."],
+["Spending by age","Set different annual budgets for different ages. Choose a total budget or enter an amount to add to net PSS."],
 ["Band presets","Flat (constant), Ramp (rising), Front-load (heavy 60s), Base lifestyle, Travel-heavy 60s, Floor protection (defensive), Legacy maximiser (lean spend), Shock recovery (post-crash trim)."],
 ["Gap real growth","Extra real escalation applied on top of the bands — models lifestyle creep beyond CPI."],
-["Spending rule","Total annual spending is an editable after-tax budget for the entire year. Age bands and the percentage rules set spending above your PSS pension. V23 remembers the most recent total and age bands when you switch rules. Restore imported plan returns to the figures from your Command Centre hand-off."],
+["Spending rule","Total annual spending is one after-tax budget. With Spending by age, each band can set the total budget or an amount above net PSS. A total budget can be lower than the pension, in which case V23 invests the surplus in Pool C. Plans that include total-dollar bands change on the birthday listed in From age. V23 remembers the most recent total and bands when you switch rules."],
 ["Spend % (override slider)","The caption names the active denominator: positive investment earnings or the modelled mandatory draw. The slider is inactive in age-band mode. Compare desired with funded spending after changing it; a target may exceed what the chosen pool policy supplies."],
 ["Target age","The horizon age at which the bands are tested (default 75; slider adjustable)."],
 ["Likely real return","A chosen after-inflation return for the deterministic path and sampled-return mean. It is an assumption, not a forecast."],
@@ -5891,24 +5937,11 @@ function syncSpendControls(){
   sl.disabled=!on;
   const blk=sl.closest(".slider-block");
   if(blk)blk.classList.toggle("v23-inert",!on);
-  let note=document.getElementById("v23-spendnote");
-  if(!note){note=document.createElement("div");note.id="v23-spendnote";
-    if(blk&&blk.parentNode)blk.parentNode.insertBefore(note,blk.nextSibling);}
-  const pct=(document.getElementById("lbl-spendreturn")||{}).textContent||"";
-  note.innerHTML = mode==="returnPct"
-    ? `<b>Override — % of EARNINGS.</b> Gap = ${pct} of each year's positive investment earnings. Earnings run above the mandatory draw at typical returns, so a high % <b>can</b> exceed the ABP minimum and trigger a voluntary extra Pool A draw.`
-    : mode==="drawPct"
-    ? `<b>Override — % of MANDATORY DRAWDOWN.</b> Gap = ${pct} of the compulsory ABP minimum. <b>Never exceeds it</b> — no extra Pool A draw at any setting; the unspent remainder routes to Pool C.`
-    : `<b>Slider inactive</b> — age-band mode. Moving it changes nothing. The fixed simulation seed keeps the risk outputs stable; switch the mode above to activate this slider.`;
   window.syncV23PrecisionControls?.();
 }
 try{
+  window.syncV23SpendControls=syncSpendControls;
   syncSpendControls();
-  const _sm=document.getElementById("sel_spendmode");
-  if(_sm)_sm.addEventListener("change",()=>setTimeout(syncSpendControls,0));
-  const _sr=document.getElementById("sl_spendreturn");
-  if(_sr)_sr.addEventListener("input",()=>setTimeout(syncSpendControls,0));
-  setInterval(syncSpendControls,2500);
 }catch(err){console.warn("v23 spendctl:",err);}
 
   try{buildGuide();buildPalette();buildChrome();}catch(err){console.warn("v23 chrome:",err);}
@@ -5964,12 +5997,11 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     const base=STATE.sharedImport?.scenario||saved||{rail:"B",pssElection:"70-30",pssProjectionBasis:"source-825",spend:110000,realReturn:.05,targetAge:75,homeValue:500000,taxYear:"2026-27",liquidityMonths:12,simulationSeed:20260814};
     const profile=getProfile();
     const rail=isRailBProfile(profile)?"B":"A";
-    const fixedGap=STATE.spendMode==="fixed"&&Array.isArray(STATE.gapBands)?gapAtAge(profile.retireAge,STATE.gapBands):null;
     return{
       rail,
       pssElection:isRailBProfile(profile)?(profile.pssElection||STATE.pssElection||"60-40"):(base.pssElection||"60-40"),
       pssProjectionBasis:isRailBProfile(profile)?(profile.pssProjectionBasis||STATE.pssProjectionBasis||"source-825"):normaliseProjectionBasis(base.pssProjectionBasis),
-      spend:Math.max(0,Math.round(STATE.totalSpendTarget??(Number(profile.netPension||0)+Number(fixedGap??Math.max(0,base.spend-Number(profile.netPension||0)))))),
+      spend:Math.max(0,Math.round(firstYearPlannedSpend(profile))),
       realReturn:Number(STATE.likely||base.realReturn||.05),
       targetAge:Number(STATE.targetAge||base.targetAge||75),
       homeValue:Number(base.homeValue??500000),
