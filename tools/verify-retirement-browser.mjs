@@ -69,6 +69,10 @@ async function chartValues(page, selector, label) {
   }, label);
 }
 
+function assertMoney(actual, expected, explanation) {
+  assert.ok(Math.abs(actual - expected) < 0.01, `${explanation}. Expected ${expected.toFixed(2)}, got ${actual}`);
+}
+
 async function exerciseV23(page, base) {
   const source = new URL(base);
   source.search = new URLSearchParams({
@@ -96,6 +100,13 @@ async function exerciseV23(page, base) {
   assert.match(await title.innerText(), /Imported Command Centre plan active/);
   assert.match(await profile.innerText(), /Net PSS \$95,434\.30.*Gross PSS \$103,332\.85/);
   const startingCapital = await chartValues(page, "#tj_chart", "Likely");
+  // Use the opening balances and cashflows directly so the chart cannot confirm its own results.
+  const annualSpend = 122_000;
+  const poolAFactor = 1 + 0.065;
+  const poolCFactor = poolAFactor - 0.0035;
+  const firstYearPoolA = 441_674.40 * poolAFactor - (annualSpend - 95_434.30);
+  const firstYearPoolC = 362_913.85 * poolCFactor;
+  assertMoney(startingCapital[1], firstYearPoolA + firstYearPoolC, "70/30 capital after the first year's growth and spending");
   await openProfile();
 
   const hostplus = page.locator("#cf_hostplus");
@@ -118,6 +129,8 @@ async function exerciseV23(page, base) {
   assert.match(await title.innerText(), /V23 profile and plan controls take precedence/);
   assert.match(await active.innerText(), /100% pension.*\$122,000/);
   const fullPensionCapital = await chartValues(page, "#tj_chart", "Likely");
+  const pensionSurplus = 135_575.70 - annualSpend;
+  assertMoney(fullPensionCapital[1], 317_447.66 * poolCFactor + pensionSurplus, "100% pension adds the unspent pension to Pool C");
   assert.notEqual(fullPensionCapital[15], startingCapital[15]);
   await page.reload({ waitUntil: "domcontentloaded" });
   assert.deepEqual(await chartValues(page, "#tj_chart", "Likely"), fullPensionCapital);
@@ -135,6 +148,7 @@ async function exerciseV23(page, base) {
   assert.match(await active.innerText(), /100% pension.*\$130,000/);
   assert.match(await cards.innerText(), /\$130,000\/yr.*\$135,575\.70\/yr.*\$5,576\/yr average surplus/s);
   assert.equal((await chartValues(page, "#in_chart", "Planned total spending"))[0], 130000);
+  assert.equal((await chartValues(page, "#in_chart", "PSS pension consumed"))[0], 130000);
   await page.reload({ waitUntil: "domcontentloaded" });
   assert.match(await active.innerText(), /100% pension.*\$130,000/);
   await restore.click();
@@ -153,6 +167,7 @@ async function exerciseV23(page, base) {
   assert.equal(await amount(0).inputValue(), "119434.3");
   await setBand(0, 90000);
   assert.match(await cards.innerText(), /\$90,000\/yr.*\$5,434\/yr average surplus/s);
+  assert.equal((await chartValues(page, "#in_chart", "PSS pension consumed"))[0], 90000);
   await page.getByRole("button", { name: "Add band" }).click();
   const nextAge = page.locator('[data-band-age="1"]');
   await nextAge.fill("70");
@@ -166,17 +181,67 @@ async function exerciseV23(page, base) {
   await election("100").click();
   assert.deepEqual(await birthdayBudgets(), [90000, 99000]);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+  const slots = new URL(handoff);
+  slots.searchParams.set("page", "saveslots");
+  await open(page, slots);
+  const slot = page.locator("#slot_cards .card").filter({ has: page.getByRole("textbox", { name: "Scenario slot A name" }) });
+  await slot.getByRole("button", { name: "Save current" }).click();
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export settings" }).click();
+  const backup = await readFile(await (await downloaded).path());
+  const exported = JSON.parse(backup.toString("utf8"));
+  assert.equal(exported.state.pssElection, "100");
+  assert.deepEqual(exported.state.gapBands.map(({ age, amount, unit }) => [age, amount, unit]), [
+    [60, 90000, "totalDollar"], [70, 99000, "totalDollar"],
+  ]);
+
+  await restore.click();
+  assert.match(await active.innerText(), /70 \/ 30.*\$122,000/);
+  await slot.getByRole("button", { name: "Load", exact: true }).click();
+  assert.match(await active.innerText(), /100% pension.*age-band spending/);
+  await restore.click();
+  await page.locator("#inp-import-settings").setInputFiles({ name: "verified-settings.json", mimeType: "application/json", buffer: backup });
+  await active.filter({ hasText: /100% pension.*age-band spending/ }).waitFor();
+  await open(page, handoff);
+  assert.deepEqual(await birthdayBudgets(), [90000, 99000]);
 }
 
 async function exerciseExplorer(page, base) {
-  const destination = new URL("?section=scenario&tool=surface", base);
+  const destination = new URL(base);
+  destination.search = new URLSearchParams({
+    section: "scenario", tool: "surface", shared: "1", rail: "B", pss: "70-30", basis: "source-825",
+    spend: "160000", return: "0.0519", age: "75", theme: "light",
+  });
   await open(page, destination);
   await page.getByRole("heading", { name: "Compare spending and returns", exact: true }).waitFor();
+  const current = page.locator(".surface-current");
+  await current.getByText(/\$160,000 net spending a year/).waitFor();
+  const draw = current.locator(".surface-policy").filter({ hasText: "Use Pool C to cover gaps" });
+  const reserve = current.locator(".surface-policy").filter({ hasText: "Keep Pool C in reserve" });
+  assert.match(await draw.innerText(), /Full spending funded through age 75/);
+  assert.match(await draw.innerText(), /Withdrawn from Pool C\s+\$398,386/);
+  assert.match(await reserve.innerText(), /Spending shortfall starts at age 69/);
+  assert.match(await reserve.innerText(), /Spending left unfunded\s+\$398,386/);
+  const surface = page.locator(".surface-canvas");
+  const alternative = page.locator(".surface-alternative");
+  await surface.press("ArrowRight");
+  assert.match(await alternative.innerText(), /Selected alternative.*\$161,000/);
+  assert.match(await current.innerText(), /\$160,000 net spending a year/);
+  await page.getByRole("button", { name: "Clear selection" }).click();
+  assert.equal(await alternative.count(), 0);
+  await surface.press("ArrowRight");
+  await page.getByRole("button", { name: "Apply spending and return" }).click();
+  assert.match(await current.innerText(), /\$161,000 net spending a year/);
+
   const atlas = new URL("atlas.html?view=river", base);
   await open(page, atlas);
   await page.waitForURL((current) => current.searchParams.get("tool") === "explore");
   const frame = page.frameLocator('iframe[src*="atlas.html"]');
   await frame.locator("#visualCanvas").waitFor();
+  await frame.getByRole("tab", { name: /Table/ }).click();
+  await frame.getByRole("table", { name: "Exact annual capital ledger" }).waitFor();
+  assert.equal(await frame.locator("#visualTableBody tr").count(), 36);
 }
 
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
