@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,8 +34,22 @@ jobs:
       - name: Check TypeScript
         run: npm run typecheck
 
-      - name: Build static site
-        run: npm run build:pages
+      - name: Build and test static site
+        run: npm test
+
+      - name: Restore Chromium for browser tests
+        id: chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: retirement-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium for browser tests
+        if: steps.chromium.outputs.cache-hit != 'true'
+        run: npm exec -- playwright install --only-shell chromium
+
+      - name: Run browser journeys on the Pages artifact
+        run: npm run test:browser
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

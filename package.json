@@ -17,6 +17,8 @@
     "validate:mobile": "node tools/validate-mobile-layout.mjs",
     "build": "npm run build:pages",
     "build:pages": "npm run validate:model && npm run validate:policy && npm run validate:visuals && npm run validate:mobile && node tools/validate-integrated-explorer.mjs && vite build --config vite.pages.config.ts",
+    "test": "npm run build:pages && node --test tests/*.test.mjs",
+    "test:browser": "node tools/verify-retirement-browser.mjs",
     "preview": "vite preview --config vite.pages.config.ts",
     "preview:pages": "vite preview --config vite.pages.config.ts"
   },
@@ -29,6 +31,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
+    "playwright": "1.65.1",
     "typescript": "5.9.3",
     "vite": "8.2.1"
   },
