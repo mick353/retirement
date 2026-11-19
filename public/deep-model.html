@@ -3891,7 +3891,7 @@ function renderTornado(){
   ]},options:{indexAxis:"y",maintainAspectRatio:false,responsive:true,
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.x)}}},
     scales:{x:{ticks:{callback:moneyTick},stacked:false}}}});
-  renderTable("tor_tbl",rows.map(r=>[r.name,fmt$(r.lo),fmt$(base),fmt$(r.hi),fmtPct(r.loD/base),fmtPct(r.hiD/base)]),
+  renderTable("tor_tbl",rows.map(r=>[r.name,fmt$(r.lo),fmt$(base),fmt$(r.hi),pctDiff(base,r.lo),pctDiff(base,r.hi)]),
     ["Factor","Low case","Base",`High @${ta}`,"Low Δ","High Δ"]);
 }
 
