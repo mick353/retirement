@@ -976,7 +976,7 @@ main{min-width:0;}
     <button class="btn" id="btn-export-settings" title="Back up all dashboard settings">Export settings</button>
     <button class="btn" id="btn-import-settings" title="Restore dashboard settings from JSON">Import</button>
     <button class="btn" id="btn-theme">☾ Theme</button>
-    <button class="btn" id="btn-reset">↺ Reset</button>
+    <button class="btn" id="btn-reset">↺ Reset V23</button>
     <input type="file" id="inp-import-settings" accept="application/json,.json" style="display:none"/>
   </div>
 </header>
@@ -1190,8 +1190,9 @@ main{min-width:0;}
           <input type="range" id="sl_vol" min="4" max="20" step="1" value="12"/>
         </div>
         <div class="slider-block">
-          <div class="lab"><span>One-off this year</span><span class="val" id="lbl-oo"></span></div>
+          <div class="lab"><span>Requested one-off at retirement</span><span class="val" id="lbl-oo"></span></div>
           <input type="range" id="sl_oo" min="0" max="400000" step="10000" value="0"/>
+          <div class="note" id="one-off-funding-note" role="status" hidden></div>
         </div>
         <div class="slider-block">
           <div class="lab"><span>Pool C ETF drag (distribution tax)</span><span class="val" id="lbl-poolcdrag"></span></div>
@@ -1420,7 +1421,7 @@ main{min-width:0;}
       <div class="cards" id="oo_cards"></div>
       <div class="panel">
         <h2 id="oo_chart_title">Maximum one-off without breaching floor at target age</h2>
-        <div class="muted smaller">Binary search for the largest single-year withdrawal that still keeps capital ≥ floor at target age under each scenario.</div>
+        <div class="muted smaller">The maximum must be funded at retirement under your Pool C policy and leave enough capital at the target age. The chart shows only fully funded withdrawals.</div>
         <div class="chart-wrap"><canvas id="oo_chart"></canvas></div>
       </div>
     </section>
@@ -2167,7 +2168,7 @@ function annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,pre
   const pct = isOverride ? (spendReturnPct ?? STATE.spendReturnPct) : ((band?.amount||0)/100);
   if (basis === "drawPct") {
     const md = (mandDraw !== undefined && mandDraw !== null) ? mandDraw : (preAbp * mandRate(age));
-    return Math.max(0, md) * pct;
+    return Math.max(0, md) * Math.max(0,Math.min(1,pct));
   }
   const investmentReturn = Math.max(0, preAbp*rA + preAcc*rB + prePoolC*rC);
   return investmentReturn * pct;
@@ -2208,6 +2209,7 @@ function convertBandUnit(index,newUnit){
   if(newUnit==="totalDollar"){band.amount=Math.round((dollars+getProfile().netPension)*100)/100;}
   else if(newUnit==="dollar"){band.amount=oldUnit==="totalDollar"?Math.round(dollars*100)/100:Math.max(0,Math.round(dollars/500)*500);}
   else{const bs=basisFor(newUnit);band.amount=bs>0?Math.max(0,Math.round((dollars/bs)*1000)/10):0;}
+  if(newUnit==="drawPct")band.amount=Math.min(100,band.amount);
   band.unit=newUnit;
   onBandChange();
 }
@@ -2346,6 +2348,18 @@ function routeSurplus(surplus,headroom,abp,acc){
   return{toABP,toPoolC,headroomAfter:Math.max(0,headroom-toABP)};
 }
 
+function fundOneOff(requested,abp,acc,poolC,poolCPolicy){
+  if(requested===0)return {abp,acc,poolC,oneOffRequested:0,oneOffDrawn:0,oneOffPoolCDrawn:0,oneOffFunded:0,oneOffShortfall:0};
+  const withdrawal=withdrawFromPools(requested,abp,acc);
+  const poolCDrawn=poolCPolicy==="after-abp"?Math.min(requested-withdrawal.drawn,poolC):0;
+  const funded=withdrawal.drawn+poolCDrawn;
+  return {
+    abp:withdrawal.abp,acc:withdrawal.acc,poolC:poolC-poolCDrawn,
+    oneOffRequested:requested,oneOffDrawn:withdrawal.drawn,oneOffPoolCDrawn:poolCDrawn,
+    oneOffFunded:funded,oneOffShortfall:Math.max(0,requested-funded)
+  };
+}
+
 /* ========== SIMULATION ENGINE ========== */
 function annualTotalBudget(target,growth,yearIndex){return Math.max(0,Number(target))*Math.pow(1+growth,yearIndex);}
 function firstYearPlannedSpend(profile=getProfile()){
@@ -2383,15 +2397,11 @@ function runModel(opts){
   let poolC=opts.startPoolC??(p.poolC_day1??0);
   let headroom=initialHeadroom(p,tbcAlloc);
   const rows=[];
-  let launchOneOff=0,launchPoolCOneOff=0;
-  if(oneOff>0&&oneOffAge===startAge){
-    const slice=oneOff/oneOffSpread;
-    const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;launchOneOff=w.drawn;
-    if(poolCPolicy==="after-abp"&&w.drawn<slice){launchPoolCOneOff=Math.min(slice-w.drawn,poolC);poolC-=launchPoolCOneOff;}
-  }
+  const launch=fundOneOff(oneOff>0&&oneOffAge===startAge?oneOff/oneOffSpread:0,abp,acc,poolC,poolCPolicy);
+  ({abp,acc,poolC}=launch);
   rows.push({
     age:startAge,targetSpend:0,gap:0,fundedGap:0,fundedTotalSpend:0,spendingShortfall:0,investmentReturn:0,mandDraw:0,draw:0,realExit:0,surplus:0,toABP:0,toPoolC:0,pensionToPoolC:0,
-    extraDraw:0,poolCDraw:0,oneOffDrawn:launchOneOff,oneOffPoolCDrawn:launchPoolCOneOff,abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,
+    extraDraw:0,poolCDraw:0,...launch,poolA:abp,poolB:acc,total:abp+acc+poolC,
     pension:0,pensionSpent:0,pensionSurplus:0,headroom,rA:0,rB:0,rC:0,launchSnapshot:true
   });
   for(let age=startAge+1;age<=endAge;age++){
@@ -2434,8 +2444,8 @@ function runModel(opts){
     const fundedGap=realExit+extraDraw+poolCDraw;
     const fundedTotalSpend=pensionSpent+fundedGap;
     const spendingShortfall=Math.max(0,targetSpend-fundedTotalSpend);
-    let oneOffDrawn=0,oneOffPoolCDrawn=0;
-    if(oneOff>0){const ageEnd=oneOffAge+oneOffSpread-1;if(age>=oneOffAge&&age<=ageEnd){const slice=oneOff/oneOffSpread;const w=withdrawFromPools(slice,abp,acc);abp=w.abp;acc=w.acc;oneOffDrawn=w.drawn;if(poolCPolicy==="after-abp"&&w.drawn<slice){oneOffPoolCDrawn=Math.min(slice-w.drawn,poolC);poolC-=oneOffPoolCDrawn;}}}
+    const payment=fundOneOff(oneOff>0&&age>=oneOffAge&&age<=oneOffAge+oneOffSpread-1?oneOff/oneOffSpread:0,abp,acc,poolC,poolCPolicy);
+    ({abp,acc,poolC}=payment);
     // NCC wash (V5.0 Integrated Optimiser): Pool A commutes $130k out → BANK (creates room).
     // Natural growth excess above Day 1 cap → Pool C. Routine withdrawals occur only when the explicit Pool C policy allows them.
     // $130k NCC: BANK → Pool B → ABP (refills the room). Net: Pool A locked at Day 1 cap ages 61-74;
@@ -2445,7 +2455,7 @@ function runModel(opts){
       if(abp>aCap){poolC+=abp-aCap;abp=aCap;}
     }
     rows.push({
-      age,targetSpend,desiredTotal,policyMultiplier:decision.multiplier,policyZone:decision.zone,policyCut:Math.max(0,desiredTotal-targetSpend),gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,poolCDraw,oneOffDrawn,oneOffPoolCDrawn,
+      age,targetSpend,desiredTotal,policyMultiplier:decision.multiplier,policyZone:decision.zone,policyCut:Math.max(0,desiredTotal-targetSpend),gap,fundedGap,fundedTotalSpend,spendingShortfall,investmentReturn,mandDraw,draw:mandDraw,realExit,surplus,toABP,toPoolC,pensionToPoolC,extraDraw,poolCDraw,...payment,
       abp,poolA:abp,acc,poolB:acc,poolC,total:abp+acc+poolC,pension:p.netPension,pensionSpent,pensionSurplus,headroom,rA,rB,rC
     });
   }
@@ -2481,7 +2491,8 @@ function runMC(opts){
   for(let r=0;r<N;r++){
     const random=seededRandom(STATE.simulationSeed+r*7919+Math.round(p.lumpSum||0));
     const seq=[];for(let y=0;y<years;y++){const z=gauss(random);const ret=Math.max(-.55,Math.min(.45,mean+sd*z));seq.push({A:ret,B:ret*0.85});}
-    const sim=runModel({profile:p,annualReturns:seq,gapBands,gapGrowth,spendMode,spendReturnPct,oneOff});
+    const sim=runModel({profile:p,endAge,annualReturns:seq,gapBands,gapGrowth,spendMode,spendReturnPct,oneOff,
+      totalSpendTarget:opts.totalSpendTarget,poolCPolicy:opts.poolCPolicy,poolCDrag:opts.poolCDrag});
     for(let y=0;y<years;y++)samples[y][r]=sim.rows[y].total;
   }
   const pcts=[10,25,50,75,90];const result=pcts.map(()=>[]);
@@ -2638,8 +2649,19 @@ function findMaxOneOff(opts={}){
   const floor=(opts.floor??p.floor)*1000;
   const ageIdx=STATE.targetAge-p.retireAge;
   const abpR=opts.abpReturn??STATE.likely;
-  let lo=0,hi=700000,mid=0;
-  for(let i=0;i<60;i++){mid=(lo+hi)/2;const sim=runModel({profile:p,abpReturn:abpR,accumReturn:abpR*0.85,oneOff:mid});if(sim.rows[ageIdx].total>=floor)lo=mid;else hi=mid;}
+  const poolCPolicy=opts.poolCPolicy??STATE.poolCPolicy;
+  const project=amount=>runModel({profile:p,abpReturn:abpR,accumReturn:abpR*0.85,poolCPolicy,endAge:STATE.targetAge,oneOff:amount}).rows;
+  const baseline=project(0);
+  if(baseline[ageIdx].total<floor)return 0;
+  const opening=baseline[0];
+  const available=opening.poolA+opening.poolB+(poolCPolicy==="after-abp"?opening.poolC:0);
+  let lo=0,hi=Math.min(Number.MAX_SAFE_INTEGER,Math.floor(available));
+  while(lo<hi){
+    const mid=lo+Math.ceil((hi-lo)/2);
+    const rows=project(mid);
+    if(rows[0].oneOffShortfall<0.005&&rows[ageIdx].total>=floor)lo=mid;
+    else hi=mid-1;
+  }
   return lo;
 }
 
@@ -3377,15 +3399,17 @@ function renderOneOff(){
   const maxB=findMaxOneOff({profile:p,abpReturn:SCENARIOS.base.abp});
   const maxL=findMaxOneOff({profile:p,abpReturn:STATE.likely});
   const maxS=findMaxOneOff({profile:p,abpReturn:0.07});
+  const request=runModel({profile:p,endAge:p.retireAge}).rows[0];
   document.getElementById("oo_cards").innerHTML=`
-    <div class="card warn"><div class="label">Max @ Conservative (4%)</div><div class="value">${fmt$(maxC)}</div><div class="sub">stay above floor @${ta}</div></div>
-    <div class="card"><div class="label">Max @ Base (5%)</div><div class="value">${fmt$(maxB)}</div><div class="sub">stay above floor @${ta}</div></div>
-    <div class="card good"><div class="label">Max @ Likely (${fmtPct(STATE.likely)})</div><div class="value">${fmt$(maxL)}</div><div class="sub">stay above floor @${ta}</div></div>
-    <div class="card accent"><div class="label">Max @ Strong (7%)</div><div class="value">${fmt$(maxS)}</div><div class="sub">stay above floor @${ta}</div></div>
+    <div class="card warn"><div class="label">Max @ Conservative (4%)</div><div class="value">${fmtFull(maxC)}</div><div class="sub">fully funded and meets the floor at age ${ta}</div></div>
+    <div class="card"><div class="label">Max @ Base (5%)</div><div class="value">${fmtFull(maxB)}</div><div class="sub">fully funded and meets the floor at age ${ta}</div></div>
+    <div class="card good"><div class="label">Max @ Likely (${fmtPct(STATE.likely)})</div><div class="value">${fmtFull(maxL)}</div><div class="sub">fully funded and meets the floor at age ${ta}</div></div>
+    <div class="card accent"><div class="label">Max @ Strong (7%)</div><div class="value">${fmtFull(maxS)}</div><div class="sub">fully funded and meets the floor at age ${ta}</div></div>
+    <div class="card ${request.oneOffShortfall>0?"warn":""}"><div class="label">One-off funding at retirement</div><div class="value">${fmtFull(request.oneOffFunded)} funded</div><div class="sub">${fmtFull(request.oneOffRequested)} requested · ${fmtFull(request.oneOffShortfall)} unfunded · Pool C ${STATE.poolCPolicy==="after-abp"?"available after A/B":"preserved"}</div></div>
   `;
   const idx=tIdx();
   const sizes=[];for(let oo=0;oo<=400000;oo+=20000)sizes.push(oo);
-  const series=r=>sizes.map(oo=>{const sim=runModel({profile:p,abpReturn:r,accumReturn:r*0.85,oneOff:oo});return sim.rows[idx].total;});
+  const series=r=>sizes.map(oo=>{const {rows}=runModel({profile:p,abpReturn:r,accumReturn:r*0.85,endAge:ta,oneOff:oo});return rows[0].oneOffShortfall<0.005?rows[idx].total:null;});
   makeChart("oo_chart",{type:"line",data:{labels:sizes.map(s=>fmt$(s)),datasets:[
     {label:"Conservative (4%)",data:series(SCENARIOS.conservative.abp),borderColor:tc.warn,tension:.2},
     {label:"Base (5%)",data:series(SCENARIOS.base.abp),borderColor:tc.acc,tension:.2},
@@ -3736,9 +3760,10 @@ function renderSensitivity(){
     {name:"Default gap ($24k), conservative",bands:flat(24000),ret:SCENARIOS.conservative.abp,mode:"fixed"},
     {name:"Default gap ($24k), likely",bands:flat(24000),ret:STATE.likely,mode:"fixed"},
     {name:"Higher lifestyle ($36k), likely",bands:flat(36000),ret:STATE.likely,mode:"fixed"},
-    {name:"Your current spend rule, likely",bands:STATE.gapBands,ret:STATE.likely,mode:STATE.spendMode}
+    {name:"Your current spend rule, likely",bands:STATE.gapBands,ret:STATE.likely,mode:STATE.spendMode,current:true}
   ];
-  const results=cases.map(c=>runModel({profile:p,abpReturn:c.ret,accumReturn:c.ret*0.85,gapBands:c.bands,spendMode:c.mode,spendReturnPct:STATE.spendReturnPct}));
+  const results=cases.map(c=>runModel({profile:p,abpReturn:c.ret,accumReturn:c.ret*0.85,gapBands:c.bands,spendMode:c.mode,spendReturnPct:STATE.spendReturnPct,
+    totalSpendTarget:c.current?STATE.totalSpendTarget:null,gapGrowth:c.current?STATE.gapGrowth:0}));
   const headers=["Scenario","Avg gap pa","@65","@70",`@${ta}`,"@80"];
   const rows=cases.map((c,i)=>{const sim=results[i];return[c.name,fmt$(avgSimGap(sim.rows,p.retireAge,95)),
     p.retireAge<=65?fmt$(sim.rows[65-p.retireAge].total):"—",fmt$(sim.rows[70-p.retireAge].total),
@@ -3837,7 +3862,9 @@ function renderTornado(){
   const base=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85}).rows[idx]?.total??0;
   const factors=[
     {name:"ABP return",lo:{abpReturn:STATE.likely-0.03,accumReturn:(STATE.likely-0.03)*0.85},hi:{abpReturn:STATE.likely+0.03,accumReturn:(STATE.likely+0.03)*0.85}},
-    {name:"Lifestyle gap",lo:(STATE.spendMode==="fixed"?{gapBands:[{age:p.retireAge,amount:40000,unit:"dollar"}],spendMode:"fixed"}:{spendReturnPct:Math.min(1,STATE.spendReturnPct+0.25)}),hi:(STATE.spendMode==="fixed"?{gapBands:[{age:p.retireAge,amount:18000,unit:"dollar"}],spendMode:"fixed"}:{spendReturnPct:Math.max(0,STATE.spendReturnPct-0.25)})},
+    STATE.totalSpendTarget!==null
+      ? {name:"Annual spending budget (±$10k)",lo:{totalSpendTarget:STATE.totalSpendTarget+10000},hi:{totalSpendTarget:Math.max(0,STATE.totalSpendTarget-10000)}}
+      : {name:"Lifestyle gap",lo:(STATE.spendMode==="fixed"?{gapBands:makeBandsFromGap(40000,p.retireAge),spendMode:"fixed"}:{spendReturnPct:Math.min(1,STATE.spendReturnPct+0.25)}),hi:(STATE.spendMode==="fixed"?{gapBands:makeBandsFromGap(18000,p.retireAge),spendMode:"fixed"}:{spendReturnPct:Math.max(0,STATE.spendReturnPct-0.25)})},
     {name:"Pool C drag",lo:{poolCDrag:Math.min(0.02,STATE.poolCDrag+0.005)},hi:{poolCDrag:Math.max(0,STATE.poolCDrag-0.005)}},
     {name:"Return sequence",loRun:()=>runWithSequence("worst",{profile:p,mean:STATE.likely,sd:STATE.vol}).rows[idx]?.total??0,hiRun:()=>runWithSequence("best",{profile:p,mean:STATE.likely,sd:STATE.vol}).rows[idx]?.total??0}
   ];
@@ -3924,17 +3951,18 @@ function renderCPI(){
 function renderScenComp(){
   const p=getProfile();const tc=getThemeColors();const ta=STATE.targetAge;const idx=tIdx();
   const rightRet=(parseFloat(document.getElementById("sc_sl_ret")?.value)||4)/100;
-  const rightGap=parseFloat(document.getElementById("sc_sl_gap")?.value)||30000;
+  const gapValue=parseFloat(document.getElementById("sc_sl_gap")?.value);
+  const rightGap=Number.isFinite(gapValue)?gapValue:30000;
   const rightVol=(parseFloat(document.getElementById("sc_sl_vol")?.value)||15)/100;
   const retLbl=document.getElementById("sc_lbl_ret");if(retLbl)retLbl.textContent=(rightRet*100).toFixed(1)+"%";
   const gapLbl=document.getElementById("sc_lbl_gap");if(gapLbl)gapLbl.textContent=fmt$(rightGap);
   const volLbl=document.getElementById("sc_lbl_vol");if(volLbl)volLbl.textContent=(rightVol*100).toFixed(0)+"%";
   const scA={name:"Current likely",abpReturn:STATE.likely,gapBands:STATE.gapBands};
-  const scB={name:"Alternative",abpReturn:rightRet,gapBands:[{age:p.retireAge,amount:rightGap,unit:"dollar"}],vol:rightVol};
+  const alternative={profile:p,gapBands:makeBandsFromGap(rightGap,p.retireAge),spendMode:"fixed",totalSpendTarget:null,gapGrowth:0};
   const simA=runModel({profile:p,abpReturn:scA.abpReturn,accumReturn:scA.abpReturn*0.85,gapBands:scA.gapBands,spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct});
-  const simB=runModel({profile:p,abpReturn:scB.abpReturn,accumReturn:scB.abpReturn*0.85,gapBands:scB.gapBands,spendMode:"fixed"});
+  const simB=runModel({...alternative,abpReturn:rightRet,accumReturn:rightRet*0.85});
   const mcA=runMC({profile:p,runs:STATE.runs,mean:scA.abpReturn,sd:STATE.vol,gapBands:scA.gapBands,spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct});
-  const mcB=runMC({profile:p,runs:STATE.runs,mean:scB.abpReturn,sd:rightVol,gapBands:scB.gapBands,spendMode:"fixed"});
+  const mcB=runMC({...alternative,runs:STATE.runs,mean:rightRet,sd:rightVol});
   const prob=(mc,threshold)=>mc.samplesAtTarget.filter(v=>v>=threshold).length/mc.samplesAtTarget.length*100;
   const aFloor=prob(mcA,p.floor*1000),bFloor=prob(mcB,p.floor*1000);
   const aTarget=prob(mcA,p.target*1000),bTarget=prob(mcB,p.target*1000);
@@ -3961,7 +3989,7 @@ function renderScenComp(){
     {label:"Floor",data:ages.map(()=>p.floor*1000),borderColor:tc.bad,borderDash:[4,4],pointRadius:0}
   ]},options:chartOptions});
   makeChart("sc_right_chart",{type:"line",data:{labels:ages,datasets:[
-    {label:scB.name,data:simB.rows.map(r=>r.total),borderColor:tc.acc3,tension:.2,borderWidth:2},
+    {label:"Alternative",data:simB.rows.map(r=>r.total),borderColor:tc.acc3,tension:.2,borderWidth:2},
     {label:"Floor",data:ages.map(()=>p.floor*1000),borderColor:tc.bad,borderDash:[4,4],pointRadius:0}
   ]},options:chartOptions});
 }
@@ -4099,7 +4127,8 @@ function renderRecalibrate(){
   const actualC=parseFloat(document.getElementById("rc_poolC")?.value)||0;
   const actualBand=bandAtAge(actualAge,STATE.gapBands);
   const plannedTotal=scheduledTotalBudget(STATE.totalSpendTarget,actualBand,STATE.spendMode,STATE.gapGrowth,Math.max(0,actualAge-p.retireAge));
-  const actualGap=parseFloat(document.getElementById("rc_gap")?.value)||(plannedTotal===null?gapAtAge(actualAge,STATE.gapBands):Math.max(0,plannedTotal-p.netPension));
+  const gapInput=parseFloat(document.getElementById("rc_gap")?.value);
+  const actualGap=Number.isFinite(gapInput)?Math.max(0,gapInput):(plannedTotal===null?gapAtAge(actualAge,STATE.gapBands):Math.max(0,plannedTotal-p.netPension));
   const actualHostplus=parseFloat(document.getElementById("rc_hostplus")?.value)||p.hostplus;
   const modelAtAge=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85}).rows.find(r=>r.age===actualAge);
   const modelA=modelAtAge?.abp??calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc).poolA;
@@ -4113,15 +4142,15 @@ function renderRecalibrate(){
   const recal=runModel({
     profile:recalProfile,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,
     startAge:actualAge,startAbp:actualA,startAcc:actualB,startPoolC:actualC,
-    gapBands:[{age:actualAge,amount:actualGap,unit:"dollar"}],spendMode:"fixed"
+    gapBands:makeBandsFromGap(actualGap,actualAge),spendMode:"fixed",totalSpendTarget:null,oneOffAge:p.retireAge
   });
-  const recalTarget=recal.rows.find(r=>r.age===STATE.targetAge)||recal.rows[recal.rows.length-1];
+  const recalTarget=recal.rows.find(r=>r.age===STATE.targetAge);
   panel.style.display="block";
   document.getElementById("rc_cards").innerHTML=`
     <div class="card ${actualTotal>=modelTotal?"good":"warn"}"><div class="label">Actual vs model at age ${actualAge}</div><div class="value">${fmtFull(actualTotal-modelTotal)}</div><div class="sub">${pctDiff(modelTotal,actualTotal)}</div></div>
     <div class="card"><div class="label">Actual pool total</div><div class="value">${fmt$(actualTotal)}</div><div class="sub">A ${fmt$(actualA)} · B ${fmt$(actualB)} · C ${fmt$(actualC)}</div></div>
-    <div class="card"><div class="label">Recalibrated @${STATE.targetAge}</div><div class="value">${fmt$(recalTarget.total)}</div><div class="sub">Base path ${fmt$(base?.total??0)}</div></div>
-    <div class="card ${recalTarget.total>=(p.floor*1000)?"good":"warn"}"><div class="label">Floor margin</div><div class="value">${fmtFull(recalTarget.total-p.floor*1000)}</div><div class="sub">Using actual balances from age ${actualAge}</div></div>
+    <div class="card"><div class="label">Recalibrated @${STATE.targetAge}</div><div class="value">${recalTarget?fmt$(recalTarget.total):"—"}</div><div class="sub">${recalTarget?`Base path ${fmt$(base?.total??0)}`:`The target age comes before your starting age of ${actualAge}.`}</div></div>
+    <div class="card ${recalTarget&&recalTarget.total>=p.floor*1000?"good":"warn"}"><div class="label">Floor margin</div><div class="value">${recalTarget?fmtFull(recalTarget.total-p.floor*1000):"—"}</div><div class="sub">Using actual balances from age ${actualAge}</div></div>
   `;
   const ages=recal.rows.map(r=>r.age);const tc=getThemeColors();
   makeChart("rc_chart",{type:"line",data:{labels:ages,datasets:[
@@ -4696,6 +4725,14 @@ function updateLabels(){
   set("lbl-spendbasis",STATE.spendMode==="returnPct"?"Spend % of annual investment earnings":(STATE.spendMode==="drawPct"?"Spend % of mandatory drawdown":"Spend % (override slider — inactive)"));
   set("lbl-spendreturn",fmtPctClean(STATE.spendReturnPct,0));
   set("lbl-oo","$"+(STATE.oneOff/1000).toFixed(0)+"k");
+  const oneOffNote=document.getElementById("one-off-funding-note");
+  if(oneOffNote){
+    oneOffNote.hidden=STATE.oneOff<=0;
+    if(!oneOffNote.hidden){
+      const payment=runModel({profile:p,endAge:p.retireAge}).rows[0];
+      oneOffNote.textContent=`${fmtFull(payment.oneOffFunded)} funded at retirement · ${fmtFull(payment.oneOffShortfall)} unfunded under the selected Pool C policy.`;
+    }
+  }
   set("lbl-poolcdrag",fmtPctClean(STATE.poolCDrag,2));
   set("lbl-poolcpolicy",STATE.poolCPolicy==="after-abp"?"Use after A/B":"Preserve");
   const poolCPolicyNote=document.getElementById("poolc-policy-note");
@@ -4852,7 +4889,7 @@ function renderBandRows(){
     <div class="band-row">
       <label>From age <input type="number" min="${BAND_MIN_AGE}" max="${BAND_MAX_AGE}" value="${b.age}" data-band-age="${i}"
         aria-describedby="band-age-validation-${i}"></label>
-      <label>${amountLabel} <input type="number" min="0" step="any" required value="${b.amount}" data-band-amount="${i}"></label>
+      <label>${amountLabel} <input type="number" min="0" ${unit==="drawPct"?'max="100"':""} step="any" required value="${b.amount}" data-band-amount="${i}"></label>
       <label>Budget basis <select onchange="convertBandUnit(${i},this.value)">
         <option value="totalDollar" ${unit==="totalDollar"?"selected":""}>Total spending ($)</option>
         <option value="dollar" ${unit==="dollar"?"selected":""}>Extra above net PSS ($)</option>
@@ -4874,7 +4911,7 @@ function renderBandRows(){
     const band=STATE.gapBands[Number(input.dataset.bandAmount)];
     input.addEventListener("change",()=>{
       const value=input.valueAsNumber;
-      if(!Number.isFinite(value)||value<0){input.reportValidity();input.value=String(band.amount);return;}
+      if(!input.checkValidity()){input.reportValidity();input.value=String(band.amount);return;}
       band.amount=value;onBandChange();
     });
   });
@@ -5075,7 +5112,9 @@ function wireTheme(){
   if(printBtn)printBtn.addEventListener("click",printSelectedPack);
   const resetBtn=document.getElementById("btn-reset");
   if(resetBtn)resetBtn.addEventListener("click",()=>{
-    if(confirm("Reset all settings to defaults?")){[LS_KEY,LS_FALLBACK_KEY,LS_OLDER_FALLBACK_KEY,LS_LEGACY_FALLBACK_KEY,LS_OLDEST_FALLBACK_KEY].forEach(key=>localStorage.removeItem(key));location.reload();}
+    if(!confirm("Reset the active V23 plan to defaults? Saved scenario slots stay available."))return;
+    [LS_KEY,LS_FALLBACK_KEY,LS_OLDER_FALLBACK_KEY,LS_LEGACY_FALLBACK_KEY,LS_OLDEST_FALLBACK_KEY].forEach(key=>localStorage.removeItem(key));
+    location.replace(v23ResetUrl(location.href).href);
   });
   const csvBtn=document.getElementById("btn-csv");
   if(csvBtn)csvBtn.addEventListener("click",exportCSV);
@@ -5095,11 +5134,12 @@ function exportCSV(){
   const p=getProfile();
   const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,gapBands:STATE.gapBands});
   const cols=["age","total","poolA","poolB","poolC","investmentReturn","mandDraw","realExit","extraDraw","poolCDraw","surplus","pensionSurplus","toPoolC","gap","targetSpend","pension","pensionSpent"];
-  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A or B Extra Draw","Pool C Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income"].join(",");
+  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A or B Extra Draw","Pool C Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income","One-off Requested","One-off Funded","One-off Unfunded"].join(",");
   const rows=sim.rows.map(r=>{
     const base=cols.map(c=>Math.round(r[c]||0));
     const spend=(r.realExit||0)+(r.extraDraw||0)+(r.poolCDraw||0);
     base.push(Math.round((r.pensionSpent??r.pension??0)+spend),Math.round((r.investmentReturn||0)+(r.pensionSurplus||0)-spend),Math.round((r.pensionSpent??r.pension??0)+spend));
+    base.push(r.oneOffRequested,r.oneOffFunded,r.oneOffShortfall);
     return base.join(",");
   });
   const csv=[header,...rows].join("\n");
@@ -5126,6 +5166,12 @@ function applyV23DefaultRailB({preserveSpendingPlan=false}={}){
 }
 
 const V23_SHARED_PLAN_CONTROLS=["vol","runs","poolCPolicy","oneOff","poolCDrag","spendReturnPct"];
+
+function v23ResetUrl(href){
+  const url=new URL(href);
+  for(const key of ["shared","rail","pss","basis","spend","return","age","home","taxYear","reserveMonths","seed"])url.searchParams.delete(key);
+  return url;
+}
 
 function sharedV23ScenarioFromQuery(search){
   const params=new URLSearchParams(search);
@@ -5434,10 +5480,10 @@ reinvest:{t:"Drawdown & reinvestment",w:"Where mandatory draws go when they exce
 ["Surplus → Pool A (TBC headroom)","While transfer-balance headroom exists (e.g. after a wash commutation), surplus can re-enter the 0%-tax pension phase — the preferred destination."],
 ["Surplus → Pool C (External ETF)","Once the cap is saturated, surplus defaults outside super. This is the dominant recycling pathway in the plan."],
 ["Pool C reconciliation","Every ending balance reconciles as prior balance + Pool C return + deposits − explicit withdrawals. This makes the preserve/use-after-A/B choice auditable rather than implied."]]},
-oneoff:{t:"One-off capacity",w:"A modelled one-off capacity at retirement, checked against the investment floor at the selected target age under each stated return.",h:["Set the one-off amount in Plan controls, then read the capacity cards.","The result checks one target-age balance under a constant return. It does not guarantee the path between retirement and that age."],f:[
+oneoff:{t:"One-off capacity",w:"The maximum must be funded at retirement under your Pool C policy and meet the investment floor at the target age.",h:["Set the requested amount in Plan controls. The funding card shows what can be paid and what remains unfunded at retirement.","The chart omits requests that cannot be funded. Each capacity figure checks the selected target age under its stated return."],f:[
 ["Max @ Conservative (4%)","Largest Day-1 one-off that still clears the floor if returns run at 4% real."],
 ["Max @ Base (5%) / Strong (7%)","Same test at the base and strong returns — the spread shows how return-sensitive spare capacity is."],
-["One-off withdrawal at retirement","The amount currently set on the slider, shown against those maxima."],
+["One-off funding at retirement","Shows the requested, funded and unfunded amounts for the current Plan controls setting."],
 ["Max @ Likely (your return)","Capacity computed at whatever the sidebar likely-return slider says — the other cards pin 4/5/7%."],
 ["'stay above floor @age' sub-line","The binding condition: the maximum shown is the largest Day-1 withdrawal that still clears the floor at the target age."],
 ["Max @ Strong (7%)","One-off capacity computed under the optimistic 7% real return — the upper reference. Read alongside the 4%/5% cards to see how much the answer depends on returns."],
@@ -5544,7 +5590,7 @@ cpishock:{t:"CPI shock",w:"A modelled inflation pulse with pension-indexation la
 ["Base vs CPI shock series","The likely path with and without the inflation pulse — the wedge between them is the cumulative real-wealth cost of the shock."],
 ["Base @ / CPI shock @","Capital at the target age with and without the inflation pulse. The gap between them is the cumulative real cost of the shock, including the pension-indexation lag year."],
 ["Shock duration","How many model years the inflation pulse and pension-indexation lag are applied. Compare the live base and shock paths rather than using a fixed example amount."]]},
-scencomp:{t:"Scenario comparison",w:"Two full assumption sets side-by-side: Scenario A is your current sliders; Scenario B is set on this page. Delta cards quantify B − A.",h:["Use before changing any standing assumption — quantify the difference first.","Save either side to a slot if you want to keep it."],f:[
+scencomp:{t:"Scenario comparison",w:"Compare the active V23 plan in Scenario A with a separate return, spending gap and volatility in Scenario B. The delta cards show the difference.",h:["Use it before changing your main plan. Scenario B is a preview and follows its own gap control.","Scenario save slots save the active V23 plan."],f:[
 ["Scenario A — Current (likely)","Snapshot of the live sidebar settings."],
 ["Right: Real return","Scenario B's real-return assumption (right-hand panel = B)."],
 ["Right: Annual gap","Scenario B's lifestyle gap — annual spending above the net pension, in real dollars."],
@@ -5638,7 +5684,7 @@ const CONTROLS = [
 ["Target age","The horizon age at which the bands are tested (default 75; slider adjustable)."],
 ["Likely real return","A chosen after-inflation return for the deterministic path and sampled-return mean. It is an assumption, not a forecast."],
 ["Volatility (std dev)","Annual return standard deviation for Monte Carlo. Higher = wider fan, fatter tails."],
-["One-off this year","A single lump withdrawal at retirement (car, renovation) — capacity tested on the One-off page."],
+["Requested one-off at retirement","A lump sum you want to withdraw at retirement. The funding note shows what the selected Pool C policy can actually fund."],
 ["Pool C ETF drag","The main model's 0.35% annual Pool C distribution-drag assumption. It is not a measured upper bound or a complete personal tax calculation."],
 ["MC runs","Number of Monte Carlo paths. More = smoother percentiles, slower recompute (especially mobile)."]];
 
