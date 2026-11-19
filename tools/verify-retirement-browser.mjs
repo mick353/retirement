@@ -73,6 +73,49 @@ function assertMoney(actual, expected, explanation) {
   assert.ok(Math.abs(actual - expected) < 0.01, `${explanation}. Expected ${expected.toFixed(2)}, got ${actual}`);
 }
 
+async function verifyAIReviewCashflow(page, expectedPortfolioDraw, expectedSurplus) {
+  const endpoint = "**/api/retirement-ai";
+  const reply = expectedSurplus > 0 ? "Pension surplus fixture received." : "Portfolio draw fixture received.";
+  let payload;
+  await page.route(endpoint, async (route) => {
+    const headers = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "content-type",
+    };
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers });
+      return;
+    }
+    payload = route.request().postDataJSON();
+    await route.fulfill({ status: 200, headers, contentType: "text/event-stream", body: `data: ${JSON.stringify({ text: reply })}\n\n` });
+  });
+  try {
+    await page.locator("#v23-ai-launcher").click();
+    await page.locator("#v23-ai-input").fill("Check this synthetic first-year cashflow.");
+    await page.locator("#v23-ai-send").click();
+    await page.getByText(reply, { exact: true }).waitFor();
+    const { activeScenario, deterministicOutputs } = payload.context;
+    assert.deepEqual(activeScenario.firstOperatingPeriod, { fromAge: 60, toAge: 61 });
+    assertMoney(activeScenario.annualNetSpending, 122000, "Review payload uses funded first-year spending");
+    assertMoney(activeScenario.annualPortfolioDraw, expectedPortfolioDraw, "Review payload includes all portfolio withdrawals");
+    assertMoney(activeScenario.pssPensionSurplusToPoolC, expectedSurplus, "Review payload uses the actual pension savings");
+    assert.equal(deterministicOutputs.likelyStart.launchSnapshot, true);
+    await page.locator("#v23-ai-close").click();
+  } finally {
+    await page.unroute(endpoint);
+  }
+}
+
+async function verifyCapitalBridge(page, closing) {
+  const amounts = (await page.locator("#wf_container .wf-val").allTextContents())
+    .map((raw) => Number(raw.replace("−", "-").replace(/[$,]/g, "")));
+  assert.equal(amounts.length, 6);
+  assertMoney(amounts.at(-1), closing, "The breakdown ends at the chart's target-age balance");
+  const [opening, growth, saved, spent, oneOff, end] = amounts;
+  assert.ok(Math.abs(opening + growth + saved + spent + oneOff - end) < 0.04, "Visible rounded capital movements reconcile");
+}
+
 async function exerciseV23(page, base) {
   const source = new URL(base);
   source.search = new URLSearchParams({
@@ -107,6 +150,8 @@ async function exerciseV23(page, base) {
   const firstYearPoolA = 441_674.40 * poolAFactor - (annualSpend - 95_434.30);
   const firstYearPoolC = 362_913.85 * poolCFactor;
   assertMoney(startingCapital[1], firstYearPoolA + firstYearPoolC, "70/30 capital after the first year's growth and spending");
+  await verifyCapitalBridge(page, startingCapital[15]);
+  await verifyAIReviewCashflow(page, annualSpend - 95_434.30, 0);
   await openProfile();
 
   const hostplus = page.locator("#cf_hostplus");
@@ -131,6 +176,8 @@ async function exerciseV23(page, base) {
   const fullPensionCapital = await chartValues(page, "#tj_chart", "Likely");
   const pensionSurplus = 135_575.70 - annualSpend;
   assertMoney(fullPensionCapital[1], 317_447.66 * poolCFactor + pensionSurplus, "100% pension adds the unspent pension to Pool C");
+  await verifyCapitalBridge(page, fullPensionCapital[15]);
+  await verifyAIReviewCashflow(page, 0, pensionSurplus);
   assert.notEqual(fullPensionCapital[15], startingCapital[15]);
   await page.reload({ waitUntil: "domcontentloaded" });
   assert.deepEqual(await chartValues(page, "#tj_chart", "Likely"), fullPensionCapital);
