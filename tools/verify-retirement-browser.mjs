@@ -64,7 +64,9 @@ async function open(page, destination) {
 
 async function chartValues(page, selector, label) {
   return page.locator(selector).evaluate((canvas, seriesLabel) => {
-    const series = Chart.getChart(canvas).data.datasets.find((item) => item.label === seriesLabel);
+    const datasets = Chart.getChart(canvas).data.datasets;
+    const series = datasets.find((item) => item.label === seriesLabel);
+    if (!series) throw new Error(`Missing chart series ${seriesLabel}. Available series are ${datasets.map((item) => item.label).join(", ")}`);
     return series.data;
   }, label);
 }
@@ -337,8 +339,40 @@ async function exerciseV23EdgeCases(page, base) {
   await gap.fill("60000");
   const highGap = await chartValues(page, "#rc_chart", "Recalibrated total");
   assert.ok(highGap[15] < noGap[15], "Recalibration uses the entered gap instead of the shared budget");
+  await page.locator("#rc_age").fill("59");
+  assert.equal(await page.locator("#rc_result_panel").isVisible(), false);
+  assert.match(await page.locator("#rc_error").innerText(), /age within the retirement forecast/);
+  await page.locator("#rc_age").fill("84");
+  assert.match(await page.locator("#rc_cards").innerText(), /target age comes before your starting age of 84/);
+  await page.locator("#rc_age").fill("60");
+  await setRange("#sl_oo", 80000);
+  const recalibratedLaunch = await chartValues(page, "#rc_chart", "Recalibrated total");
+  assert.equal(recalibratedLaunch[0], highGap[0], "Entered balances already account for historical retirement expenses");
+
+  await page.evaluate(() => showPage("trajectory"));
+  const mainCapital = await chartValues(page, "#tj_chart", "Likely");
+  await page.evaluate(() => showPage("health"));
+  assert.deepEqual((await chartValues(page, "#hl_chart", "Base (healthy)")).slice(0, mainCapital.length), mainCapital);
+  const majorCare = "Major surgery + recovery ($150k @70)";
+  assert.deepEqual((await chartValues(page, "#hl_chart", majorCare)).slice(0,10),mainCapital.slice(0,10),"Both health paths include the opening expense before any health event");
+  await page.evaluate(() => showPage("cpishock"));
+  await page.locator("#sl_cpi").press("Home");
+  await page.locator("#sl_cpidrag").press("Home");
+  assert.deepEqual(await chartValues(page, "#cp_chart", "CPI shock"), mainCapital, "Setting both shock controls to zero gives the active plan including its one-off");
+
+  await page.evaluate(() => showPage("pre60"));
+  await page.locator("#pre60_cpage").fill("59.9");
+  await page.locator("#pre60_current").fill("0");
+  await page.locator("#pre60_ret").fill("0");
+  const pre60 = await chartValues(page, "#pre60_chart", "Hostplus balance");
+  assertMoney(pre60.at(-1), 3120, "The tracker honours zeroes and stops contributions at age 60");
+  assert.equal(await page.locator("#pre60_cards .value").first().innerText(), await page.locator("#pre60_recal_result .value").first().innerText());
 
   destination.searchParams.set("pss", "100");
+  await visit("health");
+  await page.getByRole("button", { name: majorCare, exact: true }).press("Enter");
+  const healthCosts = page.locator("#health_summary");
+  assert.match(await healthCosts.innerText(), /\$0 funded.*\$150,000 unfunded/s);
   await visit("oneoff");
   await page.locator("#plan-controls-toggle").click();
   await setRange("#sl_oo", 190000);
@@ -381,6 +415,17 @@ async function exerciseV23EdgeCases(page, base) {
   assert.equal(await baseBalance.nth(2).innerText(), "$0");
   assert.equal(await baseBalance.nth(4).innerText(), "—");
   assert.equal(await baseBalance.nth(5).innerText(), "—");
+  await page.evaluate(() => showPage("breakeven"));
+  assert.match(await page.locator("#be_cards").innerText(), /Unreached at 18%/);
+  await page.evaluate(() => showPage("probability"));
+  const anyCapital = page.locator("#pr_tbl tbody tr").filter({ hasText: "Any capital" });
+  assert.equal(await anyCapital.locator("td").nth(1).innerText(), "0%");
+  await page.evaluate(() => showPage("reviewdelta"));
+  const balanceDifference = page.locator("#rv_cards .card").filter({ hasText: "Balance difference" });
+  assert.match(await balanceDifference.innerText(), /needs a non-zero model balance/);
+  await page.locator("#rv_age").fill("65.5");
+  assert.equal(await page.locator("#rv_results").isVisible(), false);
+  assert.match(await page.locator("#rv_error").innerText(), /whole age/);
   const invalidAmounts = await page.evaluate(() => {
     const routes = [...document.querySelectorAll("nav.side [data-page]")].map((link) => link.dataset.page);
     const invalid = [];

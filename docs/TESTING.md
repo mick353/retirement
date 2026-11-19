@@ -34,4 +34,6 @@ Capital Trajectory must reconcile to its chart balance. The browser suite also c
 
 A zero-investment scenario verifies that Tornado leaves percentages undefined when the base is zero and renders all 33 V23 pages to check for invalid dollar and percentage displays.
 
+Specialist-page regressions compare Health and zero-shock CPI with the active ledger, including a funded retirement one-off. They also verify unfunded health bills, pension and spending during a multi-year shock, paired return sequences, an unreachable break-even target, zero-balance probability and review results, and a partial quarter in the Pre-60 tracker. The browser covers both valid and invalid recalibration ages and checks that opening actuals are preserved.
+
 Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.

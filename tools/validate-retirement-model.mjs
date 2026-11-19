@@ -424,7 +424,58 @@ close(availableOneOff.poolC, 127_447.66, "A funded one-off reconciles to the rem
 assert.equal(v23('findMaxOneOff({floor:0,poolCPolicy:"after-abp"})'), 317_447, "One-off capacity is bounded by spendable opening funds");
 const spreadOneOff = v23('runModel({oneOff:350000,oneOffSpread:2,poolCPolicy:"preserve"}).rows.slice(0,2)');
 close(spreadOneOff.reduce((sum,row)=>sum+row.oneOffShortfall,0), 350_000, "Separate unfunded instalments reconcile to the original one-off");
+const majorPreserved = v23('runHealth("major").find(row=>row.age===70)');
+assert.equal(majorPreserved.healthCostRequested, 150_000);
+assert.equal(majorPreserved.healthCostFunded, 0);
+assert.equal(majorPreserved.healthCostUnfunded, 150_000);
+const majorPayable = v23(`["none","major"].map(key=>runHealth(key,{poolCPolicy:"after-abp"}).find(row=>row.age===70))`);
+assert.equal(majorPayable[1].healthCostFunded, 150_000);
+assert.equal(majorPayable[1].healthCostUnfunded, 0);
+close(majorPayable[0].total-majorPayable[1].total, 150_000, "Only funded care reduces capital");
+const launchEvent = v23('runHealth("minor",{startAge:63,poolCPolicy:"after-abp"})[0]');
+assert.equal(launchEvent.healthCostFunded, 25_000, "An event at retirement is charged once");
+
 v23('selectPssElection("70-30",{spendTarget:122000});');
+const neutralStress = v23(`(()=>{
+  const cpi={cpi:STATE.cpi,cpiDrag:STATE.cpiDrag};
+  const scenario={oneOff:80000,oneOffSpread:2};
+  STATE.cpi=0; STATE.cpiDrag=0;
+  const paths=[runModel(scenario).rows,runHealth("none",scenario),runCPI(scenario)];
+  Object.assign(STATE,cpi);
+  return paths.map(rows=>rows.map(r=>[r.poolA,r.poolB,r.poolC,r.oneOffFunded,r.fundedTotalSpend]));
+})()`);
+assert.equal(neutralStress[0][0][3], 40_000, "An actual opening instalment is present in the reference");
+assert.deepEqual(neutralStress[1], neutralStress[0], "A no-event health path matches all three pools and spending");
+assert.deepEqual(neutralStress[2], neutralStress[0], "A zero CPI shock matches the full baseline");
+const pensionDuringShock = v23(`(()=>{
+  const cpi={cpi:STATE.cpi,cpiDrag:STATE.cpiDrag,cpiDur:STATE.cpiDur,cpiAge:STATE.cpiAge};
+  Object.assign(STATE,{cpi:10,cpiDrag:0,cpiDur:2,cpiAge:63});
+  const rows=runCPI({totalSpendTarget:null,gapBands:makeBandsFromGap(24000,60)}).slice(2,6);
+  Object.assign(STATE,cpi);
+  return rows.map(({inShock,pension,targetSpend,gap})=>({inShock,pension,targetSpend,gap}));
+})()`);
+assert.deepEqual(Array.from(pensionDuringShock, row=>row.inShock), [false,true,true,false]);
+close(pensionDuringShock[1].pension, 95_434.30*.9, "Indexation lag lowers pension in each shock year");
+for (const row of pensionDuringShock) {
+  close(row.targetSpend,119_434.30,"CPI stress holds the planned dollar budget");
+  close(row.gap,row.targetSpend-row.pension,"Actual pension determines the planned portfolio draw");
+}
+const sequences = v23(`["worst","best","smooth"].map(order=>runWithSequence(order,{endAge:75,mean:.065,sd:.12}).rows.slice(1).map(r=>r.rA))`);
+assert.equal(sequences[0].length, 15);
+assert.deepEqual([...sequences[0]], [...sequences[1]].reverse(), "Same returns in opposite order");
+close(sequences[0].reduce((sum,rate)=>sum+rate,0)/15,.065,"Reordering retains the assumed arithmetic mean");
+assert.ok(sequences[2].every(rate=>rate===.065),"Smooth sequence stays at the assumed return");
+const breakevenCases = v23(`(()=>{
+  const profile={...getProfile(),netPension:0,poolA_day1:0,poolB_day1:0,poolC_day1:100000};
+  const opts={profile,targetAge:61,totalSpendTarget:0,oneOff:0,poolCDrag:0};
+  return [findBreakevenReturn(100000,opts),findBreakevenReturn(110000,opts),findBreakevenReturn(120000,opts)];
+})()`);
+assert.equal(breakevenCases[0],0);
+close(breakevenCases[1],.1,"One year at 10% turns $100,000 into $110,000");
+assert.equal(breakevenCases[2],null,"The search marks a target beyond the modelled rate range");
+const pre60Partial = v23("projectPre60(59.9,0,0).at(-1)");
+assert.equal(pre60Partial.age,60);
+close(pre60Partial.balance,3_120,"One tenth of a year contributes $3,120 with zero balance and return");
 const recalculatedAlternative = (gap) => v23(`runMC({mean:.04,sd:0,runs:1,endAge:75,gapBands:makeBandsFromGap(${gap},60),totalSpendTarget:null,gapGrowth:0}).percentiles[2][15]`);
 assert.ok(recalculatedAlternative(20000)>recalculatedAlternative(60000), "An explicit alternative spending rule reaches the Monte Carlo ledger");
 assert.equal(v23("STATE.totalSpendTarget"), 122000, "Testing an alternative retains the active shared plan");
