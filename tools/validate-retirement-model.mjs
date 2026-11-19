@@ -293,6 +293,53 @@ assert.equal(customResetButton.disabled, true, "Reset is disabled when source fi
 v23("loadState()");
 assert.equal(v23("getProfile().customInputs"), undefined, "Reset survives a reload");
 
+const sharedHandoff = "?shared=1&rail=B&pss=70-30&basis=source-825&spend=122000&return=0.06&age=75&reserveMonths=0";
+const importHandoff = (query = sharedHandoff) => v23(`importSharedV23Scenario(${JSON.stringify(query)})`);
+const sharedBanner = { hidden: true, classList: { toggle: () => undefined } };
+const sharedTitle = { textContent: "" };
+const sharedActive = { textContent: "" };
+const sharedOriginal = { textContent: "" };
+const sharedRestore = { hidden: true };
+const originalV23Lookup = v23Context.document.getElementById;
+v23Context.document.getElementById = (id) => ({
+  "v23-shared-banner": sharedBanner,
+  "v23-shared-title": sharedTitle,
+  "v23-shared-active": sharedActive,
+  "v23-shared-original": sharedOriginal,
+  "v23-restore-shared": sharedRestore,
+})[id] ?? originalV23Lookup(id);
+importHandoff();
+v23("updateLabels(); saveState();");
+assert.equal(v23("STATE.liquidityMonths"), 0, "A shared zero-month reserve remains zero");
+assert.equal(sharedTitle.textContent, "Imported Command Centre plan active in V23");
+assert.match(sharedActive.textContent, /70 \/ 30.*\$122,000 flat total spending/);
+const capitalAtTarget = () => v23("runModel({}).rows[tIdx()].total");
+const importedCapital = capitalAtTarget();
+v23('selectPssElection("100",{preserveSpendingPlan:true,preserveCustomProfile:true}); updateLabels(); saveState();');
+assert.notEqual(capitalAtTarget(), importedCapital, "Changing the election recalculates the Capital Trajectory ledger");
+assert.equal(v23("STATE.totalSpendTarget"), 122000, "An election change retains the active total spending budget");
+assert.equal(v23("STATE.gapBands[0].amount"), 0, "The displayed portfolio gap follows the new pension");
+assert.match(sharedActive.textContent, /100% pension.*\$122,000/);
+assert.match(sharedOriginal.textContent, /70 \/ 30/);
+assert.equal(sharedTitle.textContent, "V23 profile and plan controls take precedence");
+assert.equal(sharedRestore.hidden, false);
+v23("loadState()");
+importHandoff(sharedHandoff.replace("0.06","0.05999999999999999"));
+assert.equal(v23("getProfile().pssElection"), "100", "Reloading an equivalent hand-off URL retains the V23 election");
+v23('STATE.gapBands=[{age:60,amount:18000,unit:"dollar"}]; STATE.oneOff=10000; onBandChange();');
+assert.match(sharedActive.textContent, /V23 age-band spending/);
+v23("loadState()");
+importHandoff();
+assert.equal(v23("STATE.totalSpendTarget"), null, "Reloading the hand-off retains the locally edited age bands");
+v23("restoreSharedV23Plan()");
+close(capitalAtTarget(), importedCapital, "Restoring the import restores the original trajectory");
+assert.equal(sharedTitle.textContent, "Imported Command Centre plan active in V23");
+assert.equal(sharedRestore.hidden, true);
+v23('STATE.totalSpendTarget=null; STATE.gapBands=[{age:60,amount:12345,unit:"dollar"}];');
+importHandoff(sharedHandoff.replace("spend=122000","spend=130000"));
+assert.equal(v23("STATE.gapBands[0].amount"), 12345, "A different hand-off keeps saved V23 age bands until an explicit restore");
+assert.equal(v23("STATE.sharedImport.scenario.spend"), 130000, "A different hand-off updates the restore point");
+
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(atlasSource, /theme:\s*activeTheme\(\)/, "Atlas shared links carry the selected colour theme");
@@ -400,7 +447,7 @@ assert.doesNotMatch(dashboardSource, /cost \/ 2_600/, "Frontier no longer uses t
 assert.match(v23Source, /range\.setAttribute\("aria-label"/, "V23 enhanced range controls retain accessible names");
 assert.match(v23Source, /syncV23PrecisionControls/, "V23 synchronises exact-number fields after programmatic control changes");
 assert.match(v23Source, /syncV23AssumptionLedger/, "V23 synchronises the sticky assumptions ledger without a polling delay");
-assert.match(v23Source, /Saved V23 age bands retained/, "Shared flat scenarios disclose when a saved V23 plan is protected");
+assert.match(v23Source, /V23 profile and plan controls take precedence/, "The live banner discloses when saved V23 inputs take precedence");
 close(v23("safePercent(4377,36000,{cap:true})"), 12.1583333333, "V23 target funding percentage uses funded gap divided by planned gap");
 close(v23("safePercent(9066,9066,{cap:true})"), 100, "V23 mandatory-use percentage reads 100% when the compulsory payment is fully consumed");
 assert.equal(v23("safePercent(0,0,{cap:true})"), null, "V23 zero-denominator comparisons return N/A rather than a misleading 0%");
