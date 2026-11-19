@@ -221,6 +221,46 @@ const explicitFlatPlan = JSON.parse(v23(`JSON.stringify((()=>{
 assert.equal(explicitFlatPlan.totalSpendTarget, 110000, "An explicit flat-spend import remains available");
 assert.equal(explicitFlatPlan.gapBands.length, 1, "An explicit flat-spend import creates one derived gap band");
 
+const customProfileStorage = new Map();
+const customFieldHandlers = new Map();
+const customHostplusField = { value: "", addEventListener: (event, handler) => customFieldHandlers.set(event, handler) };
+const customProfileSummary = { innerHTML: "" };
+v23Context.localStorage = {
+  getItem: (key) => customProfileStorage.get(key) ?? null,
+  setItem: (key, value) => customProfileStorage.set(key, value),
+};
+v23Context.document.getElementById = (id) => ({
+  cf_hostplus: customHostplusField,
+  "profile-summary": customProfileSummary,
+})[id] ?? null;
+v23(`currentPage=""; selectPssElection("70-30",{spendTarget:110000}); wireProfile();`);
+customHostplusField.value = "800000";
+customFieldHandlers.get("change")();
+const customOpening = v23("runModel({profile:getProfile(),abpReturn:.05,accumReturn:.0425}).rows[0]");
+close(customOpening.abp, 381_847.52, "V23 custom Hostplus respects the capped Pool A");
+close(customOpening.acc, 0, "V23 custom Hostplus retains zero Pool B");
+close(customOpening.poolC, 922_920.64, "V23 custom Hostplus feeds uncapped capital into Pool C");
+close(customOpening.total, 1_304_768.16, "V23 model opening includes the custom Hostplus amount");
+assert.match(customProfileSummary.innerHTML, /922,920\.64/, "The profile summary shows the same opening pools");
+assert.equal(v23("getProfile().pssElection"), "70-30", "Hostplus does not clear the PSS source");
+close(v23("getProfile().lumpTaxableTaxed"), expectedElectionsByBasis["source-825"]["70-30"].lumpTaxableTaxed,
+  "Hostplus does not replace the sourced PSS tax components");
+assert.equal(v23("STATE.totalSpendTarget"), 110000, "Hostplus preserves the active spending rule");
+close(v23("scenarioStateResult(captureScenarioState()).sim.rows[0].total"), 1_304_768.16, "Saved scenarios model the edited opening balance");
+v23('const savedCustomScenario = captureScenarioState(); selectPssElection("60-40"); loadState();');
+close(v23("getProfile().hostplus"), 800_000, "Custom Hostplus survives a reload");
+customHostplusField.value = "";
+customFieldHandlers.get("change")();
+close(v23("getProfile().hostplus"), 800_000, "An empty edit cannot silently turn Hostplus into zero");
+customHostplusField.value = "0";
+customFieldHandlers.get("change")();
+close(v23("getProfile().hostplus"), 0, "A deliberate zero is accepted");
+v23("applyScenarioState(savedCustomScenario)");
+close(v23("getProfile().hostplus"), 800_000, "Opening a saved scenario restores its Hostplus assumption");
+v23('selectPssElection("60-40",{preserveCustomProfile:true})');
+close(v23("getProfile().hostplus"), 800_000, "Trying a different election preserves the custom Hostplus balance");
+close(v23('profileWithCustomInputs(getProfile(),{lumpSum:500000}).washMax'), 0, "A custom PSS lump cannot reuse the source wash component split");
+
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(atlasSource, /theme:\s*activeTheme\(\)/, "Atlas shared links carry the selected colour theme");

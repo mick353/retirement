@@ -1057,17 +1057,18 @@ main{min-width:0;}
         <div class="muted smaller"><b>Source boundary:</b> each provider estimate carries its own FAS, pension, lump and exact tax components. Both bases have four direct elections; prudent 100% uses the later 9 September source and FAS $162,485.36.</div>
       </div>
       <div class="custom-form" id="customForm">
+        <p class="note" id="custom-profile-status" role="status">Edit an opening assumption and press Tab or Enter to update V23. The Hostplus value is the projected balance at retirement. Command Centre uses separate source assumptions.</p>
         <div class="custom-grid">
           <label>Retirement age <input type="number" id="cf_retire" step="1" min="55" max="70" value="60"/></label>
           <label>Gross PSS pension (pa) <input type="number" id="cf_grossPension" step="1" value="78382"/></label>
           <label>Net PSS pension (pa) <input type="number" id="cf_netPension" step="1" value="76042"/></label>
           <label>PSS lump sum <input type="number" id="cf_lump" step="1" value="574802"/></label>
-          <label>Other super (Hostplus) <input type="number" id="cf_hostplus" step="1" value="317448"/></label>
+          <label>Hostplus at retirement <input type="number" id="cf_hostplus" min="0" step="0.01" value="317448"/></label>
           <label>TBC at retirement <input type="number" id="cf_tbc" step="1" value="2100000"/></label>
           <label>Floor target ($k) <input type="number" id="cf_floor" step="10" value="1200"/></label>
           <label>Target ($k) <input type="number" id="cf_target" step="10" value="1500"/></label>
           <label>Strong ($k) <input type="number" id="cf_strong" step="10" value="1750"/></label>
-          <label>Default gap (pa) <input type="number" id="cf_gap" step="500" value="24000"/></label>
+          <label>Default gap for band reset (pa) <input type="number" id="cf_gap" step="500" value="24000"/></label>
         </div>
       </div>
       </div>
@@ -1429,12 +1430,12 @@ main{min-width:0;}
         </div>
       </div>
       <div class="cards" id="wash_cards"></div>
-      <div class="panel">
+      <div class="panel" id="wash-tax-panel">
         <h2>Taxable component &amp; death-benefits tax by age</h2>
         <div class="muted smaller">This wash-only schedule tracks residual taxable dollars in the original interest. Actual earnings, withdrawals and components must be refreshed annually.</div>
         <div class="chart-wrap"><canvas id="wash_chart"></canvas></div>
       </div>
-      <div class="panel">
+      <div class="panel" id="wash-schedule-panel">
         <h2>Year-by-year wash schedule <span class="muted smaller">— edit any amount to hand-build your own schedule</span></h2>
         <div class="muted smaller" style="margin-bottom:8px">Blank = use the annual default. Type 0 to skip a year. <button type="button" class="pill" id="wash_clear_sched">Clear all overrides</button></div>
         <table id="wash_tbl"></table>
@@ -1853,6 +1854,61 @@ const PROFILES = {
   }
 };
 
+const V23_DEFAULT_CUSTOM_PROFILE={...PROFILES.custom};
+let customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;
+const V23_CUSTOM_FIELDS={
+  cf_retire:"retireAge",cf_grossPension:"grossPension",cf_netPension:"netPension",
+  cf_lump:"lumpSum",cf_hostplus:"hostplus",cf_tbc:"tbc",cf_gap:"defaultGap",
+  cf_floor:"floor",cf_target:"target",cf_strong:"strong"
+};
+const V23_CUSTOM_PSS_FIELDS=["grossPension","netPension","lumpSum"];
+
+function validateCustomProfileInputs(inputs){
+  const entries=Object.values(V23_CUSTOM_FIELDS).map(key=>[key,inputs?.[key]]);
+  return Object.fromEntries(entries.filter(([key,value])=>Number.isFinite(value)&&value>=0&&
+    (key!=="retireAge"||(Number.isInteger(value)&&value>=55&&value<=70))));
+}
+
+function profileWithCustomInputs(base,inputs){
+  const overrides=validateCustomProfileInputs(inputs);
+  const profile={...base,...overrides};
+  if(!Object.keys(overrides).length)return profile;
+  profile.customInputs=overrides;
+  if(["grossPension","lumpSum","hostplus","tbc"].some(key=>profile[key]!==base[key])){
+    const total=profile.lumpSum+profile.hostplus;
+    profile.dbSpecialValue=profile.grossPension*16;
+    const headroom=Math.max(0,profile.tbc-profile.dbSpecialValue);
+    profile.tbcHeadroom=Math.max(0,headroom-(profile.tsbBuffer??0));
+    profile.tbcExcess=Math.max(0,profile.dbSpecialValue-profile.tbc);
+    profile.poolA_day1=Math.min(total,profile.tbcHeadroom);
+    profile.poolB_day1=0;
+    profile.poolC_day1=total-profile.poolA_day1;
+  }
+  if(profile.defaultGap!==base.defaultGap||profile.retireAge!==base.retireAge){
+    profile.defaultGapBands=[{age:Math.max(60,profile.retireAge),amount:profile.defaultGap,unit:"dollar"}];
+  }
+  if(profile.lumpSum!==base.lumpSum){
+    // A manually entered lump has no verified component split.
+    profile.customLumpWithoutComponents=true;
+    Object.assign(profile,{lumpTaxFree:0,lumpTaxableTaxed:0,lumpUntaxed:0,washSourceGross:0,washTaxableShare:0,washMax:0,
+      washEvidence:"The custom PSS lump has no verified component split. Source-based wash and after-tax estimates are unavailable."});
+  }
+  return profile;
+}
+
+function customSourceProfile(election,basis){
+  return election?railBProfileForElection(election,basis):V23_DEFAULT_CUSTOM_PROFILE;
+}
+
+function restoreCustomInputs(inputs){
+  STATE.customProfileInputs=validateCustomProfileInputs(inputs);
+  PROFILES.custom=profileWithCustomInputs(customProfileBase,STATE.customProfileInputs);
+}
+
+function planningInputsOnly(inputs){
+  return Object.fromEntries(Object.entries(inputs||{}).filter(([key])=>!V23_CUSTOM_PSS_FIELDS.includes(key)));
+}
+
 const SCENARIOS = {
   conservative:{ name:"Conservative", abp:0.040, accum:0.040*0.85 },
   base:        { name:"Base",         abp:0.050, accum:0.050*0.85 },
@@ -1862,6 +1918,7 @@ const SCENARIOS = {
 
 const STATE = {
   profile:"michael",
+  customProfileInputs:{},
   pssElection:"70-30",
   pssProjectionBasis:"source-825",
   totalSpendTarget:null,
@@ -2130,14 +2187,19 @@ function mandRate(age){
 }
 function getProfile(){return PROFILES[STATE.profile];}
 function isRailBProfile(p=getProfile()){return String(p?.name||"").startsWith("Rail B");}
-function openingSourceLabel(p=getProfile()){const basis=PSS_PROJECTION_BASES[p?.pssProjectionBasis||STATE.pssProjectionBasis];return isRailBProfile(p)?`Rail B · ${PSS_ELECTIONS[p.pssElection]?.label||"selected election"} · ${basis?.shortLabel||"source"} basis`:"Rail A · March 2026 iEstimator / V5.0 control";}
+function openingSourceLabel(p=getProfile()){
+  const basis=PSS_PROJECTION_BASES[p?.pssProjectionBasis||STATE.pssProjectionBasis];
+  const source=isRailBProfile(p)?`Rail B · ${PSS_ELECTIONS[p.pssElection]?.label||"selected election"} · ${basis?.shortLabel||"source"} basis`:"Rail A · March 2026 iEstimator / V5.0 control";
+  return p.customInputs?`${source} + custom V23 inputs`:source;
+}
 function openingPoolNote(p=getProfile()){
   const pc=fmt$(p.poolC_day1??0);
+  if(p.customInputs)return `${openingSourceLabel(p)}: Pool B $0; Pool C ${pc} includes capital above the buffered Pool A limit.`;
   return isRailBProfile(p)
     ? `Rail B ${PSS_ELECTIONS[p.pssElection]?.label||"selected"} opening from the ${PSS_PROJECTION_BASES[p.pssProjectionBasis||STATE.pssProjectionBasis]?.shortLabel||"source"} basis: Pool B $0; Pool C ${pc}; $5k TBC planning buffer retained where capacity exists.`
     : `Rail A V5.0 opening: Pool B fully commuted; Pool C ${pc}; $5k TBC buffer retained.`;
 }
-function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000,preserveSpendingPlan=false}={}){
+function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000,preserveSpendingPlan=false,preserveCustomProfile=false}={}){
   const existingPlan=preserveSpendingPlan?{
     totalSpendTarget:STATE.totalSpendTarget,
     gapBands:STATE.gapBands.map(b=>({...b})),
@@ -2147,6 +2209,8 @@ function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000,pres
   STATE.pssProjectionBasis=normaliseProjectionBasis(STATE.pssProjectionBasis);
   const basis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   const e=basis.elections[normaliseElectionForBasis(basis.key,key)]||basis.elections["60-40"];
+  const sameSource=PROFILES.custom.pssElection===e.key&&PROFILES.custom.pssProjectionBasis===basis.key;
+  const customInputs=preserveCustomProfile?(sameSource?STATE.customProfileInputs:planningInputsOnly(STATE.customProfileInputs)):{};
   PROFILES.custom=railBProfileForElection(e.key,STATE.pssProjectionBasis);
   STATE.profile="custom";
   STATE.pssElection=e.key;
@@ -2154,6 +2218,8 @@ function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000,pres
   const gap=Math.max(0,(STATE.totalSpendTarget??110_000)-PROFILES.custom.netPension);
   PROFILES.custom.defaultGap=gap;
   PROFILES.custom.defaultGapBands=[{age:60,amount:gap,unit:"dollar"}];
+  customProfileBase=PROFILES.custom;
+  restoreCustomInputs(customInputs);
   STATE.gapBands=[{age:60,amount:gap,unit:"dollar"}];
   STATE.spendMode="fixed";
   if(existingPlan){
@@ -2162,7 +2228,7 @@ function selectPssElection(key,{spendTarget=STATE.totalSpendTarget??110_000,pres
     STATE.spendMode=existingPlan.spendMode;
     STATE.spendReturnPct=existingPlan.spendReturnPct;
   }
-  STATE.wash.enabled=e.lumpSum>0;
+  STATE.wash.enabled=PROFILES.custom.washSourceGross>0;
   STATE.wash.maxWashes=PROFILES.custom.washMax;
   STATE.wash.schedule={};
   return PROFILES.custom;
@@ -2184,8 +2250,9 @@ function calcTBCAllocation(grossPension,lumpSum,otherSuper,tbc){
 }
 
 function initialHeadroom(p,tbcAlloc){
+  const specialValue=p.customInputs?(p.dbSpecialValue??tbcAlloc.sv):tbcAlloc.sv;
   return p.poolA_day1!==undefined
-    ? Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1-(p.tsbBuffer??0))
+    ? Math.max(0,p.tbc-specialValue-p.poolA_day1-(p.tsbBuffer??0))
     : tbcAlloc.headroomFinal;
 }
 
@@ -2389,7 +2456,7 @@ function comparatorCandidates(profile,semantics,otherElection){
   const candidates=[{id:"current",label:"Current election",profile}];
   if(otherElection!=="same"){
     if(!isRailBProfile(profile))throw Error("Across-election comparison requires Rail B.");
-    const other=railBProfileForElection(otherElection,STATE.pssProjectionBasis);
+    const other=profileWithCustomInputs(railBProfileForElection(otherElection,STATE.pssProjectionBasis),planningInputsOnly(profile.customInputs));
     if(other.pssElection!==profile.pssElection)candidates.push({id:"other",label:`${otherElection} election`,profile:other});
   }
   return candidates.map(candidate=>{
@@ -2813,6 +2880,9 @@ function renderExecutive(){
 /* ========== OVERVIEW ========== */
 function renderOverview(){
   const p=getProfile();const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
+  const openingA=p.poolA_day1??tbcAlloc.poolA;
+  const pssInPoolA=Math.min(p.lumpSum,openingA);
+  const hostplusInPoolA=Math.max(0,openingA-pssInPoolA);
   const conserv=runModel({profile:p,abpReturn:SCENARIOS.conservative.abp,accumReturn:SCENARIOS.conservative.accum});
   const base=runModel({profile:p,abpReturn:SCENARIOS.base.abp,accumReturn:SCENARIOS.base.accum});
   const likely=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
@@ -2827,7 +2897,7 @@ function renderOverview(){
   let cumP=0,cumD=0;operatingRows.forEach(r=>{cumP+=r.pensionSpent??r.pension;cumD+=r.realExit+r.extraDraw;});
   const avgTotalIncome=(cumP+cumD)/Math.max(1,operatingRows.length);
   document.getElementById("ovCards").innerHTML=`
-    <div class="card accent"><div class="label">Combined capital @60</div><div class="value">${fmt$((p.poolA_day1??tbcAlloc.poolA)+(p.poolB_day1??tbcAlloc.poolB)+(p.poolC_day1??0))}</div><div class="sub">Pool A ${fmt$(p.poolA_day1??tbcAlloc.poolA)} · Pool B ${fmt$(p.poolB_day1??tbcAlloc.poolB)} · Pool C ${fmt$(p.poolC_day1??0)}</div></div>
+    <div class="card accent"><div class="label">Combined capital @${p.retireAge}</div><div class="value">${fmt$(openingA+(p.poolB_day1??tbcAlloc.poolB)+(p.poolC_day1??0))}</div><div class="sub">Pool A ${fmt$(openingA)} · Pool B ${fmt$(p.poolB_day1??tbcAlloc.poolB)} · Pool C ${fmt$(p.poolC_day1??0)}</div></div>
     <div class="card"><div class="label">Net PSS pension</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight · CPI-indexed floor</div></div>
     <div class="card good"><div class="label">Avg usable income</div><div class="value">${fmt$(avgTotalIncome)}/yr</div><div class="sub">${fmt$(avgTotalIncome/26)}/pf</div></div>
     <div class="card"><div class="label">Likely capital @${ta}</div><div class="value">${fmt$(likely.rows[idx].total)}</div><div class="sub">${fmtPct(STATE.likely)} real</div></div>
@@ -2839,9 +2909,9 @@ function renderOverview(){
     <div class="tbc-cell"><div class="lbl">Pension special value</div><div class="v">${fmt$(tbcAlloc.sv)}</div><div class="sv">gross × 16</div></div>
     <div class="tbc-cell"><div class="lbl">TBC at retirement</div><div class="v">${fmt$(p.tbc)}</div><div class="sv">today's-dollar anchor</div></div>
     <div class="tbc-cell"><div class="lbl">Initial TBC headroom</div><div class="v">${fmt$(tbcAlloc.headroom0)}</div><div class="sv">TBC − SV</div></div>
-    <div class="tbc-cell"><div class="lbl">PSS lump → Pool A</div><div class="v">${fmt$(tbcAlloc.lumpToABP)}</div><div class="sv">absorbs first</div></div>
-    <div class="tbc-cell"><div class="lbl">Hostplus → Pool A</div><div class="v">${fmt$(tbcAlloc.otherToABP)}</div><div class="sv">fills remaining headroom</div></div>
-    <div class="tbc-cell"><div class="lbl">Hostplus → Pool B</div><div class="v">${fmt$(tbcAlloc.otherToAccum)}</div><div class="sv">overflow @ 15% tax → commuted to Pool C Day 1</div></div>
+    <div class="tbc-cell"><div class="lbl">PSS lump → Pool A</div><div class="v">${fmt$(pssInPoolA)}</div><div class="sv">Uses the buffered Pool A limit first</div></div>
+    <div class="tbc-cell"><div class="lbl">Hostplus → Pool A</div><div class="v">${fmt$(hostplusInPoolA)}</div><div class="sv">Fills remaining room in Pool A</div></div>
+    <div class="tbc-cell"><div class="lbl">Hostplus → Pool C</div><div class="v">${fmt$(p.hostplus-hostplusInPoolA)}</div><div class="sv">Opening investment outside super</div></div>
     <div class="tbc-cell"><div class="lbl">Day-1 headroom remaining</div><div class="v">${fmt$(p.poolA_day1!==undefined?Math.max(0,p.tbc-tbcAlloc.sv-p.poolA_day1):tbcAlloc.headroomFinal)}</div><div class="sv">${p.poolA_day1!==undefined?openingSourceLabel(p)+" · deliberate buffer":tbcAlloc.headroomFinal===0?"fully saturated":"spare cap"}</div></div>
   `;
   const ages=likely.rows.map(r=>r.age);const tc=getThemeColors();
@@ -2852,7 +2922,7 @@ function renderOverview(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}},_milestones:[{age:65,label:"65"},{age:75,label:"75"},{age:80,label:"80"}]});
-  renderTable("ov_scen_tbl",[60,65,70,ta,80,85,90,95].filter((a,i,ar)=>ar.indexOf(a)===i&&a<=95).map(age=>{
+  renderTable("ov_scen_tbl",[p.retireAge,65,70,ta,80,85,90,95].filter((a,i,ar)=>ar.indexOf(a)===i&&a>=p.retireAge&&a<=95).map(age=>{
     const i2=age-p.retireAge;return[age,fmt$(conserv.rows[i2].total),fmt$(base.rows[i2].total),fmt$(likely.rows[i2].total)];
   }),["Age","Conservative","Base","Likely"]);
   const mandRows=likely.rows.filter(r=>[60,62,65,67,70,72,75,77,80,82,85,90].includes(r.age)).map(r=>[r.age,fmtPct(mandRate(r.age),1),fmt$(r.abp),fmt$(r.mandDraw),fmt$(r.realExit),fmt$(r.surplus),fmt$(r.poolC)]);
@@ -2965,7 +3035,7 @@ function renderTwoPool(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}}});
-  renderTable("tp_tbl",[60,65,70,ta,80,85,90,95].filter((a,i,ar)=>ar.indexOf(a)===i&&a<=95).map(age=>{
+  renderTable("tp_tbl",[p.retireAge,65,70,ta,80,85,90,95].filter((a,i,ar)=>ar.indexOf(a)===i&&a>=p.retireAge&&a<=95).map(age=>{
     const r=sim.rows[age-p.retireAge];const tot=r.total||1;
     return[age,fmt$(r.abp),fmt$(r.acc),fmt$(r.poolC),fmt$(r.total),
       ((r.abp/tot)*100).toFixed(0)+"% / "+((r.acc/tot)*100).toFixed(0)+"% / "+((r.poolC/tot)*100).toFixed(0)+"%"];
@@ -3310,6 +3380,13 @@ function computeWashPath(p,rows){
 /* ========== NCC WASH PAGE ========== */
 function renderWash(){
   const p=getProfile(); const tc=getThemeColors(); const W=STATE.wash;
+  const componentsMissing=Boolean(p.customLumpWithoutComponents);
+  document.getElementById("wash-tax-panel").hidden=componentsMissing;
+  document.getElementById("wash-schedule-panel").hidden=componentsMissing;
+  if(componentsMissing){
+    document.getElementById("wash_cards").innerHTML=`<div class="card warn"><div class="label">Wash estimate unavailable</div><div class="sub">${p.washEvidence}</div></div>`;
+    return;
+  }
   const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const path=computeWashPath(p,sim.rows);
   const ages=path.map(r=>r.age);
@@ -3365,6 +3442,7 @@ function renderWash(){
 /* ========== ESTATE & DBT ========== */
 function renderEstate(){
   const p=getProfile();const tc=getThemeColors();const ta=STATE.targetAge;const idx=tIdx();
+  const componentsMissing=Boolean(p.customLumpWithoutComponents);
   const likely=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   // ---- Tax parameters ----
   // WORST CASE (ceiling): 100% of super is taxable component; full Pool C balance realised as a gain at top marginal rate.
@@ -3395,7 +3473,7 @@ function renderEstate(){
   const poolCDelta=atTarget.poolCGross*DBT-atTarget.poolCGross*CGT_DISC;
   document.getElementById("estate_cards").innerHTML=`
     <div class="card"><div class="label">Gross estate @${ta}</div><div class="value">${fmt$(atTarget.totalGross)}</div><div class="sub">Before any death tax — actual capital</div></div>
-    <div class="card accent"><div class="label">Modelled after-tax @${ta}</div><div class="value">${fmt$(atTarget.totalNetMid)}</div><div class="sub">Residual wash-only taxable dollars; CGT on assumed gain only</div></div>
+    <div class="card accent"><div class="label">Modelled after-tax @${ta}</div><div class="value">${componentsMissing?"Unavailable":fmt$(atTarget.totalNetMid)}</div><div class="sub">${componentsMissing?"The custom PSS lump has no verified tax components.":"Residual wash-only taxable dollars; CGT on assumed gain only"}</div></div>
     <div class="card warn"><div class="label">Worst-case after-tax @${ta}</div><div class="value">${fmt$(atTarget.totalNet)}</div><div class="sub">Ceiling: 100% taxable, full Pool C taxed — floor on estate value</div></div>
     <div class="card"><div class="label">Super after DBT @${ta} (max tax)</div><div class="value">${fmt$(atTarget.superNet)}</div><div class="sub">17% on 100% of super — $0 if spouse/dependant inherits</div></div>
     <div class="card"><div class="label">Pool C after CGT @${ta} (max tax)</div><div class="value">${fmt$(atTarget.poolCNet)}</div><div class="sub">23.5% on full balance — real CGT is on the gain only</div></div>
@@ -3403,7 +3481,7 @@ function renderEstate(){
   `;
   makeChart("estate_chart",{type:"line",data:{labels:ages,datasets:[
     {label:"Gross estate (no tax)",data:aftertax.map(r=>r.totalGross),borderColor:tc.muted,borderDash:[3,3],tension:.2,pointRadius:0},
-    {label:"Modelled after-tax (wash schedule)",data:aftertax.map(r=>r.totalNetMid),borderColor:tc.good,borderWidth:3,tension:.2,pointRadius:0,fill:"+1",backgroundColor:tc.good+"18"},
+    ...(componentsMissing?[]:[{label:"Modelled after-tax (wash schedule)",data:aftertax.map(r=>r.totalNetMid),borderColor:tc.good,borderWidth:3,tension:.2,pointRadius:0,fill:"+1",backgroundColor:tc.good+"18"}]),
     {label:"Worst-case after-tax (ceiling)",data:aftertax.map(r=>r.totalNet),borderColor:tc.warn,borderDash:[5,4],tension:.2,pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
@@ -3418,7 +3496,7 @@ function renderEstate(){
   wireChartFocus("estate_donut",document.getElementById("estate_donut"));
   renderTable("estate_tbl",[75,80,85,90,95].filter(a=>a<=95).map(age=>{
     const r=aftertax[age-p.retireAge];
-    return[age,fmt$(r.totalGross),fmt$(r.totalNetMid),fmt$(r.totalNet),fmt$(r.totalGross-r.totalNetMid),fmt$(r.totalGross-r.totalNet)];
+    return[age,fmt$(r.totalGross),componentsMissing?"—":fmt$(r.totalNetMid),fmt$(r.totalNet),componentsMissing?"—":fmt$(r.totalGross-r.totalNetMid),fmt$(r.totalGross-r.totalNet)];
   }),["Age","Gross estate","Modelled after-tax","Worst-case after-tax","Modelled tax","Max tax (ceiling)"]);
 }
 
@@ -3559,7 +3637,7 @@ function renderSensitivity(){
   const results=cases.map(c=>runModel({profile:p,abpReturn:c.ret,accumReturn:c.ret*0.85,gapBands:c.bands,spendMode:c.mode,spendReturnPct:STATE.spendReturnPct}));
   const headers=["Scenario","Avg gap pa","@65","@70",`@${ta}`,"@80"];
   const rows=cases.map((c,i)=>{const sim=results[i];return[c.name,fmt$(avgSimGap(sim.rows,p.retireAge,95)),
-    fmt$(sim.rows[65-p.retireAge].total),fmt$(sim.rows[70-p.retireAge].total),
+    p.retireAge<=65?fmt$(sim.rows[65-p.retireAge].total):"—",fmt$(sim.rows[70-p.retireAge].total),
     fmt$(sim.rows[idx].total),fmt$(sim.rows[Math.min(80-p.retireAge,sim.rows.length-1)].total)];});
   renderTable("ss_tbl",rows,headers);
   const ages=results[0].rows.map(r=>r.age);const palette=[tc.warn,tc.acc3,tc.good,tc.acc,tc.poolA];
@@ -4196,6 +4274,7 @@ function pctDiff(base,val){if(!base)return"—";return signedPct((val-base)/Math
 function captureScenarioState(){
   return {
     profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,
+    customProfileInputs:{...STATE.customProfileInputs},
     gapBands:STATE.gapBands.map(b=>({...b})),gapGrowth:STATE.gapGrowth,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
@@ -4206,6 +4285,8 @@ function applyScenarioState(s){
   if(!s)return;
   STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
   if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
+  else customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;
+  restoreCustomInputs(s.customProfileInputs);
   ["profile","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","poolCPolicy","incomeTableMode","reinvestTableMode","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
   STATE.poolCPolicy=STATE.poolCPolicy==="after-abp"?"after-abp":"preserve";
   STATE.incomeTableMode=STATE.incomeTableMode==="full"?"full":"essential";
@@ -4227,7 +4308,8 @@ function renameSlot(slot,name){
   saveState();renderSaveSlots();
 }
 function scenarioStateResult(s){
-  const p=s?.pssElection&&PSS_ELECTIONS[s.pssElection]?railBProfileForElection(s.pssElection,normaliseProjectionBasis(s.pssProjectionBasis||STATE.pssProjectionBasis)):(PROFILES[s?.profile||STATE.profile]||getProfile());
+  const p=!s?getProfile():s.profile==="michael"?PROFILES.michael:
+    profileWithCustomInputs(customSourceProfile(s.pssElection,s.pssProjectionBasis||STATE.pssProjectionBasis),s.customProfileInputs);
   const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,poolCPolicy:s?.poolCPolicy??STATE.poolCPolicy,totalSpendTarget:s?.totalSpendTarget??null,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag});
   const idx=Math.max(0,Math.min(sim.rows.length-1,(s?.targetAge??STATE.targetAge)-p.retireAge));
   return {profile:p,sim,row:sim.rows[idx]};
@@ -4539,6 +4621,8 @@ function updateLabels(){
     const al=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
     const pa=p.poolA_day1??al.poolA;const pb=p.poolB_day1??al.poolB;const pc=p.poolC_day1??0;
     ps.innerHTML=`Pension <strong>$${p.grossPension.toLocaleString()}</strong> | Lump sum <strong>$${p.lumpSum.toLocaleString()}</strong> | Pool A <strong>$${pa.toLocaleString()}</strong> | Pool B <strong>$${pb.toLocaleString()}</strong> | Pool C <strong>$${pc.toLocaleString()}</strong> | TBC <strong>$${p.tbc.toLocaleString()}</strong>`;
+    const status=document.getElementById("custom-profile-status");
+    if(status)status.textContent=(p.customInputs?`Custom inputs active. Hostplus at retirement ${fmtFull(p.hostplus)}. Combined opening investments ${fmtFull(pa+pb+pc)}. `:"Edit an opening assumption and press Tab or Enter to update V23. ")+"These inputs are saved in this browser for V23. Command Centre uses separate source assumptions.";
   }
   const basis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   document.querySelectorAll("[data-pss-election]").forEach(button=>{
@@ -4558,8 +4642,8 @@ function updateLabels(){
   if(electionSummary){
     const e=basis.elections[p.pssElection];
     electionSummary.innerHTML=isRailBProfile(p)&&e
-      ? `<b>${e.label} active · ${basis.shortLabel}% source basis:</b> net PSS ${fmtFull(e.netPension)} p.a. · lump ${fmtFull(e.lumpSum)} · ${p.washMax} source-limited wash cycle${p.washMax===1?"":"s"}${p.tbcExcess>0?` · <span style="color:var(--warn)">${fmtFull(p.tbcExcess)} DB special-value excess over the current $2.1m TBC anchor; confirm provider/tax treatment</span>`:` · ${fmtFull(p.tbcHeadroom)} ABP headroom after the $5k planning buffer`}`
-      : `<b>Rail A control active.</b> Choose a Rail B election above to load the corresponding 1 Sep 2026 estimate.`;
+      ? `<b>${e.label} ${p.customInputs?"source with custom inputs":"active"} · ${basis.shortLabel}:</b> net PSS ${fmtFull(p.netPension)} p.a. · lump ${fmtFull(p.lumpSum)} · ${p.customLumpWithoutComponents?"wash unavailable for unsourced lump":`${p.washMax} source-limited wash cycle${p.washMax===1?"":"s"}`}${p.tbcExcess>0?` · ${fmtFull(p.tbcExcess)} DB special-value excess over the modelled cap`:` · ${fmtFull(p.tbcHeadroom)} Pool A limit after the $5k planning buffer`}`
+      : `<b>${STATE.profile==="custom"?"Custom inputs based on Rail A.":"Rail A control active."}</b> Choose a Rail B election above to load its PSS estimate.`;
   }
   const planCopy=document.getElementById("v23-plan-authority-copy");
   const planBasis=document.getElementById("v23-plan-authority-basis");
@@ -4753,7 +4837,7 @@ function wireProfile(){
     STATE.pssProjectionBasis=normaliseProjectionBasis(basisKey);
     const current=getProfile();
     const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
-    selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,STATE.pssElection||"60-40"),{spendTarget:currentSpend,preserveSpendingPlan:true});
+    selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,STATE.pssElection||"60-40"),{spendTarget:currentSpend,preserveSpendingPlan:true,preserveCustomProfile:true});
     applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
   };
   const basisCurrent=document.getElementById("pss-basis-current");
@@ -4764,7 +4848,7 @@ function wireProfile(){
     btn.addEventListener("click",()=>{
       const current=getProfile();
       const currentSpend=STATE.totalSpendTarget??(Number(current.netPension||0)+Number(gapAtAge(current.retireAge||60,STATE.gapBands)||0));
-      selectPssElection(btn.dataset.pssElection,{spendTarget:currentSpend,preserveSpendingPlan:true});
+      selectPssElection(btn.dataset.pssElection,{spendTarget:currentSpend,preserveSpendingPlan:true,preserveCustomProfile:true});
       applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
     });
   });
@@ -4782,19 +4866,25 @@ function wireProfile(){
       updateLabels();rerenderAll();saveState();
     });
   });
-  // Custom profile fields — input event for real-time updates
-  const cfFields={cf_retire:"retireAge",cf_grossPension:"grossPension",cf_netPension:"netPension",
-    cf_lump:"lumpSum",cf_hostplus:"hostplus",cf_tbc:"tbc",cf_gap:"defaultGap"};
-  Object.entries(cfFields).forEach(([id,prop])=>{
+  Object.entries(V23_CUSTOM_FIELDS).forEach(([id,prop])=>{
     const el=document.getElementById(id);if(!el)return;
-    el.addEventListener("input",()=>{PROFILES.custom[prop]=parseFloat(el.value)||0;PROFILES.custom.name="Custom";PROFILES.custom.pssElection=null;STATE.totalSpendTarget=null;
-      if(STATE.profile==="custom"){updateLabels();rerenderAll();saveState();}});
-  });
-  ["cf_floor","cf_target","cf_strong"].forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    const prop=id.replace("cf_","");
-    el.addEventListener("input",()=>{PROFILES.custom[prop]=parseFloat(el.value)||0;PROFILES.custom.name="Custom";PROFILES.custom.pssElection=null;STATE.totalSpendTarget=null;
-      if(STATE.profile==="custom"){updateLabels();rerenderAll();saveState();}});
+    el.addEventListener("change",()=>{
+      if(STATE.profile!=="custom")return;
+      const value=el.value.trim()===""?NaN:Number(el.value);
+      if(!Object.hasOwn(validateCustomProfileInputs({[prop]:value}),prop)){
+        el.value=String(getProfile()[prop]);
+        const status=document.getElementById("custom-profile-status");
+        if(status)status.textContent=prop==="retireAge"?"Enter a whole retirement age from 55 to 70. The previous value was kept.":"Enter a non-negative amount. The previous value was kept.";
+        return;
+      }
+      const overrides={...STATE.customProfileInputs,[prop]:value};
+      if(value===customProfileBase[prop])delete overrides[prop];
+      restoreCustomInputs(overrides);
+      if(prop==="lumpSum"&&!getProfile().customLumpWithoutComponents&&STATE.wash.maxWashes===0){
+        STATE.wash.maxWashes=getProfile().washMax;
+      }
+      updateLabels();saveState();renderBandRows();rerenderAll();
+    });
   });
 }
 
@@ -4863,6 +4953,7 @@ function applyV23DefaultRailB({preserveSpendingPlan=false}={}){
 function saveState(){
   try{localStorage.setItem(LS_KEY,JSON.stringify({
     defaultsVersion:V23_DEFAULTS_VERSION,profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,
+    customProfileInputs:STATE.customProfileInputs,
     likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,simulationSeed:STATE.simulationSeed,liquidityMonths:STATE.liquidityMonths,
     gapBands:STATE.gapBands,gapGrowth:STATE.gapGrowth,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
@@ -4880,6 +4971,8 @@ function loadState(){
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
     STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
     if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
+    else customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;
+    restoreCustomInputs(s.customProfileInputs);
     ap("profile",s.profile);ap("totalSpendTarget",s.totalSpendTarget);ap("targetAge",s.targetAge);
     ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);ap("simulationSeed",s.simulationSeed);ap("liquidityMonths",s.liquidityMonths);
     if(Array.isArray(s.gapBands)&&s.gapBands.length){
@@ -5249,7 +5342,7 @@ const CONTROLS = [
 ["Gross PSS pension (pa)","Selected source pension before tax treatment. The model also uses it to calculate the ×16 transfer-balance special value."],
 ["Net PSS pension (pa)","The spendable floor after the over-60 offset — the number all spending sits on top of."],
 ["PSS lump sum","The lump amount for the selected source election; it can be zero under 100% pension."],
-["Other super (Hostplus)","Accumulation balance at 60 joining the Day-1 allocation."],
+["Hostplus at retirement","Enter the modelled balance on retirement day, then press Tab or Enter. V23 adds it to the PSS lump sum and recalculates every V23 page. Once Pool A reaches its modelled limit, the rest starts in Pool C. The edit is saved in this browser for V23. Command Centre and Atlas use their own sourced balances."],
 ["TBC at retirement","Transfer balance cap anchor ($2.1M real). Pool A is sized to this minus the special value minus the $5k buffer."],
 ["Default gap (pa)","Annual lifestyle spending ABOVE the net pension, in real dollars. The single most powerful lever in the model."],
 ["Floor / Target / Strong","Three investment-capital planning bands at the selected target age. A target-age pass does not test every intervening year."],
@@ -5694,7 +5787,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     let profile;
     if(isRailB){
       STATE.pssProjectionBasis=normaliseProjectionBasis(shared.pssProjectionBasis);
-      profile=selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,shared.pssElection||"60-40"),{spendTarget:shared.spend,preserveSpendingPlan:Boolean(preservedPlan)});
+      profile=selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,shared.pssElection||"60-40"),{spendTarget:shared.spend,preserveSpendingPlan:Boolean(preservedPlan),preserveCustomProfile:true});
     }else{
       STATE.profile="michael";
       STATE.totalSpendTarget=Math.max(0,shared.spend);
