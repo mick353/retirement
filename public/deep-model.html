@@ -259,6 +259,10 @@ body.print-pack section.page.print-pack-include{display:flex}
 .table-view-tools button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#03080f}
 .table-view-tools small{color:var(--muted);font-size:10px;line-height:1.4}
 .profile-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.profile-input-status{font-size:11px;font-weight:700;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:999px}
+.profile-input-status.is-custom{color:var(--warn);border-color:currentColor;background:var(--panel2)}
+.custom-profile-actions{margin-top:10px}
+.custom-profile-actions button:disabled{opacity:.6;cursor:default}
 .profile-row .pill{
   background:var(--chip);color:var(--muted);
   border:1px solid var(--border);
@@ -1028,7 +1032,8 @@ main{min-width:0;}
           <h3>Profile <span class="control-caption">PSS source, election and opening pools</span></h3>
           <div class="profile-row">
             <span class="pill" data-profile="michael">Rail A · March control</span>
-            <span class="pill active" data-profile="custom">Rail B / custom</span>
+            <span class="pill active" data-profile="custom">Rail B / editable</span>
+            <span class="profile-input-status" id="profile-input-status" role="status">Source figures active</span>
             <span class="muted smaller" id="profile-summary"></span>
           </div>
         </div>
@@ -1069,6 +1074,9 @@ main{min-width:0;}
           <label>Target ($k) <input type="number" id="cf_target" step="10" value="1500"/></label>
           <label>Strong ($k) <input type="number" id="cf_strong" step="10" value="1750"/></label>
           <label>Default gap for band reset (pa) <input type="number" id="cf_gap" step="500" value="24000"/></label>
+        </div>
+        <div class="custom-profile-actions">
+          <button class="btn" type="button" id="reset-custom-profile" disabled>Reset custom figures</button>
         </div>
       </div>
       </div>
@@ -4616,13 +4624,21 @@ function updateLabels(){
   if(pTax)set("petf_lbl_tax",parseInt(pTax.value)+"%");
   if(pYld)set("petf_lbl_yield",parseInt(pYld.value)+"%");
   // Profile summary bar
+  const customFigures=Boolean(p.customInputs);
+  const inputStatus=document.getElementById("profile-input-status");
+  if(inputStatus){
+    inputStatus.textContent=customFigures?"Custom figures active":"Source figures active";
+    inputStatus.classList.toggle("is-custom",customFigures);
+  }
+  const resetCustom=document.getElementById("reset-custom-profile");
+  if(resetCustom)resetCustom.disabled=!customFigures;
   const ps=document.getElementById("profile-summary");
   if(ps){
     const al=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
     const pa=p.poolA_day1??al.poolA;const pb=p.poolB_day1??al.poolB;const pc=p.poolC_day1??0;
     ps.innerHTML=`Pension <strong>$${p.grossPension.toLocaleString()}</strong> | Lump sum <strong>$${p.lumpSum.toLocaleString()}</strong> | Pool A <strong>$${pa.toLocaleString()}</strong> | Pool B <strong>$${pb.toLocaleString()}</strong> | Pool C <strong>$${pc.toLocaleString()}</strong> | TBC <strong>$${p.tbc.toLocaleString()}</strong>`;
     const status=document.getElementById("custom-profile-status");
-    if(status)status.textContent=(p.customInputs?`Custom inputs active. Hostplus at retirement ${fmtFull(p.hostplus)}. Combined opening investments ${fmtFull(pa+pb+pc)}. `:"Edit an opening assumption and press Tab or Enter to update V23. ")+"These inputs are saved in this browser for V23. Command Centre uses separate source assumptions.";
+    if(status)status.textContent=(customFigures?`Hostplus at retirement ${fmtFull(p.hostplus)}. Combined opening investments ${fmtFull(pa+pb+pc)}. Reset custom figures restores the selected source figures and keeps your spending plan. `:"Edit an opening assumption and press Tab or Enter to update V23. ")+"These inputs are saved in this browser for V23. Command Centre uses separate source assumptions.";
   }
   const basis=PSS_PROJECTION_BASES[STATE.pssProjectionBasis];
   document.querySelectorAll("[data-pss-election]").forEach(button=>{
@@ -4833,6 +4849,12 @@ function wireNav(){
 
 /* ========== PROFILE ========== */
 function wireProfile(){
+  const resetCustom=document.getElementById("reset-custom-profile");
+  if(resetCustom)resetCustom.addEventListener("click",()=>{
+    if(!getProfile().customInputs)return;
+    restoreCustomInputs({});
+    applyStateToInputs();updateLabels();saveState();renderBandRows();rerenderAll();
+  });
   const selectProjectionBasis=basisKey=>{
     STATE.pssProjectionBasis=normaliseProjectionBasis(basisKey);
     const current=getProfile();
@@ -5337,7 +5359,7 @@ decisions:{t:"Decision log",w:"Settled decisions with dates and evidence — the
 
 /* ---------- global control panel reference ---------- */
 const CONTROLS = [
-["Profile and PSS election","Michael preserves the Rail A control. The four Rail B election buttons load exact September source values. Custom fields remain available for deliberate non-source what-ifs."],
+["Profile and PSS election","Rail A preserves the March control. The four Rail B election buttons load the selected provider estimates. The profile badge tells you whether V23 is using source figures or custom figures. Open Profile & PSS and select Reset custom figures to restore the figures for the selected basis and election and keep your spending plan."],
 ["Retirement age","Pension start age. Locked plan: 60 (Dec 2033). Changing it moves every downstream date."],
 ["Gross PSS pension (pa)","Selected source pension before tax treatment. The model also uses it to calculate the ×16 transfer-balance special value."],
 ["Net PSS pension (pa)","The spendable floor after the over-60 offset — the number all spending sits on top of."],

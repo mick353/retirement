@@ -225,6 +225,13 @@ const customProfileStorage = new Map();
 const customFieldHandlers = new Map();
 const customHostplusField = { value: "", addEventListener: (event, handler) => customFieldHandlers.set(event, handler) };
 const customProfileSummary = { innerHTML: "" };
+const customProfileBadgeClasses = new Set();
+const customProfileBadge = {
+  textContent: "",
+  classList: { toggle: (name, active) => active ? customProfileBadgeClasses.add(name) : customProfileBadgeClasses.delete(name) },
+};
+const customResetHandlers = new Map();
+const customResetButton = { disabled: true, addEventListener: (event, handler) => customResetHandlers.set(event, handler) };
 v23Context.localStorage = {
   getItem: (key) => customProfileStorage.get(key) ?? null,
   setItem: (key, value) => customProfileStorage.set(key, value),
@@ -232,8 +239,12 @@ v23Context.localStorage = {
 v23Context.document.getElementById = (id) => ({
   cf_hostplus: customHostplusField,
   "profile-summary": customProfileSummary,
+  "profile-input-status": customProfileBadge,
+  "reset-custom-profile": customResetButton,
 })[id] ?? null;
-v23(`currentPage=""; selectPssElection("70-30",{spendTarget:110000}); wireProfile();`);
+v23(`currentPage=""; selectPssElection("70-30",{spendTarget:110000}); wireProfile(); updateLabels();`);
+assert.equal(customProfileBadge.textContent, "Source figures active", "The sourced profile has a clear default status");
+assert.equal(customResetButton.disabled, true, "Reset is disabled with no overrides");
 customHostplusField.value = "800000";
 customFieldHandlers.get("change")();
 const customOpening = v23("runModel({profile:getProfile(),abpReturn:.05,accumReturn:.0425}).rows[0]");
@@ -242,6 +253,9 @@ close(customOpening.acc, 0, "V23 custom Hostplus retains zero Pool B");
 close(customOpening.poolC, 922_920.64, "V23 custom Hostplus feeds uncapped capital into Pool C");
 close(customOpening.total, 1_304_768.16, "V23 model opening includes the custom Hostplus amount");
 assert.match(customProfileSummary.innerHTML, /922,920\.64/, "The profile summary shows the same opening pools");
+assert.equal(customProfileBadge.textContent, "Custom figures active", "The profile summary indicates when overrides are in use");
+assert.equal(customProfileBadgeClasses.has("is-custom"), true, "The custom figure status is highlighted");
+assert.equal(customResetButton.disabled, false, "Reset is enabled for custom figures");
 assert.equal(v23("getProfile().pssElection"), "70-30", "Hostplus does not clear the PSS source");
 close(v23("getProfile().lumpTaxableTaxed"), expectedElectionsByBasis["source-825"]["70-30"].lumpTaxableTaxed,
   "Hostplus does not replace the sourced PSS tax components");
@@ -260,6 +274,24 @@ close(v23("getProfile().hostplus"), 800_000, "Opening a saved scenario restores 
 v23('selectPssElection("60-40",{preserveCustomProfile:true})');
 close(v23("getProfile().hostplus"), 800_000, "Trying a different election preserves the custom Hostplus balance");
 close(v23('profileWithCustomInputs(getProfile(),{lumpSum:500000}).washMax'), 0, "A custom PSS lump cannot reuse the source wash component split");
+v23(`STATE.pssProjectionBasis="prudent-630"; selectPssElection("65-35",{spendTarget:104000,preserveCustomProfile:true});
+      STATE.likely=.06; STATE.targetAge=75; updateLabels();`);
+customResetHandlers.get("click")();
+const resetProfile = v23("getProfile()");
+const resetSource = v23('railBProfileForElection("65-35","prudent-630")');
+close(resetProfile.hostplus, resetSource.hostplus, "Reset restores Hostplus from the selected source");
+close(resetProfile.poolA_day1, resetSource.poolA_day1, "Reset restores the sourced Pool A opening");
+close(resetProfile.poolC_day1, resetSource.poolC_day1, "Reset restores the sourced Pool C opening");
+assert.equal(resetProfile.pssElection, "65-35", "Reset retains the selected election");
+assert.equal(resetProfile.pssProjectionBasis, "prudent-630", "Reset retains the selected source basis");
+assert.equal(v23("STATE.totalSpendTarget"), 104000, "Reset retains the spending target");
+assert.equal(v23("STATE.likely"), .06, "Reset retains the return");
+assert.equal(v23("STATE.targetAge"), 75, "Reset retains the target age");
+assert.equal(customProfileBadge.textContent, "Source figures active", "Reset removes the custom status");
+assert.equal(customProfileBadgeClasses.has("is-custom"), false, "Reset removes the custom highlight");
+assert.equal(customResetButton.disabled, true, "Reset is disabled when source figures are active again");
+v23("loadState()");
+assert.equal(v23("getProfile().customInputs"), undefined, "Reset survives a reload");
 
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
