@@ -340,6 +340,48 @@ importHandoff(sharedHandoff.replace("spend=122000","spend=130000"));
 assert.equal(v23("STATE.gapBands[0].amount"), 12345, "A different hand-off keeps saved V23 age bands until an explicit restore");
 assert.equal(v23("STATE.sharedImport.scenario.spend"), 130000, "A different hand-off updates the restore point");
 
+const flatSpendField = { value: "", valueAsNumber: 130000 };
+let submitFlatSpend;
+const flatSpendForm = { hidden: true, addEventListener: (name, handler) => { if (name === "submit") submitFlatSpend = handler; } };
+const ageBandEditor = { hidden: false };
+const spendingRuleSelect = { value: "" };
+const sharedV23Lookup = v23Context.document.getElementById;
+v23Context.document.getElementById = (id) => ({
+  "v23-flat-spend-form": flatSpendForm,
+  "v23-flat-spend": flatSpendField,
+  "v23-age-band-editor": ageBandEditor,
+  sel_spendmode: spendingRuleSelect,
+})[id] ?? sharedV23Lookup(id);
+const pensionHandoff = "?shared=1&rail=B&pss=100&basis=prudent-630&spend=122000&return=0.05&age=75";
+importHandoff(pensionHandoff);
+v23("restoreSharedV23Plan(); wireBandEditor();");
+assert.equal(spendingRuleSelect.value, "flatTotal", "The imported plan displays the total spending rule");
+assert.equal(flatSpendField.value, "122000", "The imported amount is directly editable");
+assert.equal(ageBandEditor.hidden, true, "Age-band controls are hidden while total spending is active");
+const initialHealthCapital = v23('runHealth("none")[1].poolC');
+const initialShockCapital = v23("runCPI()[1].poolC");
+submitFlatSpend({ preventDefault: () => undefined });
+close(v23("STATE.totalSpendTarget"), 130000, "The V23 form replaces the imported annual budget");
+close(v23("runModel({}).rows[1].fundedTotalSpend"), 130000, "The ledger uses the edited budget");
+close(v23("runModel({}).rows[1].pensionToPoolC"), 5575.70, "The remaining pension is invested");
+close(v23('runHealth("none")[1].poolC'), initialHealthCapital - 8000, "The health-stress ledger uses the edited pension surplus");
+close(v23("runCPI()[1].poolC"), initialShockCapital - 8000, "The inflation-stress ledger uses the edited pension surplus");
+assert.match(sharedActive.textContent, /\$130,000 flat total spending/);
+assert.match(sharedOriginal.textContent, /\$122,000 flat total spending/);
+v23("loadState()");
+importHandoff(pensionHandoff);
+assert.equal(v23("STATE.totalSpendTarget"), 130000, "A local flat edit survives a reload of the original URL");
+v23('setV23SpendingRule("fixed");');
+assert.equal(v23("STATE.gapBands[0].amount"), 12345, "Switching back to bands restores the previously saved schedule");
+assert.equal(ageBandEditor.hidden, false);
+v23('setV23SpendingRule("flatTotal");');
+assert.equal(v23("STATE.totalSpendTarget"), 130000, "Switching back to total spending recalls the edited annual budget");
+v23("restoreSharedV23Plan()");
+assert.equal(v23("STATE.totalSpendTarget"), 122000, "Only an explicit restore brings back the imported amount");
+flatSpendField.valueAsNumber = 0;
+submitFlatSpend({ preventDefault: () => undefined });
+assert.equal(v23("STATE.totalSpendTarget"), 0, "An intentional zero budget is valid");
+
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
 assert.match(atlasSource, /theme:\s*activeTheme\(\)/, "Atlas shared links carry the selected colour theme");

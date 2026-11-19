@@ -314,6 +314,13 @@ body.print-pack section.page.print-pack-include{display:flex}
 
 .band-block{grid-column:span 2;min-width:0}
 .primary-spend-control{border-color:rgba(47,212,146,.42);background:linear-gradient(145deg,rgba(47,212,146,.08),var(--panel2) 42%)}
+.primary-spend-control select{max-width:100%}
+.flat-spend-form{margin-top:12px}
+.flat-spend-form label{display:block;margin-bottom:5px;color:var(--muted);font-size:12px}
+.flat-spend-fields{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.flat-spend-fields input{width:13ch;max-width:100%;min-height:38px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--chip);color:var(--text);font:inherit}
+.flat-spend-form .note{margin-top:9px}
+#v23-age-band-editor{margin-top:12px}
 .control-kicker{margin:0 0 8px;color:var(--good);font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
 .spending-control-callout{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:2px;padding:12px 14px;border:1px solid rgba(47,212,146,.4);border-radius:12px;background:linear-gradient(90deg,rgba(47,212,146,.11),rgba(77,131,255,.08));}
 .spending-control-callout b,.spending-control-callout span{display:block}
@@ -1034,6 +1041,7 @@ main{min-width:0;}
         <details><summary>Imported Command Centre assumptions</summary><span id="v23-shared-original"></span></details>
       </div>
       <div class="shared-actions">
+        <button type="button" id="v23-edit-spending">Edit spending in V23</button>
         <button type="button" id="v23-restore-shared" hidden>Restore imported plan</button>
         <a id="v23-shared-command-link" href="./">Back to Command Centre</a>
       </div>
@@ -1114,16 +1122,27 @@ main{min-width:0;}
       <div class="control-bar-body" id="plan-controls-body" hidden>
       <div class="slider-grid">
         <div class="slider-block band-block primary-spend-control" id="spend-control">
-          <div class="control-kicker">Primary spending control</div>
-          <div class="lab">
-            <span>Age-band editor</span>
-            <span class="val">Detailed inputs</span>
-          </div>
+          <div class="lab"><label for="sel_spendmode">Spending rule</label><span class="val" id="lbl-spendmode"></span></div>
+          <select id="sel_spendmode">
+            <option value="flatTotal">Total annual spending</option>
+            <option value="fixed">Age bands (spending above your PSS pension)</option>
+            <option value="returnPct">% of investment earnings above PSS</option>
+            <option value="drawPct">% of mandatory draw above PSS</option>
+          </select>
+          <form class="flat-spend-form" id="v23-flat-spend-form" hidden>
+            <label for="v23-flat-spend">Annual spending budget ($ after tax)</label>
+            <div class="flat-spend-fields">
+              <input id="v23-flat-spend" type="number" min="0" step="any" required inputmode="decimal" aria-describedby="v23-flat-spend-detail">
+              <button type="submit" class="btn">Apply spending</button>
+            </div>
+            <div class="note" id="v23-flat-spend-detail" role="status"></div>
+          </form>
+          <div id="v23-age-band-editor">
           <div id="band-rows"></div>
           <div class="band-actions">
             <button type="button" class="pill" id="btn-add-band">+ Add band</button>
-            <button type="button" class="pill" id="btn-reset-bands">Reset</button>
-            <button type="button" class="pill" id="btn-band-preset-flat">Flat</button>
+            <button type="button" class="pill" id="btn-reset-bands">Reset age bands</button>
+            <button type="button" class="pill" id="btn-band-preset-flat">One gap band</button>
             <button type="button" class="pill" id="btn-band-preset-ramp">Ramp</button>
             <button type="button" class="pill" id="btn-band-preset-frontload">Front-load</button>
           </div>
@@ -1138,22 +1157,15 @@ main{min-width:0;}
           <div class="band-mini">
             <canvas id="band-mini-chart"></canvas>
           </div>
+          </div>
         </div>
         <div class="slider-block highlight">
           <div class="lab"><span>📍 Target age (all outputs)</span><span class="val" id="lbl-targetage"></span></div>
           <input type="range" id="sl_targetage" min="70" max="95" step="1" value="75"/>
         </div>
         <div class="slider-block">
-          <div class="lab"><span>Gap real growth (on top of bands)</span><span class="val" id="lbl-gapgrowth"></span></div>
+          <div class="lab"><span id="lbl-gapgrowth-basis">Real growth above inflation</span><span class="val" id="lbl-gapgrowth"></span></div>
           <input type="range" id="sl_gapgrowth" min="0" max="3" step="0.5" value="0"/>
-        </div>
-        <div class="slider-block highlight">
-          <div class="lab"><span>Annual spend mode</span><span class="val" id="lbl-spendmode"></span></div>
-          <select id="sel_spendmode">
-            <option value="fixed">Use age bands ($ / % return / % draw)</option>
-            <option value="returnPct">Override: % of investment earnings</option>
-            <option value="drawPct">Override: % of mandatory drawdown</option>
-          </select>
         </div>
         <div class="slider-block highlight">
           <div class="lab"><span>Pool C spending policy</span><span class="val" id="lbl-poolcpolicy"></span></div>
@@ -1163,11 +1175,11 @@ main{min-width:0;}
           </select>
           <div class="note" id="poolc-policy-note" style="margin-top:8px"></div>
         </div>
-        <div class="slider-block">
+        <div class="slider-block" id="v23-spend-percentage" hidden>
           <div class="lab"><span id="lbl-spendbasis">Spend % of annual investment earnings</span><span class="val" id="lbl-spendreturn"></span></div>
           <input type="range" id="sl_spendreturn" min="0" max="100" step="5" value="50"/>
         </div>
-        <div class="slider-block band-block">
+        <div class="slider-block band-block" id="v23-spend-percentage-detail" hidden>
           <div class="note" id="spend-mode-note"></div>
         </div>
         <div class="slider-block">
@@ -1357,7 +1369,7 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-income">
-      <div class="note good"><b>Primary spending control.</b> Set the actual plan in the <b>Annual gap by age band</b> control above: each “From age” row creates a spending and drawdown period. Those global inputs drive every V23 view; this page is the clearest place to review the resulting income, draws and retained capital.</div>
+      <div class="note good"><b>Set your spending in Plan controls above.</b> Use <b>Total annual spending</b> for one budget, or <b>Age bands</b> to set different amounts above your PSS pension at different ages.</div>
       <div class="cards" id="in_cards"></div>
       <div class="panel">
         <h2>Income composition by year (likely path)</h2>
@@ -1945,6 +1957,8 @@ const STATE = {
   pssElection:"70-30",
   pssProjectionBasis:"source-825",
   totalSpendTarget:null,
+  lastFlatSpendTarget:null,
+  savedAgeBands:null,
   wash:{enabled:true,startAge:61,annual:130000,maxWashes:6,cutoffAge:75,targetDBT:10000,method:"separate",schedule:{},tsbBuffer:5000},
   targetAge:75,
   gapBands:[{age:60, amount:24000, unit:"dollar"}],
@@ -2093,7 +2107,7 @@ function lifestylePhaseDefinitions(sim,p){
   if(!operating.length)return[];
   const firstOperatingAge=operating[0].age,lastOperatingAge=operating[operating.length-1].age;
   if(STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined){
-    return[{start:firstOperatingAge,end:lastOperatingAge,label:`Imported total-spend phase (age ${p.retireAge}–${lastOperatingAge})`,input:`${fmtFull(STATE.totalSpendTarget)} total net spending p.a.; V23 derives either the portfolio gap or the PSS surplus`}];
+    return[{start:firstOperatingAge,end:lastOperatingAge,label:`Total-spend phase (age ${p.retireAge}–${lastOperatingAge})`,input:`${v23TotalSpendLabel()}; V23 derives the portfolio gap or PSS surplus`}];
   }
   if(STATE.spendMode!=="fixed"){
     const rule=STATE.spendMode==="drawPct"?`${fmtPctClean(STATE.spendReturnPct,0)} of mandatory draw`:`${fmtPctClean(STATE.spendReturnPct,0)} of investment earnings`;
@@ -2262,6 +2276,34 @@ function syncFlatSpendBand(){
   const p=getProfile();
   STATE.gapBands=makeBandsFromGap(Math.max(0,STATE.totalSpendTarget-p.netPension),p.retireAge);
 }
+function setV23FlatSpending(amount){
+  if(STATE.totalSpendTarget===null)STATE.savedAgeBands=STATE.gapBands;
+  STATE.totalSpendTarget=amount;
+  STATE.lastFlatSpendTarget=amount;
+  STATE.spendMode="fixed";
+  syncFlatSpendBand();
+}
+
+function setV23SpendingRule(rule){
+  if(rule==="flatTotal"){
+    const amount=STATE.lastFlatSpendTarget??runModel({endAge:getProfile().retireAge+1}).rows[1].targetSpend;
+    setV23FlatSpending(amount);
+  }else{
+    if(STATE.totalSpendTarget!==null){
+      STATE.lastFlatSpendTarget=STATE.totalSpendTarget;
+      if(STATE.savedAgeBands)STATE.gapBands=STATE.savedAgeBands;
+      STATE.savedAgeBands=null;
+      STATE.totalSpendTarget=null;
+    }
+    STATE.spendMode=rule;
+  }
+  updateLabels();renderBandRows();rerenderAll();saveState();
+}
+
+function restoreSpendingDrafts(saved){
+  STATE.lastFlatSpendTarget=Number.isFinite(saved.lastFlatSpendTarget)&&saved.lastFlatSpendTarget>=0?saved.lastFlatSpendTarget:null;
+  STATE.savedAgeBands=Array.isArray(saved.savedAgeBands)&&saved.savedAgeBands.length?normaliseGapBands(saved.savedAgeBands).bands:null;
+}
 function tIdx(){return STATE.targetAge-getProfile().retireAge;}
 
 /* ========== TBC ALLOCATION ENGINE ========== */
@@ -2297,6 +2339,8 @@ function routeSurplus(surplus,headroom,abp,acc){
 }
 
 /* ========== SIMULATION ENGINE ========== */
+function annualTotalBudget(target,growth,yearIndex){return Math.max(0,Number(target))*Math.pow(1+growth,yearIndex);}
+
 function runModel(opts){
   const p=opts.profile||getProfile();
   const tbcAlloc=calcTBCAllocation(p.grossPension,p.lumpSum,p.hostplus,p.tbc);
@@ -2344,7 +2388,7 @@ function runModel(opts){
     const requestedGap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA,rB,rC,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age),spendMode,spendReturnPct});
     const desiredTotal=totalSpendTarget===null||totalSpendTarget===undefined
       ? (opts.referencePension??p.netPension)+requestedGap
-      : Math.max(0,Number(totalSpendTarget))*Math.pow(1+gapGrowth,t);
+      : annualTotalBudget(totalSpendTarget,gapGrowth,t);
     // The decision sees only opening balances, age and the desired budget. Current returns
     // are used later by the existing ledger. Return-based spending is ex-post and excluded.
     if(policy.mode==="adaptive"&&(spendMode==="returnPct"||bandAtAge(age,gapBands)?.unit==="returnPct"))throw Error("Adaptive mode cannot use current-year percentage-of-return spending.");
@@ -2602,9 +2646,13 @@ function runHealth(scenarioKey,opts={}){
   for(let age=startAge+1;age<=endAge;age++){
     const t=age-startAge-1;
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
-    const gap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA:abpR,rB:accR,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)});
+    const totalBudget=STATE.totalSpendTarget===null?null:annualTotalBudget(STATE.totalSpendTarget,gapGrowth,t);
+    const gap=totalBudget===null
+      ? annualLifestyleGap({age,t,gapBands,gapGrowth,rA:abpR,rB:accR,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})
+      : Math.max(0,totalBudget-p.netPension);
     const mandDraw=preAbp*mandRate(age);
     abp=preAbp*(1+abpR)-mandDraw;acc*=(1+accR);poolC*=(1+poolCR);
+    if(totalBudget!==null)poolC+=Math.max(0,p.netPension-totalBudget);
     const realExit=Math.min(gap,mandDraw);const surplus=Math.max(0,mandDraw-realExit);
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;}
     if(gap>mandDraw){const amount=gap-mandDraw;const w=withdrawFromPools(amount,abp,acc);abp=w.abp;acc=w.acc;if(poolCPolicy==="after-abp"&&w.drawn<amount){const fromC=Math.min(amount-w.drawn,poolC);poolC-=fromC;}}
@@ -2640,9 +2688,13 @@ function runCPI(opts={}){
     pensionReal=inShock?p.netPension*(1-shockMag):p.netPension;
     const preAbp=abp,preAcc=acc,prePoolC=poolC;
     const pensionShortfall=Math.max(0,p.netPension-pensionReal);
-    const gap=annualLifestyleGap({age,t,gapBands,gapGrowth,rA:ageRetReal,rB:ageRetReal*0.85,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})+pensionShortfall;
+    const totalBudget=STATE.totalSpendTarget===null?null:annualTotalBudget(STATE.totalSpendTarget,gapGrowth,t);
+    const gap=totalBudget===null
+      ? annualLifestyleGap({age,t,gapBands,gapGrowth,rA:ageRetReal,rB:ageRetReal*0.85,rC:poolCR,preAbp,preAcc,prePoolC,mandDraw:preAbp*mandRate(age)})+pensionShortfall
+      : Math.max(0,totalBudget-pensionReal);
     const mandDraw=preAbp*mandRate(age);
     abp=preAbp*(1+ageRetReal)-mandDraw;acc*=(1+ageRetReal*0.85);poolC*=(1+poolCR);
+    if(totalBudget!==null)poolC+=Math.max(0,pensionReal-totalBudget);
     const realExit=Math.min(gap,mandDraw);const surplus=Math.max(0,mandDraw-realExit);
     if(surplus>0){const r=routeSurplus(surplus,headroom,abp,acc);abp+=r.toABP;poolC+=r.toPoolC;headroom=r.headroomAfter;}
     if(gap>mandDraw){const amount=gap-mandDraw;const w=withdrawFromPools(amount,abp,acc);abp=w.abp;acc=w.acc;if(poolCPolicy==="after-abp"&&w.drawn<amount){const fromC=Math.min(amount-w.drawn,poolC);poolC-=fromC;}}
@@ -3156,10 +3208,10 @@ function renderIncome(){
   const lifetimeTotal=cumP+cumD+cumX+cumC;const avgAnnualTotal=lifetimeTotal/Math.max(1,operatingRows.length);
   const firstYear=operatingRows[0];const firstYearIncome=(firstYear?.pensionSpent??firstYear?.pension??0)+(firstYear?.realExit||0)+(firstYear?.extraDraw||0)+(firstYear?.poolCDraw||0);
   document.getElementById("in_cards").innerHTML=`
-    <div class="card accent"><div class="label">Avg total usable income</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
-    <div class="card"><div class="label">PSS net pension (CPI-flat)</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight${cumPSurplus>0?` · excess above spend is saved`:``}</div></div>
-    <div class="card good"><div class="label">Lifetime usable to 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS consumed ${fmt$(cumP)} + compulsory draw ${fmt$(cumD)}${cumX>0?` + Pool A/B extra ${fmt$(cumX)}`:``}${cumC>0?` + Pool C ${fmt$(cumC)}`:``}${cumPSurplus>0?` · PSS surplus ${fmt$(cumPSurplus)} → Pool C`:``}</div></div>
-    <div class="card"><div class="label">Year 1 income (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">Includes PSSDB pension and investment draw · ${fmtPF(firstYearIncome/26)}/fortnight</div></div>
+    <div class="card accent"><div class="label">Average annual spending funded</div><div class="value">${fmt$(avgAnnualTotal)}/yr</div><div class="sub">${fmtPF(avgAnnualTotal/26)}/fortnight</div></div>
+    <div class="card"><div class="label">PSS net pension</div><div class="value">${fmt$(p.netPension)}/yr</div><div class="sub">${fmtPF(p.netPension/26)}/fortnight${cumPSurplus>0?` · ${fmtFull(cumPSurplus/operatingRows.length)}/yr average surplus to Pool C`:``}</div></div>
+    <div class="card good"><div class="label">Total spending funded to age 95</div><div class="value">${fmt$(lifetimeTotal)}</div><div class="sub">PSS spent ${fmt$(cumP)} · mandatory draw spent ${fmt$(cumD)}${cumX>0?` · Pool A/B extra ${fmt$(cumX)}`:``}${cumC>0?` · Pool C ${fmt$(cumC)}`:``}</div></div>
+    <div class="card"><div class="label">Year 1 spending funded (age ${p.retireAge}→${firstYear?.age??p.retireAge+1})</div><div class="value">${fmt$(firstYearIncome)}/yr</div><div class="sub">${fmtPF(firstYearIncome/26)}/fortnight</div></div>
   `;
   makeChart("in_chart",{type:"bar",data:{labels:operatingAges,datasets:[
     {label:"PSS pension consumed",data:operatingRows.map(r=>r.pensionSpent??r.pension),backgroundColor:tc.pension,stack:"s"},
@@ -3963,7 +4015,7 @@ function renderAudit(){
     ["PSS election",isRailBProfile(p)?(activeBasis.elections[p.pssElection]?.label||"selected"):"Rail A historical control",isRailBProfile(p)?activeBasis.elections[p.pssElection]?.source:"March 2026 iEstimator"],
     ["PSS provider basis",PSS_PROJECTION_BASES[STATE.pssProjectionBasis].label,`${PSS_PROJECTION_BASES[STATE.pssProjectionBasis].shortLabel}% = fund earnings / salary growth / CPI before retirement; ${fmtPct(PSS_PROJECTION_BASES[STATE.pssProjectionBasis].realFundEarnings,2)} real fund equivalent`],
     ["Post-retirement return",fmtPctClean(STATE.likely),"Separate V23 real-return control; begins from the provider-sourced retirement-day opening"],
-    ["Total-spend override",STATE.totalSpendTarget===null?"Off — native gap bands":fmtFull(STATE.totalSpendTarget)+" p.a.","Imported total target derives either portfolio gap or PSS surplus"],
+    ["Annual total spending",STATE.totalSpendTarget===null?"Use active spending gap rule":v23TotalSpendLabel(),"V23 derives the portfolio gap or PSS surplus"],
     ["Retire age",p.retireAge,"locked"],
     ["Target age",ta,"adjustable via slider"],
     ["Gross pension pa","$"+p.grossPension.toLocaleString(),"locked — PSS DB formula"],
@@ -4305,6 +4357,7 @@ function captureScenarioState(){
     profile:STATE.profile,pssElection:STATE.pssElection,pssProjectionBasis:STATE.pssProjectionBasis,totalSpendTarget:STATE.totalSpendTarget,targetAge:STATE.targetAge,likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,
     customProfileInputs:{...STATE.customProfileInputs},
     gapBands:STATE.gapBands.map(b=>({...b})),gapGrowth:STATE.gapGrowth,
+    lastFlatSpendTarget:STATE.lastFlatSpendTarget,savedAgeBands:STATE.savedAgeBands?.map(b=>({...b}))??null,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
     cpi:STATE.cpi,cpiDur:STATE.cpiDur,cpiAge:STATE.cpiAge,cpiDrag:STATE.cpiDrag,theme:STATE.theme
@@ -4324,6 +4377,8 @@ function applyScenarioState(s){
     const clean=normaliseGapBands(s.gapBands);STATE.gapBands=clean.bands;
     if(clean.duplicateAges.length)alert(`Duplicate start age${clean.duplicateAges.length>1?"s":""} ${clean.duplicateAges.join(", ")} removed from the imported plan; the later value was kept.`);
   }
+  restoreSpendingDrafts(s);
+  syncFlatSpendBand();
   applyStateToInputs();updateLabels();renderBandRows();rerenderAll();saveState();
 }
 function slotKey(slot){return `v23_slot_${slot}`;}
@@ -4543,6 +4598,10 @@ function wirePlanControls(){
   if(toggle)toggle.addEventListener("click",()=>togglePlanControls());
   setPlanControlsExpanded(false);
 }
+function openV23SpendingControls(){
+  setPlanControlsExpanded(true,{scroll:true});
+  document.getElementById(STATE.totalSpendTarget!==null?"v23-flat-spend":"sel_spendmode")?.focus({preventScroll:true});
+}
 function showPage(id){
   if(id&&!id.startsWith("page-"))id="page-"+id;
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
@@ -4567,11 +4626,30 @@ function rerenderAll(){
 function updateLabels(){
   const p=getProfile();
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  const flatSpend=STATE.totalSpendTarget!==null;
+  const spendRule=flatSpend?"flatTotal":STATE.spendMode;
+  const percentSpend=spendRule==="returnPct"||spendRule==="drawPct";
+  const modeSelect=document.getElementById("sel_spendmode");
+  if(modeSelect)modeSelect.value=spendRule;
+  const show=(id,visible)=>{const el=document.getElementById(id);if(el)el.hidden=!visible;};
+  show("v23-flat-spend-form",flatSpend);
+  show("v23-age-band-editor",spendRule==="fixed");
+  show("v23-spend-percentage",percentSpend);
+  show("v23-spend-percentage-detail",percentSpend);
+  const spendingInput=document.getElementById("v23-flat-spend");
+  if(flatSpend&&spendingInput!==document.activeElement&&spendingInput)spendingInput.value=String(STATE.totalSpendTarget);
+  if(flatSpend){
+    const difference=p.netPension-STATE.totalSpendTarget;
+    const cashflow=difference>0?`${fmtFull(difference)} of net PSS goes to Pool C`
+      : difference<0?`${fmtFull(-difference)} is the gap for your investments to fund`:"Net PSS covers the budget exactly";
+    set("v23-flat-spend-detail",`First year in today’s dollars: net PSS ${fmtFull(p.netPension)}. ${cashflow}.`);
+  }
   set("lbl-likely",(STATE.likely*100).toFixed(1)+"%");
   set("lbl-vol",(STATE.vol*100).toFixed(0)+"%");
   set("lbl-runs",STATE.runs);
   set("lbl-targetage","Age "+STATE.targetAge);
   set("lbl-gapgrowth",fmtPctClean(STATE.gapGrowth));
+  set("lbl-gapgrowth-basis",flatSpend?"Total spending growth above inflation":"Spending gap growth above inflation");
   const _W=STATE.wash||{};
   set("lbl-washon",_W.enabled?"On":"Off");
   set("lbl-washstart","Age "+_W.startAge);
@@ -4589,7 +4667,7 @@ function updateLabels(){
   const _wc=document.getElementById("sl_washcut"); if(_wc)_wc.value=_W.cutoffAge;
   const noPssWash=Number(p.washSourceGross??p.lumpSum??0)<=0;
   [_wo,_ws,_wa,_wx,_wt,_wc,_wm].forEach(control=>{if(control)control.disabled=noPssWash;});
-  set("lbl-spendmode",STATE.spendMode==="returnPct"?"Override: % earnings":(STATE.spendMode==="drawPct"?"Override: % draw":"Age bands"));
+  set("lbl-spendmode",flatSpend?fmtFull(STATE.totalSpendTarget)+"/yr":STATE.spendMode==="returnPct"?"% earnings":(STATE.spendMode==="drawPct"?"% draw":"Age bands"));
   set("lbl-spendbasis",STATE.spendMode==="returnPct"?"Spend % of annual investment earnings":(STATE.spendMode==="drawPct"?"Spend % of mandatory drawdown":"Spend % (override slider — inactive)"));
   set("lbl-spendreturn",fmtPctClean(STATE.spendReturnPct,0));
   set("lbl-oo","$"+(STATE.oneOff/1000).toFixed(0)+"k");
@@ -4599,20 +4677,17 @@ function updateLabels(){
   if(poolCPolicyNote)poolCPolicyNote.innerHTML=STATE.poolCPolicy==="after-abp"
     ? `<b>Use after A/B:</b> if the PSS pension plus Pools A and B cannot fund the active target, V23 draws the remaining gap from external Pool C. This improves spending coverage but reduces liquid estate capital.`
     : `<b>Preserve Pool C:</b> V23 does not sell external Pool C to fund routine lifestyle gaps. Any gap left after Pools A and B is shown honestly as a shortfall.`;
-  const importedSpend=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined;
-  const planRuleLabel=importedSpend
-    ? "Imported annual spend target"
+  const planRuleLabel=flatSpend
+    ? "Annual spending budget"
     : STATE.spendMode==="fixed"?"Annual gap by age band":"Active annual gap rule";
-  const planRuleSummary=importedSpend
-    ? `${fmtFull(STATE.totalSpendTarget)} total spend · derived gap/surplus`
+  const planRuleSummary=flatSpend
+    ? v23TotalSpendLabel()
     : STATE.spendMode==="returnPct"
     ? `${fmtPctClean(STATE.spendReturnPct,0)} of positive investment earnings`
     : STATE.spendMode==="drawPct"
     ? `${fmtPctClean(STATE.spendReturnPct,0)} of the mandatory ABP draw`
     : bandsToString(STATE.gapBands);
-  const planRuleContext=importedSpend
-    ? "Imported target active"
-    : STATE.spendMode==="fixed"?"Age bands active":"Override active · age bands saved, not used";
+  const planRuleContext=flatSpend?"Total spending active":STATE.spendMode==="fixed"?"Age bands active":"Percentage rule active";
   set("plan-control-rule-label",planRuleLabel);
   set("lbl-gap-summary",planRuleSummary);
   set("plan-control-context",`${planRuleContext} · ${fmtPctClean(STATE.likely)} real return · target age ${STATE.targetAge} · Pool C ${STATE.poolCPolicy==="after-abp"?"after A/B":"preserved"}`);
@@ -4710,7 +4785,7 @@ function applyStateToInputs(){
   set("sl_runs",STATE.runs);
   set("sl_targetage",STATE.targetAge);
   set("sl_gapgrowth",Number((STATE.gapGrowth*100).toFixed(1)));
-  set("sel_spendmode",STATE.spendMode);
+  set("sel_spendmode",STATE.totalSpendTarget===null?STATE.spendMode:"flatTotal");
   set("sel_poolcpolicy",STATE.poolCPolicy);
   set("sl_spendreturn",Math.round(STATE.spendReturnPct*100));
   set("sl_oo",STATE.oneOff);
@@ -4736,12 +4811,8 @@ function applyStateToInputs(){
 /* ========== BAND EDITOR ========== */
 function renderBandRows(){
   const container=document.getElementById("band-rows");
-  if(!container)return;
-  const modeNote=STATE.totalSpendTarget!==null&&STATE.totalSpendTarget!==undefined
-      ? `<div class="note good" style="margin-bottom:8px"><b>Imported total-spend target: ${fmtFull(STATE.totalSpendTarget)} p.a.</b> V23 automatically derives the portfolio gap when PSS is lower, or sends the PSS excess to Pool C when PSS is higher. Edit any band below to switch back to native gap-above-PSS controls.</div>`
-      : STATE.spendMode==="returnPct"
-      ? `<div class="note warn" style="margin-bottom:8px">Age-band rows are retained but IGNORED — the annual gap is overridden to ${fmtPctClean(STATE.spendReturnPct,0)} of ${STATE.spendMode==="drawPct"?"the mandatory ABP drawdown":"positive investment earnings"}.</div>`
-      : `<div class="note" style="margin-bottom:8px">Units convert automatically at that band age. <span class="kbd">$ pa</span> = fixed dollars · <span class="kbd">% return</span> = % of positive investment earnings (CAN exceed the mandatory draw) · <span class="kbd">% draw</span> = % of the mandatory ABP draw (never exceeds it; remainder goes to Pool C).</div>`;
+  if(!container||STATE.totalSpendTarget!==null||STATE.spendMode!=="fixed")return;
+  const modeNote=`<div class="note" style="margin-bottom:8px">Each band sets extra spending above PSS. <span class="kbd">$ pa</span> = fixed dollars · <span class="kbd">% return</span> = share of positive investment earnings · <span class="kbd">% draw</span> = share of the mandatory ABP draw.</div>`;
   container.innerHTML=STATE.gapBands.map((b,i)=>`
     <div class="band-row">
       <label>From age <input type="number" min="${BAND_MIN_AGE}" max="${BAND_MAX_AGE}" value="${b.age}" data-band-age="${i}"
@@ -4773,6 +4844,16 @@ function renderBandRows(){
 function onBandChange(){STATE.totalSpendTarget=null;updateLabels();renderBandRows();rerenderAll();saveState();}
 
 function wireBandEditor(){
+  const spendingForm=document.getElementById("v23-flat-spend-form");
+  if(spendingForm)spendingForm.addEventListener("submit",event=>{
+    event.preventDefault();
+    const input=document.getElementById("v23-flat-spend");
+    const amount=input.valueAsNumber;
+    if(!Number.isFinite(amount)||amount<0)return;
+    setV23FlatSpending(amount);
+    updateLabels();rerenderAll();saveState();
+  });
+  document.getElementById("v23-edit-spending")?.addEventListener("click",openV23SpendingControls);
   const compare=document.getElementById("pc_run");
   if(compare)compare.addEventListener("click",renderPolicyComparator);
   const add=document.getElementById("btn-add-band");
@@ -4802,7 +4883,7 @@ function wireSliders(){
   bind("sl_runs",v=>STATE.runs=parseInt(v));
   bind("sl_targetage",v=>STATE.targetAge=parseInt(v));
   bind("sl_gapgrowth",v=>STATE.gapGrowth=parseFloat(v)/100);
-  bind("sl_spendreturn",v=>{STATE.spendReturnPct=parseFloat(v)/100;STATE.totalSpendTarget=null;});
+  bind("sl_spendreturn",v=>{STATE.spendReturnPct=parseFloat(v)/100;});
   bind("sl_oo",v=>STATE.oneOff=parseInt(v));
   bind("sl_poolcdrag",v=>STATE.poolCDrag=parseFloat(v)/100);
   const rw=()=>{updateLabels();rerenderAll();saveState();};
@@ -4821,7 +4902,7 @@ function wireSliders(){
   bind("sl_cpiage",v=>STATE.cpiAge=parseFloat(v));
   bind("sl_cpidrag",v=>STATE.cpiDrag=parseFloat(v));
   const spendMode=document.getElementById("sel_spendmode");
-  if(spendMode)spendMode.addEventListener("change",()=>{STATE.spendMode=spendMode.value;STATE.totalSpendTarget=null;updateLabels();renderBandRows();rerenderAll();saveState();});
+  if(spendMode)spendMode.addEventListener("change",()=>setV23SpendingRule(spendMode.value));
   const poolCPolicy=document.getElementById("sel_poolcpolicy");
   if(poolCPolicy)poolCPolicy.addEventListener("change",()=>{STATE.poolCPolicy=poolCPolicy.value==="after-abp"?"after-abp":"preserve";updateLabels();rerenderAll();saveState();});
   // Scenario comp sliders
@@ -5024,6 +5105,7 @@ function sharedV23ScenarioFromQuery(search){
 
 function applySharedV23Scenario(shared,{preserveLocal=false}={}){
   const keepBands=preserveLocal&&STATE.totalSpendTarget===null;
+  const currentAgeBands=STATE.totalSpendTarget===null?STATE.gapBands:STATE.savedAgeBands;
   const active=getProfile();
   const sameSource=shared.rail==="A"?STATE.profile==="michael":
     active.pssElection===shared.pssElection&&active.pssProjectionBasis===shared.pssProjectionBasis&&!active.customLumpWithoutComponents;
@@ -5044,10 +5126,9 @@ function applySharedV23Scenario(shared,{preserveLocal=false}={}){
   STATE.liquidityMonths=shared.liquidityMonths;
   STATE.simulationSeed=shared.simulationSeed;
   if(!keepBands){
-    STATE.totalSpendTarget=shared.spend;
-    STATE.spendMode="fixed";
+    setV23FlatSpending(shared.spend);
+    STATE.savedAgeBands=currentAgeBands;
     STATE.gapGrowth=0;
-    syncFlatSpendBand();
   }
 }
 
@@ -5106,6 +5187,7 @@ function saveState(){
     customProfileInputs:STATE.customProfileInputs,sharedImport:STATE.sharedImport,
     likely:STATE.likely,vol:STATE.vol,runs:STATE.runs,simulationSeed:STATE.simulationSeed,liquidityMonths:STATE.liquidityMonths,
     gapBands:STATE.gapBands,gapGrowth:STATE.gapGrowth,
+    lastFlatSpendTarget:STATE.lastFlatSpendTarget,savedAgeBands:STATE.savedAgeBands,
     spendMode:STATE.spendMode,spendReturnPct:STATE.spendReturnPct,poolCPolicy:STATE.poolCPolicy,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
     oneOff:STATE.oneOff,poolCDrag:STATE.poolCDrag,
     cpi:STATE.cpi,cpiDur:STATE.cpiDur,cpiAge:STATE.cpiAge,cpiDrag:STATE.cpiDrag,
@@ -5132,6 +5214,7 @@ function loadState(){
       if(clean.duplicateAges.length)console.warn(`V23 duplicate band starts removed: ${clean.duplicateAges.join(", ")}. Later values were retained.`);
     }
     ap("gapBands",Array.isArray(s.gapBands)&&s.gapBands.length?s.gapBands:undefined);
+    restoreSpendingDrafts(s);
     if(STATE.totalSpendTarget!==null)syncFlatSpendBand();
     ap("gapGrowth",s.gapGrowth);ap("oneOff",s.oneOff);ap("poolCDrag",s.poolCDrag);
     ap("spendMode",s.spendMode);ap("spendReturnPct",s.spendReturnPct);
@@ -5251,10 +5334,10 @@ trajectory:{t:"Capital trajectory",w:"Total and per-pool capital paths by age un
 ["Three-scenario chart","Conservative / Base / Strong total-capital lines against the floor, target and strong reference bands."],
 ["Waterfall","Each bar is one year's net capital change on the likely path, split into its drivers."],
 ["Pools chart","Pool A vs B vs C vs Total on the likely path — shows the A-shrinks/C-grows crossover."]]},
-income:{t:"Income & draws",w:"Net income by age: the CPI-indexed pension floor plus modelled ABP draws, with age-band lifestyle phases.",h:["Compare desired and funded spending. Income shown as available does not have to be spent; unspent modelled surplus routes to Pool C.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
-["Avg total usable income","Mean of pension + consumed draws across the horizon (real)."],
-["PSS net pension (CPI-flat)","The floor: constant in real terms because CPI indexation exactly offsets inflation."],
-["Lifetime usable to 95","Cumulative real income available across the whole horizon."],
+income:{t:"Income & draws",w:"Set your spending in Plan controls and check how much the pension and investments fund.",h:["For one budget choose Total annual spending, enter the after-tax amount, and select Apply spending. Choose Age bands to vary spending above PSS by age.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
+["Average annual spending funded","Average amount the plan actually spends each year from pension and investments, in today’s dollars."],
+["PSS net pension","Full after-tax pension in today’s dollars. The model invests any part left over after spending in Pool C."],
+["Total spending funded to age 95","Cumulative amount spent over the modelled retirement years, in today’s dollars."],
 ["Income composition chart","Stacked bands: PSS pension + compulsory draw consumed + extra Pool A/B draw + any explicit Pool C support. Each source appears only when the active gap and funding policy require it."],
 ["Target funded","The share of your planned lifestyle gap that the active funding policy actually supplies in that phase. 100% = fully funded; 12% = only 12 cents of each planned gap dollar is delivered; 0% = the PSS pension continues but none of the additional gap is funded."],
 ["Mandatory used","The share of the compulsory ABP payment that you actually spend. It is capped at 100%; any spending above the compulsory payment appears separately as Extra Pool A withdrawal. N/A means there was no compulsory payment to compare."],
@@ -5504,7 +5587,7 @@ const CONTROLS = [
 ["Annual gap by age band","Piecewise spending: different gap levels for different age ranges. Overrides the flat default gap."],
 ["Band presets","Flat (constant), Ramp (rising), Front-load (heavy 60s), Base lifestyle, Travel-heavy 60s, Floor protection (defensive), Legacy maximiser (lean spend), Shock recovery (post-crash trim)."],
 ["Gap real growth","Extra real escalation applied on top of the bands — models lifestyle creep beyond CPI."],
-["Annual spend mode","Choose one rule for desired spending above PSS: age bands, a percentage of positive current-year investment earnings, or a percentage of the modelled mandatory ABP draw. The percentage rules ignore but preserve the age bands. Earnings and mandatory draw are different amounts, so the same percentage can produce different spending. The current-year earnings rule is excluded from the adaptive Policy Comparator because that return is unknown at its opening decision."],
+["Spending rule","Total annual spending is an editable after-tax budget for the entire year. Age bands and the percentage rules set spending above your PSS pension. V23 remembers the most recent total and age bands when you switch rules. Restore imported plan returns to the figures from your Command Centre hand-off."],
 ["Spend % (override slider)","The caption names the active denominator: positive investment earnings or the modelled mandatory draw. The slider is inactive in age-band mode. Compare desired with funded spending after changing it; a target may exceed what the chosen pool policy supplies."],
 ["Target age","The horizon age at which the bands are tested (default 75; slider adjustable)."],
 ["Likely real return","A chosen after-inflation return for the deterministic path and sampled-return mean. It is an assumption, not a forecast."],
@@ -5557,7 +5640,7 @@ function wrapTables(){
 
 /* ---------- assumptions ledger ---------- */
 const LEDGER=[
-  {k:"SPEND",lbl:"lbl-spendmode",ctl:"sel_spendmode",tip:"Annual spend rule — Age bands or Override %"},
+  {k:"SPEND",lbl:"lbl-spendmode",ctl:"sel_spendmode",tip:"Active annual spending rule"},
   {k:"RET",lbl:"lbl-likely",ctl:"sl_likely",tip:"Likely real return"},
   {k:"VOL",lbl:"lbl-vol",ctl:"sl_vol",tip:"Volatility"},
   {k:"GAP▲",lbl:"lbl-gapgrowth",ctl:"sl_gapgrowth",tip:"Gap growth"},
@@ -5571,7 +5654,9 @@ function buildLedger(){
   bar.appendChild(el("span",{class:"v23-chip v23-real",title:"All figures are in today's dollars"},"<b>REAL $</b>"));
   LEDGER.forEach(item=>{
     const c=el("span",{class:"v23-chip",title:item.tip+" — click to jump to control","data-ctl":item.ctl,"data-lbl":item.lbl,tabindex:"0",role:"button"},`${item.k} <b>—</b>`);
-    const jump=()=>{const t=document.getElementById(item.lbl)||document.getElementById(item.ctl);if(!t)return;
+    const jump=()=>{
+      if(item.ctl==="sel_spendmode"){openV23SpendingControls();return;}
+      const t=document.getElementById(item.lbl)||document.getElementById(item.ctl);if(!t)return;
       if(matchMedia("(max-width:980px)").matches&&!document.body.classList.contains("nav-open")){const m=$("#btn-menu");if(m)m.click();}
       setTimeout(()=>{t.scrollIntoView({behavior:"smooth",block:"center"});const blk=t.closest(".slider-block")||t;blk.classList.remove("v23-flash");void blk.offsetWidth;blk.classList.add("v23-flash");},60);};
     c.addEventListener("click",jump);
