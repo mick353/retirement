@@ -355,9 +355,11 @@ export function calculateFlatRetirementLedger(input: FlatRetirementLedgerInput):
     const annualReturn = input.annualReturns?.[age - startAge - 1] ?? input.realReturn;
     const openingPoolA = poolA;
     const openingPoolC = poolC;
+    const poolABeforeDraw = openingPoolA * (1 + annualReturn);
     const mandatoryDraw = openingPoolA * abpMinimumRateAtAgeOn1July(Math.max(0, age - 1));
     const lifestyleGap = Math.max(0, input.spend - input.netPension);
-    const draw = Math.min(openingPoolA, Math.max(mandatoryDraw, lifestyleGap));
+    // Retain the opening-balance cap on gains and respect available capital on losses.
+    const draw = Math.min(openingPoolA, Math.max(0, poolABeforeDraw), Math.max(mandatoryDraw, lifestyleGap));
     const incomeBeforePoolC = input.netPension + draw;
     const externalTaxDrag = openingPoolC * poolCDrag;
     const poolCBeforeDraw = openingPoolC * (1 + annualReturn) - externalTaxDrag;
@@ -371,7 +373,7 @@ export function calculateFlatRetirementLedger(input: FlatRetirementLedgerInput):
     const shortfall = Math.max(0, input.spend - netIncome);
     const reinvestment = Math.max(0, netIncome - input.spend);
     const investmentGrowth = (openingPoolA + openingPoolC) * annualReturn - externalTaxDrag;
-    poolA = Math.max(0, openingPoolA * (1 + annualReturn) - draw);
+    poolA = Math.max(0, poolABeforeDraw - draw);
     poolC = Math.max(0, poolCBeforeDraw + reinvestment - poolCDraw);
     rows.push({
       age,
