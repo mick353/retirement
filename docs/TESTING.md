@@ -19,7 +19,7 @@ The V23 matrix tests 384 combinations of PSS basis, election, annual return, spe
 
 ## Sites releases
 
-The Sites build always runs the Node tests. Before packaging a release, run `npm test` on the exact source to be pushed, or pass `["npm", "test"]` in the Site workflow helper's ordered packaging commands. When the helper saves and publishes the tested version, check the live origin as well.
+The Sites build always runs the Node tests. Before packaging a release, run `npm test` on the exact source to be pushed. To have the Site workflow helper run it during packaging, use `["cmd.exe", "/d", "/c", "npm", "test"]` on Windows or `["npm", "test"]` on macOS and Linux. When the helper saves and publishes the tested version, check the live origin as well.
 
 ```sh
 npm run test:browser -- --url https://robinson-retirement.mick353.chatgpt.site/
