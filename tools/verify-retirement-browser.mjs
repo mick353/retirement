@@ -365,7 +365,7 @@ async function exerciseV23EdgeCases(page, base) {
   await page.locator("#pre60_current").fill("0");
   await page.locator("#pre60_ret").fill("0");
   const pre60 = await chartValues(page, "#pre60_chart", "Hostplus balance");
-  assertMoney(pre60.at(-1), 3120, "The tracker honours zeroes and stops contributions at age 60");
+  assertMoney(pre60.at(-1), 2866.50, "The tracker honours zeroes, credits net contributions and stops at age 60");
   assert.equal(await page.locator("#pre60_cards .value").first().innerText(), await page.locator("#pre60_recal_result .value").first().innerText());
 
   destination.searchParams.set("pss", "100");
@@ -439,6 +439,93 @@ async function exerciseV23EdgeCases(page, base) {
   assert.deepEqual(invalidAmounts.invalid, [], "Every V23 page renders at zero investment capital without invalid amounts");
 }
 
+async function exerciseAuditedControls(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  const destination = new URL("deep-model.html?shared=1&rail=B&pss=70-30&basis=prudent-630&spend=122000&return=0.05&age=75&page=income", base);
+  await open(page, destination);
+  const openControls = async (id) => {
+    const toggle = page.locator(id);
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  };
+  const show = (id) => page.evaluate((selected) => showPage(selected), id);
+  const setNumber = async (id, value) => {
+    const input = page.locator(id);
+    await input.fill(String(value));
+    await input.press("Tab");
+  };
+  const income = page.locator("#in_cards");
+  const incomeAverage = income.locator(".card").filter({ hasText: "Average annual spending funded" });
+  const overviewAverage = page.locator("#ovCards .card").filter({ hasText: "Average annual spending funded" });
+  const averageText = (card) => card.locator(".value").innerText();
+  assert.equal(await averageText(incomeAverage), "$122,000/yr");
+  assert.match(await incomeAverage.innerText(), /35 spending years to age 95/);
+  assert.equal(await income.locator(".card").filter({ hasText: "Total spending funded" }).locator(".value").innerText(), "$4,270,000");
+  await show("overview");
+  assert.equal(await averageText(overviewAverage), "$122,000/yr");
+  await show("income");
+  await openControls("#profile-controls-toggle");
+  await page.locator('[data-pss-election="100"]').click();
+  assert.equal(await averageText(incomeAverage), "$122,000/yr");
+  assert.match(await income.innerText(), /\$13,576\/yr average surplus to Pool C/);
+  await openControls("#plan-controls-toggle");
+  await page.locator("#v23-flat-spend").fill("160000");
+  await page.getByRole("button", { name: "Apply spending", exact: true }).click();
+  assert.equal(await averageText(incomeAverage), "$135,576/yr");
+  assert.match(await incomeAverage.innerText(), /\$24,424\/yr average unfunded/);
+  await show("overview");
+  assert.equal(await averageText(overviewAverage), "$135,576/yr");
+  await show("income");
+  await setNumber("#cf_retire", 55);
+  assert.match(await page.locator("#custom-profile-status").innerText(), /Age 55 is pending.*still starts at age 60/);
+  assert.match(await incomeAverage.innerText(), /35 spending years/);
+  await setNumber("#cf_retire", 65);
+  await setNumber("#cf_grossPension", 100000);
+  await setNumber("#cf_netPension", 90000);
+  await setNumber("#cf_lump", 10000);
+  await setNumber("#cf_hostplus", 0);
+  assert.match(await incomeAverage.innerText(), /30 spending years to age 95/);
+  await page.locator("#v23-flat-spend").fill("80000");
+  await page.getByRole("button", { name: "Apply spending", exact: true }).click();
+  assert.equal(await averageText(incomeAverage), "$80,000/yr");
+  assert.equal(await income.locator(".card").filter({ hasText: "Total spending funded" }).locator(".value").innerText(), "$2,400,000");
+  await page.getByRole("button", { name: "Reset custom figures" }).click();
+  await page.locator('[data-pss-election="70-30"]').click();
+  await page.locator("#sel_spendmode").selectOption("fixed");
+  await setNumber('[data-band-amount="0"]', 10000);
+  const firstUnit = page.locator("#band-rows select").first();
+  await firstUnit.selectOption("drawPct");
+  assertMoney(Number(await page.locator('[data-band-amount="0"]').inputValue()), 1000000 / 17666.976, "First-band conversion uses the first operating year's draw");
+  assertMoney((await chartValues(page,"#in_chart","Planned total spending"))[0],105434.30,"The unit conversion keeps the first-year budget");
+
+  await page.locator("#sel_spendmode").selectOption("flatTotal");
+  await page.locator("#v23-flat-spend").fill("160000");
+  await page.getByRole("button", { name: "Apply spending", exact: true }).click();
+  await page.locator("#sel_poolcpolicy").selectOption("after-abp");
+  await show("oneoff");
+  assert.match(await page.locator("#oo_cards .card").filter({ hasText: "Max @ Likely" }).innerText(), /Floor already missed/i);
+  const targetAge = page.locator("#sl_targetage");
+  const setAge = (age) => targetAge.evaluate((input, value) => {
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, age);
+  await setAge(85);
+  await show("saveslots");
+  await page.locator("#slot_cards .card").first().getByRole("button", { name: "Save current" }).click();
+  await setAge(75);
+  assert.match(await page.locator("#slot_tbl thead").innerText(), /CAPITAL @75/i);
+  const slot = await page.locator("#slot_tbl tbody tr").first().locator("td").allInnerTexts();
+  assert.equal(slot[3], "$160,000/yr total");
+  assert.equal(slot[4], "$247k");
+  assert.equal(slot[5], "$0");
+  await show("wash");
+  await page.locator("#sel_washon").selectOption("0");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export settings" }).click();
+  const exported = JSON.parse(await readFile(await (await download).path(), "utf8"));
+  assert.equal(exported.state.wash.enabled,false);
+  assert.ok(Number.isInteger(exported.state.simulationSeed));
+}
+
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
 let browser;
 try {
@@ -453,6 +540,7 @@ try {
       await exerciseV23(page, preview.base);
       await exerciseV23EdgeCases(page, preview.base);
       await exerciseExplorer(page, preview.base);
+      await exerciseAuditedControls(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px on ${preview.base.href}`);
     } finally {

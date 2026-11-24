@@ -475,7 +475,8 @@ close(breakevenCases[1],.1,"One year at 10% turns $100,000 into $110,000");
 assert.equal(breakevenCases[2],null,"The search marks a target beyond the modelled rate range");
 const pre60Partial = v23("projectPre60(59.9,0,0).at(-1)");
 assert.equal(pre60Partial.age,60);
-close(pre60Partial.balance,3_120,"One tenth of a year contributes $3,120 with zero balance and return");
+close(pre60Partial.balance,2_866.50,"One tenth of a year credits net contributions with zero balance and return");
+close(v23("projectPre60(51,10000,.065).find(row=>row.age===52).balance"),10_650,"The tracker applies the entered effective annual return");
 const recalculatedAlternative = (gap) => v23(`runMC({mean:.04,sd:0,runs:1,endAge:75,gapBands:makeBandsFromGap(${gap},60),totalSpendTarget:null,gapGrowth:0}).percentiles[2][15]`);
 assert.ok(recalculatedAlternative(20000)>recalculatedAlternative(60000), "An explicit alternative spending rule reaches the Monte Carlo ledger");
 assert.equal(v23("STATE.totalSpendTarget"), 122000, "Testing an alternative retains the active shared plan");
@@ -499,6 +500,40 @@ for(const change of moves){
 }
 assert.equal(moves[2].oneOffPaid,0,"The capital breakdown excludes an unfunded request");
 assert.equal(moves[3].oneOffPaid,190_000,"The capital breakdown includes a funded one-off once");
+
+const auditCases = v23(`(()=>{
+  const p=railBProfileForElection("70-30","prudent-630");
+  const bands=normaliseGapBands([{age:60,amount:10000,unit:"dollar"},{age:70,amount:20000,unit:"dollar"}]).bands;
+  const paths=[bands,[...bands,{age:90,amount:125000,unit:"totalDollar",startOnBirthday:true}]]
+    .map(gapBands=>runModel({profile:p,gapBands,totalSpendTarget:null,spendMode:"fixed",gapGrowth:0,oneOff:0}).rows);
+  const pending=profileWithCustomInputs(p,{retireAge:55});
+  const permitted=profileWithCustomInputs(p,{retireAge:55,grossPension:80000,netPension:75000,lumpSum:50000,hostplus:0});
+  const inaccessible=profileWithCustomInputs(p,{retireAge:55,grossPension:80000,netPension:75000,lumpSum:50000,hostplus:300000});
+  const synthetic={...p,netPension:100000,poolA_day1:15000,poolB_day1:0,poolC_day1:0};
+  const funded=fundedSpendingSummary(runModel({profile:synthetic,totalSpendTarget:120000,gapGrowth:0,oneOff:5500,abpReturn:0,poolCDrag:0,poolCPolicy:"preserve"}).rows);
+  const estateRows=runModel({profile:p,oneOff:400000,totalSpendTarget:245000,poolCPolicy:"after-abp",abpReturn:0}).rows;
+  const wash=computeWashPath(p,estateRows,{...STATE.wash,enabled:true});
+  return {sameEarlierYears:paths[0].slice(0,30).every((r,i)=>r.total===paths[1][i].total&&r.targetSpend===paths[1][i].targetSpend),
+    legacyAge70:paths[0][10].gap,birthdayAge91:paths[1][31].targetSpend,pending:pending.pendingRetireAge,
+    pendingModelAge:pending.retireAge,permittedModelAge:permitted.retireAge,inaccessibleModelAge:inaccessible.retireAge,
+    funded,wash,saved:captureScenarioState(),unreachableOneOff:findMaxOneOff({profile:synthetic,floor:100000})};
+})()`);
+assert.equal(auditCases.sameEarlierYears,true,"A later total band preserves the migrated legacy schedule");
+assert.equal(auditCases.legacyAge70,20_000);
+assert.equal(auditCases.birthdayAge91,125_000);
+assert.equal(auditCases.pending,55);
+assert.equal(auditCases.pendingModelAge,60,"An age field alone cannot move dated source inputs");
+assert.equal(auditCases.permittedModelAge,55,"Dated manual inputs support a separate early-age illustration");
+assert.equal(auditCases.inaccessibleModelAge,60,"An early-age forecast cannot assume Hostplus access");
+assert.equal(auditCases.funded.years,35);
+close(auditCases.funded.funded,3_509_500,"Lifetime funding excludes the one-off and includes every operating year");
+close(auditCases.funded.average,3_509_500/35,"Average funded spending includes depleted years");
+close(auditCases.funded.planned/35,120_000,"Planned spending is separate from funded spending");
+assert.equal(auditCases.unreachableOneOff,null,"An already-breached floor has no feasible one-off");
+assert.ok(auditCases.wash.some(row=>row.superBal===0));
+assert.ok(auditCases.wash.every(row=>row.taxable<=row.superBal && (row.superBal>0||row.dbt===0)),"Wash caps taxable principal at remaining super");
+assert.ok(Number.isInteger(auditCases.saved.simulationSeed));
+assert.ok(auditCases.saved.wash&&auditCases.saved.wash.schedule);
 
 assert.match(atlasSource, /pss:\s*state\.pssElection/, "Atlas shared links carry the PSS election");
 assert.match(atlasSource, /basis:\s*state\.pssProjectionBasis/, "Atlas shared links carry the PSS projection basis");
