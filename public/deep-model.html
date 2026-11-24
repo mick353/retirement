@@ -957,7 +957,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.10 · 24 Nov 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.10.1 · 24 Nov 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1234,20 +1234,20 @@ main{min-width:0;}
     </section>
 
     <section class="page" id="page-decisionbrief">
-      <div class="note good"><b>Decision brief mode.</b> A one-page operating summary for adviser, family, or annual-review use. Print this page when you want a board-paper style snapshot.</div>
+      <div class="note good"><b>Decision brief.</b> Review the PSS election and spending plan currently selected in V23. Print the Brief pack for your annual review.</div>
       <div class="cards" id="brief_cards"></div>
       <div class="grid-2">
         <div class="panel">
-          <h2>Recommendation and evidence</h2>
+          <h2>Spending and floor checks</h2>
           <div class="decision-grid" id="brief_reco"></div>
         </div>
         <div class="panel">
-          <h2>Decision chart</h2>
+          <h2>Investment capital at the selected age</h2>
           <div class="chart-wrap"><canvas id="brief_chart"></canvas></div>
         </div>
       </div>
       <div class="grid-2">
-        <div class="panel"><h2>Key assumptions and confidence</h2><table id="brief_assumptions"></table></div>
+        <div class="panel"><h2>Active assumptions</h2><table id="brief_assumptions"></table></div>
         <div class="panel"><h2>Next actions</h2><table id="brief_actions"></table></div>
       </div>
       <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="decisionbrief" placeholder="Add adviser/family notes for the decision brief..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
@@ -1819,7 +1819,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.10";
+const APP_VERSION = "v23.10.1";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -4239,6 +4239,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.10.1","Nov 2026","The Decision Brief now follows the active PSS election and shows the plan’s funding and capital floor checks."],
     ["v23.10","Nov 2026","Aligned the spending averages, fixed age-band conversions and the policy comparator, protected source figures from unsupported retirement dates, and reconciled the PSS-source tax shown in Wash and Estate."],
     ["v23.9","Sep 2026","Added an opt-in closed-loop adaptive spending comparison to the V23 Guardrail page. It uses explicit essential spending, paired return paths, election semantics and configurable age-75/85 investment checks; the active plan remains advisory."],
     ["v23.8","Sep 2026","Activated the direct prudent-basis 100% pension estimate from the 9 September CSC source, preserving its own $162,485.36 FAS and no-lump/TBC treatment. Added the latest 9 September payroll evidence without mixing payroll cashflow with provider retirement outputs."],
@@ -4266,33 +4267,45 @@ function renderDecisionBrief(){
   const base=runModel({profile:p,abpReturn:SCENARIOS.base.abp,accumReturn:SCENARIOS.base.accum});
   const likely=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const c=cons.rows[idx],b=base.rows[idx],l=likely.rows[idx];
-  const status=targetStatus(b.total,p);
+  const election=isRailBProfile(p)?PSS_ELECTIONS[p.pssElection].label:p.locked?"Rail A benchmark":"Custom opening";
+  const source=openingSourceLabel(p);
+  const floor=p.floor*1000;
+  const spending=fundedSpendingSummary(likely.rows.slice(0,idx+1));
+  const unfunded=spending.operating.reduce((sum,row)=>sum+row.spendingShortfall,0);
+  const firstShortfall=spending.operating.find(row=>row.spendingShortfall>=.005);
+  const floorDetail=(row,rate)=>`${fmtPctClean(rate)} real · ${fmtFull(Math.abs(row.total-floor))} ${row.total>=floor?"above":"below"} the floor`;
+  const capitalCard=(label,row,rate)=>`<div class="card ${row.total>=floor?"good":"warn"}"><div class="label">${label} @${ta}</div><div class="value">${fmtFull(row.total)}</div><div class="sub">${floorDetail(row,rate)}</div></div>`;
   document.getElementById("brief_cards").innerHTML=`
-    <div class="card accent"><div class="label">Recommendation</div><div class="value">Operate 60/40</div><div class="sub">Use guardrails, not ad hoc changes.</div></div>
-    <div class="card ${status.cls}"><div class="label">Base case @${ta}</div><div class="value">${fmt$(b.total)}</div><div class="sub">${status.detail}</div></div>
-    <div class="card ${c.total>=p.floor*1000?"good":"warn"}"><div class="label">4% downside @${ta}</div><div class="value">${fmt$(c.total)}</div><div class="sub">${fmtFull(c.total-p.floor*1000)} vs floor</div></div>
-    <div class="card good"><div class="label">Likely @${ta}</div><div class="value">${fmt$(l.total)}</div><div class="sub">${fmtPctClean(STATE.likely)} real return</div></div>
+    <div class="card accent"><div class="label">Active PSS election</div><div class="value">${election}</div><div class="sub">${source}</div></div>
+    ${capitalCard("Likely",l,STATE.likely)}
+    ${capitalCard("Base reference",b,SCENARIOS.base.abp)}
+    ${capitalCard("Conservative reference",c,SCENARIOS.conservative.abp)}
   `;
   document.getElementById("brief_reco").innerHTML=[
-    ["Decision","Keep the 60/40 retirement split as the operating plan."],
-    ["Why","PSS pension plus three-pool capital remains robust across the base case and gives a clear annual review mechanism."],
-    ["Risk","The 4% case is the live downside monitor; if it sits below floor, guardrails determine spending cuts before structural changes."],
-    ["Governance","Use action triggers and annual recalibration before changing the strategy."]
+    ["Spending rule",spendingRuleLabel(STATE)],
+    [`Spending through age ${ta}`,firstShortfall
+      ?`${fmtFull(spending.funded)} funded and ${fmtFull(unfunded)} unfunded on the likely path. First shortfall in the year ending at age ${firstShortfall.age}.`
+      :spending.years?`The likely path funds the full ${fmtFull(spending.planned)} planned over ${spending.years} spending years.`:"This checkpoint is the opening balance at retirement, before the first spending year."],
+    [`Capital floor at age ${ta}`,`${fmtFull(floor)} across Pools A, B and C. Likely path at ${floorDetail(l,STATE.likely)}.`],
+    ["Pool C",STATE.poolCPolicy==="after-abp"?"Available for remaining spending after Pools A and B.":"Preserved. It counts toward investment capital. Routine spending uses your pension and Pools A and B."]
   ].map(([k,v])=>`<div class="decision-card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
-  makeChart("brief_chart",{type:"bar",data:{labels:["Conservative","Base","Likely"],datasets:[
+  makeChart("brief_chart",{type:"bar",data:{labels:[`Conservative ${fmtPctClean(SCENARIOS.conservative.abp)}`,`Base ${fmtPctClean(SCENARIOS.base.abp)}`,`Likely ${fmtPctClean(STATE.likely)}`],datasets:[
     {label:`Capital @${ta}`,data:[c.total,b.total,l.total],backgroundColor:[tc.warn+"cc",tc.acc+"cc",tc.good+"cc"]},
     {label:"Floor",data:[p.floor*1000,p.floor*1000,p.floor*1000],type:"line",borderColor:tc.bad,borderDash:[4,4],pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:x=>x.dataset.label+": "+fmtFull(x.parsed.y)}}},scales:{y:{ticks:{callback:moneyTick}}}}});
   renderTable("brief_assumptions",[
-    ["TBC",fmt$(p.tbc),"High","Review annually against personal cap/indexation"],
-    ["PSS pension",fmt$(p.grossPension)+"/yr gross","High","Locked from i-Estimator source"],
-    ["Likely return",fmtPctClean(STATE.likely),"Medium","Market-dependent; stress with probability page"],
-    ["Volatility",fmtPctClean(STATE.vol,0),"Medium","Monte Carlo sensitivity input"],
-    ["Lifestyle bands",bandsToString(STATE.gapBands),"Medium","Update from actual spending"],
-    ["Pool C tax drag",fmtPctClean(STATE.poolCDrag,2),"Medium","Review ETF distributions and tax rate"]
-  ],["Assumption","Current value","Confidence","Review note"]);
+    ["PSS pension",`${fmtCents(p.netPension)}/yr net · ${fmtCents(p.grossPension)}/yr gross`,source],
+    ["PSS lump sum",fmtCents(p.lumpSum),source],
+    ["Opening investments",fmtCents(likely.rows[0].total),likely.rows[0].oneOffRequested>0?`After ${fmtFull(likely.rows[0].oneOffFunded)} of funded one-off spending · ${fmtFull(likely.rows[0].oneOffShortfall)} of the one-off unfunded`:"At retirement"],
+    ["Spending rule",spendingRuleLabel(STATE),`First year planned ${fmtFull(likely.rows[1].targetSpend)} · funded ${fmtFull(likely.rows[1].fundedTotalSpend)}`],
+    ...(STATE.gapGrowth>0&&STATE.spendMode==="fixed"?[["Real spending growth",fmtPctClean(STATE.gapGrowth),"Applies to the dollar spending inputs."]]:[]),
+    ["Investment return",fmtPctClean(STATE.likely),"Likely path, after inflation"],
+    ["Pool C tax drag",fmtPctClean(STATE.poolCDrag,2),"Modelled drag on investment returns"],
+    ["Transfer balance cap",fmtFull(p.tbc),"Active planning input"],
+    ["Capital goals",`Floor ${fmtFull(floor)} · target ${fmtFull(p.target*1000)} · strong ${fmtFull(p.strong*1000)}`,`Checked at age ${ta}`]
+  ],["Assumption","Current value","Basis"]);
   renderTable("brief_actions",[
-    ["Now","Save current plan into slot A","Creates a reference baseline."],
+    ["Now","Save the current plan in a scenario slot","Keep a reference for later comparisons."],
     ["Annual","Run What Changed and Recalibration pages","Separates market variance from plan drift."],
     ["If floor margin tightens","Use Guardrails page","Reduce discretionary gap before structural changes."],
     ["If strong surplus persists","Consider travel/gifting or risk reduction","Use action triggers rather than ad hoc spending."]
@@ -5417,13 +5430,11 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Day 1 values note","Opening balances follow Rail A or the selected source-backed Rail B election and provider basis. The prudent 100% election uses the 9 September source."],
 ["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
 ["NCC blocked","A planning warning only. It cannot determine real non-concessional contribution eligibility because the model does not hold the actual prior-30-June TSB or provider timing evidence."]]},
-decisionbrief:{t:"Decision brief",w:"One-page recommendation with the supporting evidence cards — built to be printed and filed with the annual review.",h:["Use Print → Brief pack for a filing copy.","Each evidence card cites the page that proves it — follow them for depth.","If the recommendation ever changes between reviews, log why in the Decision log."],f:[
-["Recommendation","A model-generated planning suggestion under current inputs. Check source dates, funding shortfalls and downside paths before deciding an action."],
-["Evidence cards","Each card links a model claim (floor margin, sequence sensitivity, wash effect or bequest range) to its supporting number."],
-["Assumptions strip","The exact slider settings the brief was generated under — check it matches the ledger before printing."],
-["Actions","The short list of standing actions (contributions, review cadence, wash timing) currently open."],
-["Base case @target / 4% downside @target","The headline capital outcomes the brief is built on: your likely path and the conservative stress path, both at the target age."],
-["Floor / Target / Strong","The three capital bands from the profile ($1.2M / $1.5M / $1.75M). Every probability and guardrail on the tool is measured against these."]]},
+decisionbrief:{t:"Decision brief",w:"A printable summary of the selected PSS election, spending rule and investment capital at the target age.",h:["Change the election in Profile & PSS or the budget in Plan controls. The brief follows the active V23 plan.","Use Print → Brief pack to keep a copy."],f:[
+["Active PSS election","Shows the current election and source basis, including any custom opening figures. Rail A is the historical benchmark."],
+["Spending through the selected age","Shows how much of the plan the likely path funds and when the first shortfall starts. See Income & draws for the annual detail and the separate average through age 95."],
+["Capital at the target age","All three bars use the same election and spending policy. The steady returns are 4%, 5%, and the likely return you selected."],
+["Floor / Target / Strong","These dollar amounts come from the active profile. A capital floor can be met even when spending falls short, especially with Pool C preserved."]]},
 overview:{t:"Overview",w:"The active Day-1 architecture: selected PSS election, TBC allocation, three-scenario trajectory and mandatory ABP draw schedule.",h:["Rail A is the historical March/V5 control. Both Rail B bases have four direct CSC estimates; the prudent 100% pension estimate is dated 9 September, while its other three elections are dated 1 September.","The allocation grid shows the order money moves on Day 1; the draw table shows planning minimums. The provider determines actual financial-year payments."],f:[
 ["Combined capital @60","PSS commuted lump sum + projected Hostplus balance — the total rollover pool."],
 ["Gross / Net PSS pension","Gross is the selected source pension before tax treatment; net is the source estimate of spendable pension income. The gross amount also determines the modelled ×16 transfer-balance special value."],
