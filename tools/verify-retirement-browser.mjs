@@ -526,6 +526,44 @@ async function exerciseAuditedControls(page, base) {
   assert.ok(Number.isInteger(exported.state.simulationSeed));
 }
 
+async function exerciseDecisionBrief(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  await open(page, new URL("deep-model.html?page=decisionbrief", base));
+  const welcome = page.locator("#v23-welcome.open #v23-w-skip");
+  if (await welcome.isVisible()) await welcome.click();
+  const brief = page.locator("#page-decisionbrief");
+  const cardValue = (label) => brief.locator("#brief_cards .card").filter({ hasText: label }).locator(".value").innerText();
+  const assumption = (label) => brief.locator("#brief_assumptions tr").filter({ hasText: label }).first().innerText();
+  assert.equal(await cardValue("Active PSS election"), "70 / 30");
+  assert.match(await assumption("PSS pension"), /\$101,536\.24\/yr net.*\$107,072\.03\/yr gross/s);
+  assert.match(await assumption("PSS lump sum"), /\$504,768\.16/);
+  assert.match(await assumption("Opening investments"), /\$822,215\.82/);
+  assert.match(await assumption("Spending rule"), /\$110,000\/yr total/);
+  assert.match(await brief.locator("#brief_reco").innerText(), /full \$1,650,000 planned over 15 spending years/);
+  assert.equal(await cardValue("Likely @75"), "$1,844,929");
+  assert.equal(await cardValue("Base reference @75"), "$1,476,020");
+  assert.equal(await cardValue("Conservative reference @75"), "$1,268,044");
+  const capital = await chartValues(page, "#brief_chart", "Capital @75");
+  assertMoney(capital[2], 1844928.6957, "Decision Brief chart for the default 70/30 plan at 6.5% real");
+  assert.doesNotMatch(await brief.innerText(), /Operate 60\/40|Keep the 60\/40/);
+
+  await page.locator("#profile-controls-toggle").click();
+  await page.locator('[data-pss-election="100"]').click();
+  assert.equal(await cardValue("Active PSS election"), "100% pension");
+  assert.match(await assumption("PSS pension"), /\$143,104\.26\/yr net/);
+  assert.match(await assumption("PSS lump sum"), /\$0\.00/);
+  await page.locator("#plan-controls-toggle").click();
+  await page.locator("#v23-flat-spend").fill("160000");
+  await page.getByRole("button", { name: "Apply spending", exact: true }).click();
+  await page.locator("#sel_poolcpolicy").selectOption("preserve");
+  assert.match(await brief.locator("#brief_reco").innerText(), /\$2,146,564 funded and \$253,436 unfunded.*ending at age 61/s);
+  assertMoney((await chartValues(page, "#brief_chart", "Capital @75"))[2],
+    317447.66 * (1.065 - .0035) ** 15, "Preserved capital remains invested despite the spending shortfall");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  assert.equal(await cardValue("Active PSS election"), "100% pension");
+  assert.match(await assumption("Spending rule"), /\$160,000\/yr total/);
+}
+
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
 let browser;
 try {
@@ -541,6 +579,7 @@ try {
       await exerciseV23EdgeCases(page, preview.base);
       await exerciseExplorer(page, preview.base);
       await exerciseAuditedControls(page, preview.base);
+      await exerciseDecisionBrief(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px on ${preview.base.href}`);
     } finally {

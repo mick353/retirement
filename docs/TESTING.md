@@ -38,4 +38,6 @@ Specialist-page regressions compare Health and zero-shock CPI with the active le
 
 The audited-control checks read the actual Average annual spending funded field in Income and Overview. Fixtures cover a fully funded 35-year plan, a pension surplus, a budget with a shortfall, and a 30-year custom-age plan. The separate ledger test verifies the numerator and denominator when capital runs out after a one-off. Other regressions cover spending-band timing and conversions, growth in the policy comparator, calendar-age spending windows, dated retirement inputs, the Wash component cap, same-age save-slot deltas, settings export, and a floor missed before any one-off.
 
+The Decision Brief journey checks the default 70/30 election, its source amounts, the flat budget, all three age-75 capital cards and the likely chart figure. It then changes the election and budget, checks the shortfall alongside preserved capital, and reloads to verify the saved plan.
+
 Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
