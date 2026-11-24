@@ -11,11 +11,13 @@ The default multipliers are the existing advisory zone values: 70%, 90%, 100%, 1
 ## Comparison contract
 
 - **Same total lifestyle:** the selected election's desired total is carried across elections, including every dollar band and growth step. A larger PSS pension can create a surplus routed by the existing ledger.
-- **Same additional gap above PSS:** the selected gap programme is carried across elections. Total spending changes with PSS income.
+- **Same additional gap above PSS:** the current election replays the active plan, including total budgets below its pension. For a total budget, recover the additional gap separately in each operating year after applying budget growth and subtracting the current election's pension. The other election adds that amount to its own pension.
 - Return, volatility, seed, provider projection basis, horizon, one-offs, Pool C policy and other economic assumptions stay common. The return matrix is generated once without an election-dependent seed and reused for all policies and elections.
 - Age 75 and 85 checks measure investment capital (Pools A+B+C), excluding the home. Informational and inactive checks have no pass/fail threshold. Preferred checks report headroom but do not affect hard-feasibility status. Hard checks require an explicit amount; all active hard checks must pass. An age outside the horizon is not evaluated.
 
 The results distinguish desired, permitted and funded spending; an adaptive cut does not erase an unmet desired lifestyle. Funded discretionary spending is the amount funded above the explicitly entered essential budget. Core shortfalls compare funded spending to that budget. The table reports actual investment balances and cut/shortfall years; paired Monte Carlo reports absolute values and within-path deltas.
+
+Age 60–69 and 60–74 totals include only spending years that begin within the stated range. An earlier custom start does not add extra years to either sum. Across-election comparisons use the provider's age-60 estimates. To compare policies with a custom retirement age, keep the current election.
 
 ## Coverage boundary
 

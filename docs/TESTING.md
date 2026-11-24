@@ -36,4 +36,6 @@ A zero-investment scenario verifies that Tornado leaves percentages undefined wh
 
 Specialist-page regressions compare Health and zero-shock CPI with the active ledger, including a funded retirement one-off. They also verify unfunded health bills, pension and spending during a multi-year shock, paired return sequences, an unreachable break-even target, zero-balance probability and review results, and a partial quarter in the Pre-60 tracker. The browser covers both valid and invalid recalibration ages and checks that opening actuals are preserved.
 
+The audited-control checks read the actual Average annual spending funded field in Income and Overview. Fixtures cover a fully funded 35-year plan, a pension surplus, a budget with a shortfall, and a 30-year custom-age plan. The separate ledger test verifies the numerator and denominator when capital runs out after a one-off. Other regressions cover spending-band timing and conversions, growth in the policy comparator, calendar-age spending windows, dated retirement inputs, the Wash component cap, same-age save-slot deltas, settings export, and a floor missed before any one-off.
+
 Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
