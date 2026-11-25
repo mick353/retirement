@@ -526,6 +526,101 @@ async function exerciseAuditedControls(page, base) {
   assert.ok(Number.isInteger(exported.state.simulationSeed));
 }
 
+async function exerciseBandEditor(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  await open(page, new URL("deep-model.html?shared=1&rail=B&pss=70-30&basis=source-825&spend=110000&return=.06&age=75&page=income", base));
+  const toggle = page.locator("#plan-controls-toggle");
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  await page.locator("#sel_spendmode").selectOption("fixed");
+  await page.locator("#btn-band-preset-ramp").click();
+  const amount = (index) => page.locator(`[data-band-amount="${index}"]`);
+  const basis = (index) => page.locator(`[data-band-unit="${index}"]`);
+  const band = page.locator(".band-row").first();
+  const viewport = page.viewportSize();
+  for (const width of viewport.width < 500 ? [320, 390] : [1440, 2280]) {
+    await page.setViewportSize({ ...viewport, width });
+    const bounds = await band.evaluate((row) => {
+      const boundsFor = (selector) => row.querySelector(selector).getBoundingClientRect().toJSON();
+      const input = row.querySelector("[data-band-amount]");
+      const style = getComputedStyle(input);
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = style.font;
+      const contentWidth = input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return {
+        row: row.getBoundingClientRect().toJSON(),
+        year: boundsFor("[data-band-year]"),
+        amount: boundsFor("[data-band-amount]"),
+        basis: boundsFor("[data-band-unit]"),
+        inputFits: contentWidth >= ctx.measureText("30000").width + 20,
+      };
+    });
+    assert.ok(bounds.inputFits, `All amount digits fit at ${width}px`);
+    assert.ok(bounds.year.bottom <= bounds.amount.top && bounds.amount.bottom <= bounds.basis.top,
+      `Year, amount and basis have separate space at ${width}px`);
+    assert.ok(bounds.basis.right <= bounds.row.right, `Budget basis stays inside the row at ${width}px`);
+  }
+  await page.setViewportSize(viewport);
+  assert.equal(await amount(0).inputValue(), "30000");
+  await amount(0).fill("31000");
+  await amount(0).press("Tab");
+  assert.equal(await basis(0).evaluate((select) => document.activeElement === select), true,
+    "Tab commits the dollar field and focuses the adjacent basis without replacing it");
+  await basis(0).selectOption("returnPct");
+  assert.equal(await basis(0).inputValue(), "returnPct");
+  assert.equal(Math.round((await chartValues(page, "#in_chart", "Planned total spending"))[0]), 132536,
+    "Return-basis conversion preserves the displayed year-one amount after percentage rounding");
+  await basis(0).selectOption("drawPct");
+  assert.equal(await basis(0).inputValue(), "drawPct");
+  assert.equal(await amount(0).inputValue(), "100");
+  assert.match(await page.locator("#band-conversion-0").innerText(), /Set to 100% of the mandatory draw/);
+  await basis(1).selectOption("drawPct");
+  await amount(0).fill("25");
+  await amount(0).press("Enter");
+  await amount(1).fill("75");
+  await amount(1).press("Tab");
+  const planned = () => chartValues(page, "#in_chart", "Planned total spending");
+  const rows = page.locator("#in_tbl tbody tr");
+  const phase = (rule) => rows.filter({ hasText: rule }).first();
+  const checkFirstYear = async (share) => assertMoney((await planned())[0], 101536.24 + share * .04 * 381847.52, "First-year funding uses the chosen share of Pool A’s draw");
+  await checkFirstYear(.25);
+  assert.match(await phase("From age 60: 25% draw").innerText(), /Average mandatory draw \$[\d,]+\/yr/);
+  assert.match(await phase("From age 69: 75% draw").innerText(), /Average mandatory draw \$[\d,]+\/yr/);
+  const funded = (row) => row.locator("td").nth(9).innerText();
+  assert.notEqual(await funded(phase("From age 60: 25% draw")), await funded(phase("From age 69: 75% draw")));
+  const original = await funded(phase("From age 60: 25% draw"));
+  await amount(0).fill("50");
+  await amount(0).press("Tab");
+  await checkFirstYear(.5);
+  assert.notEqual(await funded(phase("From age 60: 50% draw")), original);
+  const annual = await planned();
+  assert.deepEqual(await chartValues(page, "#band-mini-chart", "Planned annual spending"), annual,
+    "The controls preview and Income chart reflect the same annual dollar budgets");
+  const total = annual.reduce((sum, value) => sum + value, 0);
+  const money = (value) => "$" + Math.round(value).toLocaleString("en-AU");
+  assert.equal(await funded(rows.last()), money(total / annual.length));
+  await page.locator('[data-income-table-mode="full"]').click();
+  assert.equal(await rows.last().locator("td").nth(17).innerText(), money(total / annual.length));
+  assert.equal(await rows.last().locator("td").last().innerText(), money(total));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  assert.equal(await amount(0).inputValue(), "50");
+  assert.equal(await basis(1).inputValue(), "drawPct");
+  await checkFirstYear(.5);
+
+  const profile = page.locator("#profile-controls-toggle");
+  if (await profile.getAttribute("aria-expanded") !== "true") await profile.click();
+  await page.locator('[data-pss-election="100"]').click();
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  await basis(2).selectOption("drawPct");
+  assert.equal(await amount(2).inputValue(), "0");
+  assert.match(await page.locator("#band-conversion-2").innerText(), /no mandatory draw/);
+  await page.locator('[data-income-table-mode="essential"]').click();
+  for (const rule of ["From age 60: 50% draw", "From age 69: 75% draw"]) {
+    const row = phase(rule);
+    assert.match(await row.innerText(), /Pension only.*Average mandatory draw \$0\/yr/s);
+    assert.equal(await funded(row), "$143,104");
+  }
+}
+
 async function exerciseDecisionBrief(page, base) {
   await page.evaluate(() => localStorage.clear());
   await open(page, new URL("deep-model.html?page=decisionbrief", base));
@@ -579,6 +674,7 @@ try {
       await exerciseV23EdgeCases(page, preview.base);
       await exerciseExplorer(page, preview.base);
       await exerciseAuditedControls(page, preview.base);
+      await exerciseBandEditor(page, preview.base);
       await exerciseDecisionBrief(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px on ${preview.base.href}`);
