@@ -780,6 +780,30 @@ async function exerciseDecisionIntegrity(page, base) {
   assert.deepEqual(await spending.locator("dd").allInnerTexts(),["$160,000","$120,000","$122,000"]);
 }
 
+async function exerciseOfflineWorkbench(browser, base) {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await open(page, new URL("model-reference.txt", base));
+    await page.evaluate(async () => {
+      await caches.open("robinson-retirement-pages-v28");
+      await caches.open("unrelated-site-cache");
+    });
+    const deep = new URL("deep-model.html?page=decisionbrief&shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=75", base);
+    await open(page, deep);
+    await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+    const cacheNames = await page.evaluate(() => caches.keys());
+    assert.ok(cacheNames.includes("unrelated-site-cache"), "Cache activation leaves other sites' caches intact");
+    assert.ok(!cacheNames.includes("robinson-retirement-pages-v28"), "The obsolete retirement cache is removed");
+    await context.setOffline(true);
+    await open(page, deep);
+    assert.match(await page.locator("#v23-decision-summary").innerText(), /\$414,150 unfunded.*age 69/s);
+    console.log(`Retirement cache upgrade and offline V23 passed on ${base.href}`);
+  } finally {
+    await context.close();
+  }
+}
+
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
 let browser;
 try {
@@ -804,6 +828,7 @@ try {
       await context.close();
     }
   }
+  await exerciseOfflineWorkbench(browser, preview.base);
 } finally {
   await browser?.close();
   preview.server?.close();
