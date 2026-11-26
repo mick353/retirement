@@ -300,6 +300,7 @@ async function exerciseExplorer(page, base) {
   const atlas = new URL("atlas.html?view=river", base);
   await open(page, atlas);
   await page.waitForURL((current) => current.searchParams.get("tool") === "explore");
+  await page.locator('iframe[src*="atlas.html"][aria-busy="false"]').waitFor();
   const frame = page.frameLocator('iframe[src*="atlas.html"]');
   await frame.locator("#visualCanvas").waitFor();
   await frame.getByRole("tab", { name: /Table/ }).click();
@@ -850,6 +851,13 @@ async function exerciseDecisionWorkbench(page, base) {
   assert.equal(await value(result("reserve"), "Full budget + floor through 75"), "50 of 200 (25%)");
   assert.equal(await value(result("budget"), "Investments at 75"), "$1,062,576");
   assert.equal(await value(result("election"), "First-year budget"), "$160,000.00");
+  const splitAmounts = await page.locator(".decision-alternative dd").evaluateAll(cells => cells
+    .filter(cell => cell.textContent.startsWith("$")).filter(cell => {
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      return range.getClientRects().length !== 1;
+    }).map(cell => cell.textContent));
+  assert.deepEqual(splitAmounts, [], "Every dollar amount stays on one line");
   const openBudget = result("budget").getByRole("button");
   await openBudget.click();
   const preview = page.locator("#decision-draft-preview");
@@ -939,7 +947,7 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30, 31].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31, 32].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
