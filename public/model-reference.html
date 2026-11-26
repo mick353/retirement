@@ -58,10 +58,10 @@
   <body>
     <header>
       <div class="wrap">
-        <p class="eyebrow">Static model documentation · source reconciliation 9 September 2026 · guide review 30 September 2026</p>
+        <p class="eyebrow">Static model documentation · source reconciliation 9 September 2026 · guide review 26 November 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the selectable PSS elections, data rails, formulas, scenario engines, governance controls and source lineage used by Command Centre (including the former Atlas visual explorer) and V23.</p>
-        <p><strong>Canonical retirement-engine version:</strong> 2026-09-09.1</p>
+        <p><strong>Canonical retirement-engine version:</strong> 2026-11-26.1 · V23.11</p>
         <div class="actions">
           <a class="button primary" href="./">Open interactive Command Centre</a>
           <a class="button" href="./deep-model.html">Open full V23 model</a>
@@ -82,6 +82,10 @@
         <p class="eyebrow">Purpose and boundaries</p>
         <h2>What this page documents</h2>
         <p>This reference makes the model intelligible to people, accessibility tools, search engines and AI retrieval systems that do not execute React. All substantive content is present in this HTML response; JavaScript is not required.</p>
+        <h3>Read the spending and capital checks together</h3>
+        <p>Start with the <a href="./deep-model.html?page=decisionbrief">V23 Decision Brief</a>. Set a net essentials budget in Plan controls. The brief shows the first year essentials or the full budget falls short, the investment balances at 75 and 85, and how Pool C is treated. In Risk and Monte Carlo, spending checks cover every intervening year. The capital floor is measured at the selected age. A joint result requires both checks on the same simulated path.</p>
+        <p>Surface compares both withdrawal rules. Applying spending and return in Command Centre keeps its reserve rule. The Pool C draft opens in V23 for an explicit choice. Returning from V23 previews the first-year budget as a flat comparison. The detailed schedule and provider assumptions remain visible in V23.</p>
+        <p>For a retirement one-off, distinguish the investment-floor-only maximum from the limit that also funds essentials. In Annual review, capture a dated forecast and then record actuals. Each recorded year can show its frozen forecast, observed spending and current revised forecast separately.</p>
         <div class="note warning"><strong>Decision-support only.</strong> This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules and obtain professional advice before acting.</div>
         <div class="grid">
           <div class="card"><b>Interactive Command Centre</b>Integrated, mobile-responsive, dual-rail dashboard with adjustable spending, returns, target age, home value and stress settings.</div>

@@ -494,6 +494,16 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .actual-plan-inputs textarea { min-height: 62px; resize: vertical; }
 .actual-plan-results { display: grid; gap: 8px; }
 .actual-plan-results article { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.actual-plan-results h4 { margin: 0 0 8px; font-size: 14px; }
+.actual-plan-results dl { display: grid; gap: 6px; margin: 0 0 7px; }
+.actual-plan-results dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.actual-plan-results dt { color: var(--muted); font-size: 12px; }
+.actual-plan-results dd { margin: 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.risk-funding .panel-head label { display: grid; min-width: 155px; gap: 5px; font-size: 14px; }
+.risk-funding .panel-head input { padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel-2); }
+.dated-payment summary { cursor: pointer; font-weight: 700; }
+.dated-payment .metrics { margin-block: 10px; }
+.dated-payment p { margin-block: 6px; }
 .actual-plan-results span, .actual-plan-results b, .actual-plan-results strong, .actual-plan-results small { display: block; }
 .actual-plan-results span, .actual-plan-results small { color: var(--muted); font-size: 10px; }
 .actual-plan-results b { margin-top: 5px; color: var(--muted); font-size: 11px; }

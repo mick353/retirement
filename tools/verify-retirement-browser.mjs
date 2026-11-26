@@ -624,7 +624,7 @@ async function exerciseBandEditor(page, base) {
 async function exerciseDecisionBrief(page, base) {
   await page.evaluate(() => localStorage.clear());
   await open(page, new URL("deep-model.html?page=decisionbrief", base));
-  const welcome = page.locator("#v23-welcome.open #v23-w-skip");
+  const welcome = page.locator("#v23-welcome[open] #v23-w-skip");
   if (await welcome.isVisible()) await welcome.click();
   const brief = page.locator("#page-decisionbrief");
   const cardValue = (label) => brief.locator("#brief_cards .card").filter({ hasText: label }).locator(".value").innerText();
@@ -659,6 +659,127 @@ async function exerciseDecisionBrief(page, base) {
   assert.match(await assumption("Spending rule"), /\$160,000\/yr total/);
 }
 
+async function exerciseDecisionIntegrity(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  const fixture = "shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=75&taxYear=2027-28&seed=20260814";
+  const deep = new URL(`deep-model.html?page=decisionbrief&${fixture}`, base);
+  await open(page, deep);
+  const summary = page.locator("#v23-decision-summary");
+  assert.equal(await summary.isVisible(), true);
+  assert.match(await summary.innerText(), /\$414,150 unfunded.*age 69/s);
+  assert.match(await summary.innerText(), /\$717,616.*\$1,130,536/s);
+  const beforeControls = await summary.evaluate(element =>
+    element.getBoundingClientRect().top < document.getElementById("profile-controls").getBoundingClientRect().top);
+  assert.equal(beforeControls, true, "The decision lands above the controls");
+  await page.locator("#v23-set-essentials").click();
+  const essentials = page.locator("#v23_essentials");
+  assert.equal(await essentials.evaluate(el => el === document.activeElement), true);
+  await essentials.fill("122000");
+  await essentials.press("Enter");
+  assert.match(await summary.innerText(), /first missed in year ending at 70/);
+
+  const show = (destination) => page.evaluate(name => showPage(name), destination);
+  await show("triggers");
+  assert.match(await page.locator("#trigger_cards").innerText(), /Active triggers\s+3\s+Action review required/i);
+  assert.equal(await page.locator('#side-nav [data-page="triggers"] .nav-badge').textContent(), "3");
+  assert.match(await page.locator("#trigger_tbl").innerText(), /Essential spending.*122,000.*Active.*first missed/is);
+  assert.match(await page.locator("#trigger_tbl").innerText(), /Full annual budget.*414,150/is);
+
+  await show("oneoff");
+  assert.match(await page.locator("#oo_cards").innerText(), /\$441,674.*funds the one-off and meets the investment floor/is);
+  assert.match(await page.locator("#oo_funding").innerText(), /\$400,000.*With a \$0 one-off.*already misses/is);
+  const setSlider = (id, amount) => page.locator(id).evaluate((input, value) => {
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, amount);
+  await setSlider("#sl_oo", 400000);
+  assert.match(await page.locator("#oo_funding").innerText(), /\$924,727.*first shortfall in the year ending at age 61/is);
+  await setSlider("#sl_oo", 0);
+
+  await show("guardrails");
+  await page.locator("#pc_essential").fill("122000");
+  await page.locator("#pc_runs").fill("12");
+  await page.locator("#pc_75_kind").selectOption("hard");
+  await page.locator("#pc_75_amount").fill("500000");
+  await page.locator("#pc_run").click();
+  assert.equal(await page.locator("#pc_output").isVisible(), true);
+  assert.match(await page.locator("#pc_context").innerText(), /essentials \$122,000\/yr.*age 75 hard \$500,000/);
+  await page.locator("#pc_essential").fill("150000");
+  assert.equal(await page.locator("#pc_output").isVisible(), false);
+  assert.equal(await page.locator("#pc_results").innerHTML(), "");
+  assert.match(await page.locator("#pc_status").innerText(), /Inputs changed/);
+  await page.locator("#pc_run").click();
+  assert.match(await page.locator("#pc_context").innerText(), /essentials \$150,000\/yr/);
+  await setSlider("#sl_likely", 6);
+  assert.equal(await page.locator("#pc_output").isVisible(), false);
+  await setSlider("#sl_likely", 5);
+
+  await show("decisionbrief");
+  const guide = page.locator("#v23-btn-guide");
+  await guide.click();
+  assert.equal(await page.locator("#v23-guide-x").evaluate(el => el === document.activeElement), true);
+  await page.keyboard.press("Shift+Tab");
+  assert.equal(await page.evaluate(() => !!document.activeElement.closest("#v23-guide")), true);
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#v23-guide").isVisible(), false);
+  assert.equal(await guide.evaluate(el => el === document.activeElement), true);
+  await page.locator("#v23-command-link").click();
+  assert.match(await page.locator("#v23-handoff-values").innerText(), /\$160,000 per year flat.*2027–28/);
+  await page.getByRole("button",{name:"Stay in V23",exact:true}).click();
+  assert.equal(await page.locator("#v23-handoff-dialog").isVisible(), false);
+
+  await show("checklist");
+  await page.locator('#checklist_container input[data-id="cl1"]').check();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button",{name:"Export settings",exact:true}).click();
+  const backup = JSON.parse(await readFile(await (await download).path(),"utf8"));
+  assert.equal(backup.state.essentialSpending,122000);
+  assert.equal(backup.state.salaryTaxYear,"2027-28");
+  assert.equal(backup.checklist.cl1,true);
+
+  await open(page, new URL(`?section=scenario&tool=risk&${fixture}`, base));
+  const risk = page.locator(".risk-funding");
+  await risk.waitFor();
+  assert.match(await risk.innerText(), /Investment floor reached\s+71\.2%\s+427 of 600 paths/i);
+  assert.match(await risk.innerText(), /Full budget and investment floor\s+1\.8%\s+11 of 600 paths/i);
+  const riskEssentials = page.locator("#cc-risk-essentials");
+  await riskEssentials.fill("122000");
+  await riskEssentials.press("Enter");
+  assert.match(await risk.innerText(), /Essentials and investment floor\s+2\.7%\s+16 of 600 paths/i);
+
+  await open(page, new URL(`?section=scenario&tool=surface&${fixture}`, base));
+  const surface = page.locator(".surface-canvas");
+  await surface.press("ArrowRight");
+  const draft = await page.getByRole("link",{name:"Review a Pool C draw in V23",exact:true}).getAttribute("href");
+  const draftUrl = new URL(draft,base);
+  assert.equal(draftUrl.searchParams.get("poolC"),"after-abp");
+  await open(page,draftUrl);
+  assert.match(await page.locator("#v23-shared-title").innerText(),/Surface draft ready/);
+  assert.match(await page.locator("#v23-decision-basis").innerText(),/Pool C preserved/);
+  await page.getByRole("button",{name:"Apply draft with Pool C draw",exact:true}).click();
+  assert.match(await page.locator("#v23-decision-basis").innerText(),/Pool C available after A\/B/);
+  assert.match(await page.locator("#brief_reco").innerText(),/full \$2,415,000 planned/);
+  await page.reload({waitUntil:"domcontentloaded"});
+  assert.match(await page.locator("#v23-decision-basis").innerText(),/Pool C available after A\/B/);
+
+  await open(page,new URL(`?section=review&${fixture}`,base));
+  const review = page.locator(".actual-plan-review");
+  await page.getByRole("button",{name:"Capture current snapshot",exact:true}).click();
+  await review.getByRole("spinbutton",{name:/^Actual lifestyle spending/}).fill("120000");
+  const spending = review.locator('[data-review-field="spending"]');
+  assert.deepEqual(await spending.locator("dd").allInnerTexts(),["$160,000","$120,000","$160,000"]);
+  const comparison = page.locator(".shared-plan-controls");
+  await comparison.locator("summary").click();
+  const budget = comparison.getByRole("spinbutton",{name:"Flat net spending / year",exact:true});
+  await budget.fill("122000");
+  await budget.press("Tab");
+  assert.deepEqual(await spending.locator("dd").allInnerTexts(),["$160,000","$120,000","$122,000"]);
+  assert.match(await spending.innerText(),/\-\$40,000 vs saved forecast/);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await review.waitFor();
+  assert.deepEqual(await spending.locator("dd").allInnerTexts(),["$160,000","$120,000","$122,000"]);
+}
+
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
 let browser;
 try {
@@ -676,6 +797,7 @@ try {
       await exerciseAuditedControls(page, preview.base);
       await exerciseBandEditor(page, preview.base);
       await exerciseDecisionBrief(page, preview.base);
+      await exerciseDecisionIntegrity(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px on ${preview.base.href}`);
     } finally {

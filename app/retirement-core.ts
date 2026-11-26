@@ -62,6 +62,86 @@ export function firstFinancialYearMinimum(
     * (daysRemainingInFinancialYear / daysInYear);
 }
 
+/** Schedule 7 illustration using a dated pension commencement and today's rates. */
+export function firstPensionFinancialYear(openingBalance: number, age: number, commencement: string) {
+  const start = new Date(`${commencement}T00:00:00.000Z`);
+  if (!Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== commencement) {
+    throw new Error("Enter a valid pension commencement date.");
+  }
+  const year = start.getUTCFullYear();
+  const month = start.getUTCMonth();
+  const endYear = month >= 6 ? year + 1 : year;
+  const day = 86_400_000;
+  const elapsedDays = (Date.UTC(endYear, 6, 1) - start.getTime()) / day;
+  const financialYearDays = (Date.UTC(endYear, 6, 1) - Date.UTC(endYear - 1, 6, 1)) / day;
+  const raw = month === 5 ? 0 : firstFinancialYearMinimum(openingBalance, age, elapsedDays, financialYearDays);
+  return { commencement, endDate: `${endYear}-06-30`, elapsedDays, financialYearDays, minimum: Math.round(raw / 10) * 10 };
+}
+
+export const FUNDING_TOLERANCE = 0.005;
+
+export function commandCentreSpend(amount: unknown) {
+  const value = Number(amount);
+  return Number.isFinite(value) ? Math.min(300_000, Math.max(76_000, value)) : 110_000;
+}
+
+export type SpendingYear = { age: number; capital: number; planned: number; funded: number };
+
+/** Rows start with a capital-only opening snapshot and end on each birthday. */
+export function assessSpending(rows: SpendingYear[], age: number, floor: number, essentials: number | null) {
+  let checkpoint: SpendingYear | undefined;
+  let planned = 0, funded = 0, years = 0;
+  let firstBudgetMiss: SpendingYear | undefined, firstEssentialMiss: SpendingYear | undefined;
+  for (const [index, row] of rows.entries()) {
+    if (row.age > age) break;
+    if (row.age === age) checkpoint = row;
+    if (index === 0) continue;
+    years += 1;
+    planned += row.planned;
+    funded += row.funded;
+    if (row.planned - row.funded >= FUNDING_TOLERANCE) firstBudgetMiss ??= row;
+    if (essentials !== null && essentials - row.funded >= FUNDING_TOLERANCE) firstEssentialMiss ??= row;
+  }
+  return {
+    age, years, planned, funded, firstBudgetMiss, firstEssentialMiss,
+    capital: checkpoint?.capital ?? null,
+    floorMargin: checkpoint ? checkpoint.capital - floor : null,
+  };
+}
+
+export type PathFundingCounts = {
+  capital: number;
+  lifestyle: number;
+  lifestyleAndCapital: number;
+  essentials: number;
+  essentialsAndCapital: number;
+};
+
+export function fundingPathCounts(years: number): PathFundingCounts[] {
+  return Array.from({ length: years }, () => ({
+    capital: 0, lifestyle: 0, lifestyleAndCapital: 0, essentials: 0, essentialsAndCapital: 0,
+  }));
+}
+
+export function countFundingPath(
+  counts: PathFundingCounts[], path: SpendingYear[], floor: number, essentials: number | null,
+) {
+  let lifestyleMet = true;
+  let essentialsMet = essentials !== null;
+  for (let index = 1; index < path.length; index += 1) {
+    const row = path[index];
+    const result = counts[index];
+    const capitalMet = row.capital >= floor;
+    lifestyleMet &&= row.planned - row.funded < FUNDING_TOLERANCE;
+    if (essentials !== null) essentialsMet &&= essentials - row.funded < FUNDING_TOLERANCE;
+    if (capitalMet) result.capital += 1;
+    if (lifestyleMet) result.lifestyle += 1;
+    if (lifestyleMet && capitalMet) result.lifestyleAndCapital += 1;
+    if (essentialsMet) result.essentials += 1;
+    if (essentialsMet && capitalMet) result.essentialsAndCapital += 1;
+  }
+}
+
 /**
  * Canonical retirement-engine domains.
  *
@@ -71,7 +151,7 @@ export function firstFinancialYearMinimum(
  * Pool B, one-off and policy-aware workbench ledger until that richer domain
  * can be migrated with its own parity contract.
  */
-export const RETIREMENT_ENGINE_VERSION = "2026-09-09.1";
+export const RETIREMENT_ENGINE_VERSION = "2026-11-26.1";
 export const TRANSFER_BALANCE_CAP = 2_100_000;
 export const TRANSFER_BALANCE_BUFFER = 5_000;
 export const HOSTPLUS_OPENING_ANCHOR = 317_447.66;

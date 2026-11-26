@@ -20,6 +20,13 @@ test("Hostplus central case and ABP timing controls retain their governed regres
   assert.equal(core.abpMinimumRateAtAgeOn1July(64), 0.04);
   assert.equal(core.abpMinimumRateAtAgeOn1July(65), 0.05);
   assert.equal(Number(core.firstFinancialYearMinimum(840_887.36, 60).toFixed(2)), 17_693.19);
+  assert.deepEqual(core.firstPensionFinancialYear(441_674.40, 60, "2033-12-21"), {
+    commencement:"2033-12-21", endDate:"2034-06-30", elapsedDays:192, financialYearDays:365, minimum:9290,
+  });
+  assert.equal(core.firstPensionFinancialYear(100_000, 60, "2028-06-01").minimum, 0);
+  assert.equal(core.firstPensionFinancialYear(100_000, 60, "2027-07-01").financialYearDays, 366);
+  assert.equal(core.firstPensionFinancialYear(100_000, 65, "2027-07-01").minimum, 5000);
+  assert.throws(()=>core.firstPensionFinancialYear(100_000,60,"2027-02-30"), /valid pension commencement/);
 });
 
 test("provider projection bases are explicit, shared and election-gated", () => {
@@ -131,7 +138,7 @@ test("V23 lifestyle phases follow the active bands and show the gross-equivalent
   assert.match(v23, /Age \$\{age\} already starts another band/);
   assert.match(v23, /calculations still use the last valid schedule/);
   assert.match(v23, /const operatingAges=operatingRows\.map\(r=>`\$\{r\.age-1\}→\$\{r\.age\}`\)/);
-  assert.match(v23, /2026–27 resident salary/);
+  assert.match(v23, /Gross salary equivalent” uses \$\{salaryYearLabel\(\)\} resident rates and 2% Medicare/);
 });
 
 test("V23 mobile task dock has direct-page fallbacks and selected-page feedback", () => {
@@ -457,5 +464,6 @@ test("Risk Studio makes selected-year capital routing and observed review record
   assert.match(dashboard, /Ending investment capital/);
   assert.match(dashboard, /Actual versus plan checkpoint/);
   assert.match(dashboard, /robinson-retirement-actual-checkpoints/);
-  assert.match(dashboard, /not a live account feed and not a change to the retirement model/);
+  assert.match(dashboard, /annualForecast\?\.\[actualReviewAge\]/);
+  assert.match(dashboard, /Saved forecast.*Recorded actual.*Current forecast/s);
 });

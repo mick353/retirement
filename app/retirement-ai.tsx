@@ -240,7 +240,7 @@ export default function RetirementAi({ context }: RetirementAiProps) {
 
         <details className="ai-disclosure">
           <summary>What the adviser receives</summary>
-          <p>Your message, recent chat, the active dashboard scenario, rail definitions, deterministic and probability outputs, ledger, PSS/VR/NCC controls, sources and the detailed V23 model reference are sent by this site&apos;s protected server connection to Google Gemini. The API credential is never exposed to the browser. Chat history is retained only in this browser by this site.</p>
+          <p>Your message, recent chat, the active scenario, model results, ledger, PSS and tax assumptions, saved review and actual checkpoints, and model reference go to Google Gemini through the retirement site. This site stores its copy of the chat in this browser.</p>
         </details>
 
         <div className="ai-quick-prompts" aria-label="Suggested questions">
