@@ -851,6 +851,13 @@ async function exerciseDecisionWorkbench(page, base) {
   assert.equal(await value(result("reserve"), "Full budget + floor through 75"), "50 of 200 (25%)");
   assert.equal(await value(result("budget"), "Investments at 75"), "$1,062,576");
   assert.equal(await value(result("election"), "First-year budget"), "$160,000.00");
+  const splitAmounts = await page.locator(".decision-alternative dd").evaluateAll(cells => cells
+    .filter(cell => cell.textContent.startsWith("$")).filter(cell => {
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      return range.getClientRects().length !== 1;
+    }).map(cell => cell.textContent));
+  assert.deepEqual(splitAmounts, [], "Every dollar amount stays on one line");
   const openBudget = result("budget").getByRole("button");
   await openBudget.click();
   const preview = page.locator("#decision-draft-preview");
