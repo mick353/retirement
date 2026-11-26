@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -2286,7 +2287,7 @@ function VisualExplorerPanel({scenario, theme, panel, view, onSpend, onView}: {
   const [expanded,setExpanded]=useState(false);
   const [source]=useState(()=>sharedPageUrl(`atlas.html?embedded=1&panel=${panel}&view=${view}`,scenario,theme));
   const sendScenario=()=>frameRef.current?.contentWindow?.postMessage({channel:"retirement-explorer-v1",type:"scenario",scenario,theme},window.location.origin);
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     const receive=(event:MessageEvent)=>{
       if(event.origin!==window.location.origin || event.source!==frameRef.current?.contentWindow || event.data?.channel!=="retirement-explorer-v1")return;
       const data=event.data;
