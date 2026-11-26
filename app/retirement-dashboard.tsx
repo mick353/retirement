@@ -3709,7 +3709,7 @@ export default function RetirementDashboard() {
               <p>Use Hide menu at the top left to give the page more room. On narrower screens, Show menu opens it over the page.</p>
               <p>Command Centre compares one annual after-tax budget in today's dollars. Its six Scenario tabs share the active comparison plan. The CSC basis sets the retirement-day pension and lump sum. The real return applies after retirement.</p>
               <p>Use V23 Income &amp; draws for spending that changes by age. Use the Decision Brief to check funding, investment balances and shortfall years. Select Use these investment goals when opening V23 to carry your goal and later check.</p>
-              <p>In Lab or Review, select Export settings. Download plan only to share the calculation inputs, or full backup to include saved plans, checklist and recorded actuals. In Lab, select Import and check the preview before you apply. Undo import restores the prior plan in this tab.</p>
+              <p>In Lab or Review, select Export settings. Download plan only to share the calculation inputs. Download full backup to include saved plans, checklist and recorded actuals. In Lab, select Import and check the preview before you apply. Undo import restores the prior plan in this tab.</p>
             </details>
             <div className="workspace-guide-links"><a href={v23SpendPlanUrl}>Open V23 Income &amp; draws</a><a href={v23DecisionUrl}>Open V23 Decision Brief</a><a href={v23PolicyUrl}>Open V23 Policy Comparator</a><a href="./model-reference.html#using-the-planner">Open the guide and model reference</a></div>
           </details>
