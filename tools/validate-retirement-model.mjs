@@ -550,7 +550,7 @@ assert.match(dashboardSource, /version: 7/, "Command Centre stores the current s
 assert.match(atlasSource, /version: 7/, "Atlas stores the current shared-scenario schema");
 assert.match(dashboardSource, /basis:\s*scenario\.pssProjectionBasis/, "Command Centre shared links carry the PSS projection basis");
 assert.match(dashboardSource, /THEME_STORAGE_KEY = "robinson-retirement-theme"/, "Command Centre stores the shared theme preference");
-assert.match(dashboardSource, /sharedScenarioParams\(scenario, theme\)/, "Command Centre hand-offs carry the selected colour theme");
+assert.match(dashboardSource, /sharedScenarioParams\(scenario, theme, carryGoals\)/, "Command Centre hand-offs carry the selected colour theme and the goal choice");
 assert.match(v23Source, /RETIREMENT_THEME_STORAGE_KEY="robinson-retirement-theme"/, "V23 reads the shared theme preference");
 assert.match(dashboardSource, /const MAX_FLAT_SPEND = 300_000/, "Command Centre accepts the high-PSS V23 hand-off range");
 assert.match(atlasSource, /const MAX_FLAT_SPEND = 300_000/, "Atlas accepts the high-PSS V23 hand-off range");

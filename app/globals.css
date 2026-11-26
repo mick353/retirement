@@ -501,6 +501,19 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .actual-plan-results dd { margin: 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .risk-funding .panel-head label { display: grid; min-width: 155px; gap: 5px; font-size: 14px; }
 .risk-funding .panel-head input { padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel-2); }
+.risk-checkpoint { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.risk-checkpoint h4 { margin: 0 0 6px; }
+.risk-checkpoint .metrics { margin-top: 12px; }
+#cc-risk-trace { scroll-margin-top: 100px; }
+.cc-goal-handoff { padding: 0 20px 12px; font-size: 13px; }
+.cc-goal-handoff p { margin: 6px 0 0; color: var(--muted); }
+.settings-export-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+.settings-export-dialog::backdrop { background: rgb(5 12 25 / 65%); }
+.settings-export-dialog summary { cursor: pointer; }
+.settings-export-dialog pre { max-height: 30dvh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.settings-export-dialog .panel-actions { flex-wrap: wrap; }
+.cc-print-goal { display: none; }
+@media print { .cc-print-goal { display: block; } }
 .dated-payment summary { cursor: pointer; font-weight: 700; }
 .dated-payment .metrics { margin-block: 10px; }
 .dated-payment p { margin-block: 6px; }

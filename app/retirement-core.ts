@@ -140,12 +140,34 @@ export function retirementPaymentCalendar(input: RetirementCalendarInputs) {
   });
 }
 
+export type PoolCSpendingPolicy = "preserve" | "after-abp" | "above-reserve";
+
+export const COMMAND_CENTRE_DEFAULT_FLOOR = 500_000;
+export const COMMAND_CENTRE_GOALS_STORAGE_KEY = "robinson-retirement-command-goals";
+
+export function optionalNonNegative(value: unknown): number | null {
+  if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+export function laterInvestmentCheckAge(value: unknown, targetAge: number): number | null {
+  const age = optionalNonNegative(value);
+  return age !== null && Number.isInteger(age) && age > targetAge && age <= 95 ? age : null;
+}
+
+export function poolCWithdrawalCapacity(balance: number, policy: PoolCSpendingPolicy, reserve: number | null) {
+  if (policy === "after-abp") return Math.max(0, balance);
+  return policy === "above-reserve" && reserve !== null && Number.isFinite(reserve) && reserve >= 0
+    ? Math.max(0, balance - reserve) : 0;
+}
+
 export type PlanReceiptInput = {
   workspace: "v23" | "command-centre";
   modelRevision: string;
   source: string;
   sourceDate: string | null;
-  poolCPolicy: "preserve" | "after-abp";
+  poolCPolicy: PoolCSpendingPolicy;
   periodConvention: string;
   simulationSeed: number;
   assumptions: Record<string, unknown>;
@@ -237,7 +259,7 @@ export function countFundingPath(
  * Pool B, one-off and policy-aware workbench ledger until that richer domain
  * can be migrated with its own parity contract.
  */
-export const RETIREMENT_ENGINE_VERSION = "2026-11-26.2";
+export const RETIREMENT_ENGINE_VERSION = "2026-11-26.3";
 export const TRANSFER_BALANCE_CAP = 2_100_000;
 export const TRANSFER_BALANCE_BUFFER = 5_000;
 export const HOSTPLUS_OPENING_ANCHOR = 317_447.66;

@@ -17,6 +17,8 @@ npm exec -- playwright install --only-shell chromium
 
 The V23 matrix tests 384 combinations of PSS basis, election, annual return, spending rule, and Pool C policy. The separate core validator checks prior calculation behaviour against the recorded deterministic and seeded-risk fixtures.
 
+The reserve case covers $320,000 available with $300,000 protected, a market loss below the reserve, a blank reserve, a zero reserve and explicit one-off access. Paired checkpoint tests reproduce the $160,000 example at ages 75 and 85 on the same 200 paths, and confirm that raising the goal to $700,000 changes the check while leaving cash flows intact.
+
 ## Sites releases
 
 The Sites build always runs the Node tests. Before packaging a release, run `npm test` on the exact source to be pushed. To have the Site workflow helper run it during packaging, use `["cmd.exe", "/d", "/c", "npm", "test"]` on Windows or `["npm", "test"]` on macOS and Linux. When the helper saves and publishes the tested version, check the live origin as well.
@@ -39,6 +41,8 @@ Specialist-page regressions compare Health and zero-shock CPI with the active le
 The audited-control checks read the actual Average annual spending funded field in Income and Overview. Fixtures cover a fully funded 35-year plan, a pension surplus, a budget with a shortfall, and a 30-year custom-age plan. The separate ledger test verifies the numerator and denominator when capital runs out after a one-off. Other regressions cover spending-band timing and conversions, growth in the policy comparator, calendar-age spending windows, dated retirement inputs, the Wash component cap, same-age save-slot deltas, settings export, and a floor missed before any one-off.
 
 The Decision Brief journey checks the default 70/30 election, its source amounts, the flat budget, all three age-75 capital cards and the likely chart figure. It then changes the election and budget, checks the shortfall alongside preserved capital, and reloads to verify the saved plan.
+
+The goals and exports journey exercises a $700,000 goal carried into V23, distinct goals shown in the return preview, a capped reserve below its target, and plan-only and full downloads. It confirms that importing the plan-only file restores the calculation ID and preserves local review notes in both workspaces. The Decision Brief journey opens the later first shortfall on the alternative's own ledger.
 
 The spending-band journey checks that the year, amount and budget basis fit at widths from 320px to 2280px. It edits the Ramp preset with the keyboard, switches from dollars to return to mandatory draw, checks the 100% cap, and compares changes in both phase-table views against the spending chart. It also verifies that distinct draw percentages fund the same pension-only amount when the mandatory draw is zero.
 
