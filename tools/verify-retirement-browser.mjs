@@ -300,6 +300,7 @@ async function exerciseExplorer(page, base) {
   const atlas = new URL("atlas.html?view=river", base);
   await open(page, atlas);
   await page.waitForURL((current) => current.searchParams.get("tool") === "explore");
+  await page.getByText("Uses your active Command Centre plan", { exact: true }).waitFor();
   const frame = page.frameLocator('iframe[src*="atlas.html"]');
   await frame.locator("#visualCanvas").waitFor();
   await frame.getByRole("tab", { name: /Table/ }).click();
@@ -939,7 +940,7 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30, 31].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31, 32].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");

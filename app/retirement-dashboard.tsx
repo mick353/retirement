@@ -2310,7 +2310,7 @@ function VisualExplorerPanel({scenario, theme, panel, view, onSpend, onView}: {
   },[expanded]);
   return <section className={`integrated-explorer ${expanded?"expanded":""}`} aria-label="Interactive plan explorer">
     <div className="explorer-frame-toolbar"><span>{ready?"Uses your active Command Centre plan":"Loading the interactive view…"}<br/><b>Rail {scenario.rail} · {scenario.rail==="A"?"March control":scenario.pssElection==="100"?"100% pension":scenario.pssElection} · {money(scenario.spend)}/yr · {pct(scenario.realReturn,1)} real return · target age {scenario.targetAge}</b></span><button className="secondary" type="button" aria-pressed={expanded} onClick={()=>setExpanded(!expanded)}>{expanded?"Close focus view":"Focus view"}</button></div>
-    <iframe ref={frameRef} src={source} title={`Retirement ${panel==="studio"?"six-view visual studio":panel}`} style={{height}} onLoad={sendScenario} />
+    <iframe ref={frameRef} src={source} title={`Retirement ${panel==="studio"?"six-view visual studio":panel}`} style={{height}} inert={!ready} aria-busy={!ready} onLoad={sendScenario} />
     {!ready && <p className="explorer-loading">Your scenario is being applied. If this stays here, <button type="button" className="secondary" onClick={()=>{const frame=frameRef.current;if(frame)frame.src=source;}}>retry the view</button>.</p>}
   </section>;
 }
