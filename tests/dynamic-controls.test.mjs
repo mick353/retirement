@@ -265,7 +265,7 @@ test("Command Centre owns the integrated six-view studio and its active scenario
   assert.match(dashboard, /scenario=\{currentScenario\} theme=\{theme\}/);
   assert.match(dashboard, /V23 remains your age-band workbench/);
   assert.match(v23, /Shared V23 plan controls/);
-  assert.match(v23, /Two workspaces:/);
+  assert.match(v23, /Command Centre compares a flat annual budget in Lab, Explore, Compare, Frontier, Surface and Risk/);
   assert.match(dashboard, /id="scenario-hub-title"/);
   assert.match(dashboard, /type ScenarioTool = "lab" \| "explore" \| "compare" \| "frontier" \| "surface" \| "risk"/);
   assert.match(dashboard, /label: "Scenario", group: "Decide"/);

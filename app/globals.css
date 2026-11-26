@@ -1082,6 +1082,14 @@ dd { margin: 2px 0 0; font-weight: 800; }
 .workspace-guide {margin:0 0 24px;padding:14px 18px;border:1px solid var(--line);border-radius:14px;color:var(--muted);}
 .workspace-guide summary {cursor:pointer;color:var(--text);font-weight:650;min-height:24px;}
 .workspace-guide p {line-height:1.65;max-width:90ch;}
+.workspace-guide-steps {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:10px;margin-block:12px}
+.workspace-guide-steps>div {padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);min-width:0}
+.workspace-guide-steps h3 {margin:0 0 5px;color:var(--text);font-size:14px}
+.workspace-guide-steps p,.workspace-guide-more p {margin:0 0 8px;font-size:13px}
+.workspace-guide-steps p:last-child {margin-bottom:0}
+.workspace-guide-more>summary {margin-block:10px}
+.workspace-guide-links {display:flex;flex-wrap:wrap;gap:0 16px;margin-top:10px}
+.workspace-guide-links a {display:inline-flex;align-items:center;min-height:36px}
 .scenario-hub {margin:0 0 26px;padding:20px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,var(--panel),var(--panel-2));}
 .scenario-hub>div:first-child>span {color:var(--green);font-size:11px;font-weight:850;letter-spacing:.14em;text-transform:uppercase;}
 .scenario-hub h2 {margin:7px 0 5px;font-size:clamp(22px,2.4vw,32px);}

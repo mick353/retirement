@@ -61,7 +61,7 @@
         <p class="eyebrow">Static model documentation · source reconciliation 9 September 2026 · guide review 26 November 2026</p>
         <h1>Robinson Retirement Model Reference</h1>
         <p class="lede">A JavaScript-free description of the selectable PSS elections, data rails, formulas, scenario engines, governance controls and source lineage used by Command Centre (including the former Atlas visual explorer) and V23.</p>
-        <p><strong>Canonical retirement-engine version</strong> 2026-11-26.3 · V23.13</p>
+        <p><strong>Canonical retirement-engine version</strong> 2026-11-26.3 · V23.14</p>
         <div class="actions">
           <a class="button primary" href="./">Open interactive Command Centre</a>
           <a class="button" href="./deep-model.html">Open full V23 model</a>
@@ -73,38 +73,31 @@
 
     <nav aria-label="Model reference sections">
       <div class="wrap">
-        <a href="#scope">Scope</a><a href="#baseline">Baseline</a><a href="#vr">VR</a><a href="#projection">Projection</a><a href="#risk">Risk</a><a href="#ncc">NCC wash</a><a href="#tax">Tax</a><a href="#governance">Governance</a><a href="#sources">Sources</a>
+        <a href="#using-the-planner">Start here</a><a href="#baseline">Baseline</a><a href="#vr">VR</a><a href="#projection">Projection</a><a href="#risk">Risk</a><a href="#ncc">NCC wash</a><a href="#tax">Tax</a><a href="#governance">Governance</a><a href="#sources">Sources</a>
       </div>
     </nav>
 
     <main class="wrap">
       <section id="scope">
         <p class="eyebrow">Purpose and boundaries</p>
-        <h2>What this page documents</h2>
-        <p>This reference makes the model intelligible to people, accessibility tools, search engines and AI retrieval systems that do not execute React. All substantive content is present in this HTML response; JavaScript is not required.</p>
-        <h3>Read the spending and capital checks together</h3>
-        <p>Start with the V23 Decision Brief. In Plan controls, choose your target age and minimum total investments. You can add a later age and a separate essentials budget. Each spending check covers every year from retirement up to the selected birthday. Investments are measured on that birthday and exclude your home. The joint result counts market histories that meet both goals. The later check uses the same histories. <a href="./deep-model.html?page=decisionbrief">Open V23 Decision Brief</a></p>
-        <p>Use Compare alternatives to put your plan, another flat budget, a pension election and a Pool C rule on the same 200 market paths. When changing elections, choose how to carry the budget. Inspect an age to follow pension spent, withdrawals, savings, shortfall and closing investments. The CSV gives the same cash flow at cent precision.</p>
-        <p>Command Centre shows its checks in Scenario → Risk. Select the option to carry a goal during handoff if you want both workspaces to use it. Export settings previews the plan-only file, including any manual figures used in the plan. Choose the full backup to include saved comparisons and personal review records. A matching plan ID checks the inputs and the version identifies the calculation code.</p>
-        <p>Surface compares both withdrawal rules. Applying spending and return in Command Centre keeps its reserve rule. The Pool C draft opens in V23 for an explicit choice. Returning from V23 previews the first-year budget as a flat comparison. The detailed schedule and provider assumptions remain visible in V23.</p>
+        <h2 id="using-the-planner">How to use the retirement planner</h2>
+        <ol>
+          <li><strong>Choose your pension.</strong> Check the CSC projection basis and PSS election. These set the retirement-day pension, lump sum and opening investments. The real return setting applies after retirement.</li>
+          <li><strong>Set your budget.</strong> Use Scenario → Lab in Command Centre for a flat annual after-tax budget. To vary spending by age in V23, open Plan controls, choose Spending by age and set each Budget basis. For a stepped budget, choose Total spending and enter $160,000 from 60 and $122,000 from 70. The new band begins on your 70th birthday. <a href="./deep-model.html?page=income">Open Income &amp; draws</a></li>
+          <li><strong>Set your investment checks.</strong> Enter the minimum investments you want on your target birthday. Add a later age if useful. Choose to carry the goal and later age in the handoff if you want both workspaces to use them. <a href="./?section=scenario&amp;tool=risk">Open Command Centre Risk</a></li>
+          <li><strong>Check what the plan pays.</strong> Read spending funded, any amount unpaid, and the investment balance together. In the Decision Brief, select the first shortfall to see the pension and withdrawals for that year. <a href="./deep-model.html?page=decisionbrief">Open V23 Decision Brief</a></li>
+          <li><strong>Save or share your work.</strong> Select Export settings and preview Download plan only to share the active inputs. Choose Download full backup for notes, saved plans and review records. Import the file into the same workspace on either host and check the plan ID and version. V23's Print → Brief pack gives a readable copy, and CSV gives the yearly figures.</li>
+        </ol>
+        <h3>Compare choices and understand the results</h3>
+        <p>The investment goal covers Pools A, B and C and excludes the home. The full-budget-and-floor result counts market histories that paid the budget every year up to the selected birthday and met the goal on that birthday. The later check uses the same histories. A higher balance can come from spending less.</p>
+        <p>V23 Compare alternatives runs the current plan and alternatives on the same 200 market paths. Check the budget basis when comparing different elections. For adaptive spending, use Guardrail spending with an explicit essentials budget. Its separate comparison checks ages 75 and 85.</p>
+        <p>In Command Centre, use Explore for the annual figures, Compare and Frontier for flat-spending trade-offs, and Risk for market sensitivities. Surface previews two ways to treat Pool C at the selected spending and return. Applying a point updates the flat plan, which keeps Pool C invested. Open the V23 draft if you want to test withdrawals.</p>
+        <p>To protect a Pool C reserve in V23, choose to use only the amount above it. With $320,000 in Pool C and $300,000 reserved, it can pay up to $20,000 of a remaining gap after Pools A and B. Switch on one-off access to apply the same cap to an extra expense. Market losses can take Pool C below its reserve.</p>
         <p>For a retirement one-off, distinguish the investment-floor-only maximum from the limit that also funds essentials. In Annual review, capture a dated forecast and then record actuals. Each recorded year can show its frozen forecast, observed spending and current revised forecast separately.</p>
         <p>In Scenario → Lab, open First retirement year and fund payment dates to see living costs, estimated PSS payments and the ABP minimum through the following June as separate figures. Enter a dated provider payday and balance when available. The illustration uses the rules as at 1 July 2026. <a href="https://www.legislation.gov.au/F1996B00580/2026-07-01/2026-07-01/text/original/epub/OEBPS/document_2/document_2.html">Schedule 7</a> · <a href="https://www.csc.gov.au/defined-benefit-members/receiving-a-pension/payday">CSC paydays</a></p>
         <p>The AI panels preview the selected data before sending. Your message and active model are included. Saved reviews, personal notes and recent chat are separate choices and start off.</p>
         <div class="note warning"><strong>Decision-support only.</strong> This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules and obtain professional advice before acting.</div>
-        <div class="grid">
-          <div class="card"><b>Interactive Command Centre</b>Integrated, mobile-responsive, dual-rail dashboard with adjustable spending, returns, target age, home value and stress settings.</div>
-          <div class="card"><b>V23 deep model</b>Detailed annual engine for guardrails, draw sequencing, NCC wash methods, CPI shock, sequence risk and stochastic analysis.</div>
-          <div class="card"><b>This reference</b>Static description of formulas and controls. It does not execute projections or replace the interactive outputs.</div>
-        </div>
-        <h3>Start here: use and read the plan</h3>
-        <ol>
-          <li>In Command Centre, check the active rail, dated CSC source basis and PSS election. Set one flat annual net spending amount and an after-inflation return assumption.</li>
-          <li>In Scenario → Lab, compare the amount you want to spend with the amount the model funds. A shortfall is not extra income. Read the annual ledger and investment capital at your selected age together.</li>
-          <li>In Scenario → Explore, inspect a chosen age in Income by year or the exact table. Use Compare and Frontier for spending trade-offs; use Risk for sampled and stress sensitivities, not personal forecast odds.</li>
-          <li>In V23 Income &amp; draws, set spending gaps by age if a flat amount does not describe your plan. On Guardrail spending, advice is the default; the opt-in adaptive comparison requires an explicit essential total budget and leaves the saved plan unchanged.</li>
-          <li>Before a real decision, check the active source date and the limits in this reference, refresh actual balances and confirm current provider and tax rules.</li>
-        </ol>
-        <p><strong>Three amounts to keep separate:</strong> desired spending is your target; funded spending is what the selected pool policy supplies; investment capital is the remaining Pool A+B+C balance. A higher capital balance can result from spending less. Gross estate may add the selected home value and is not an after-tax inheritance estimate.</p>
+        <p>Use the formulas, source dates and assumptions below to trace a result. The interactive pages show the balances from your active plan.</p>
         <p><span class="tag">EXACT</span> documented or directly calculated input <span class="tag">ESTIMATED</span> external pricing or replacement value <span class="tag">MODELLED</span> scenario-dependent output <span class="tag">SPECULATIVE</span> unknowable future state.</p>
       </section>
 

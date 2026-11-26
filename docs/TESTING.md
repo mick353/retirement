@@ -44,6 +44,8 @@ The Decision Brief journey checks the default 70/30 election, its source amounts
 
 The goals and exports journey exercises a $700,000 goal carried into V23, distinct goals shown in the return preview, a capped reserve below its target, and plan-only and full downloads. It confirms that importing the plan-only file restores the calculation ID and preserves local review notes in both workspaces. The Decision Brief journey opens the later first shortfall on the alternative's own ledger.
 
+The guide tests check that every V23 page has help, the Guide uses the selected ages and investment goal, and the Quick start and All pages links open the intended view. They check the guide at phone and desktop widths, then follow Command Centre's Risk help to the on-site model reference.
+
 The spending-band journey checks that the year, amount and budget basis fit at widths from 320px to 2280px. It edits the Ramp preset with the keyboard, switches from dollars to return to mandatory draw, checks the 100% cap, and compares changes in both phase-table views against the spending chart. It also verifies that distinct draw percentages fund the same pension-only amount when the mandatory draw is zero.
 
 Decision-integrity checks use the review's $160,000 example. Of 600 seeded Command Centre paths, 427 pass the age-75 investment floor and 11 also fund every spending year. Existing balance paths and percentiles retain frozen-ledger parity. The browser checks the upfront verdict, trigger count, one-off limit, policy result invalidation, keyboard Guide, explicit Surface draft, and saved/revised annual forecast. Pension-calendar checks cover first-year pro-rating, leap years, 1 June and nearest-$10 rounding.
