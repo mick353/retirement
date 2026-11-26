@@ -300,7 +300,7 @@ async function exerciseExplorer(page, base) {
   const atlas = new URL("atlas.html?view=river", base);
   await open(page, atlas);
   await page.waitForURL((current) => current.searchParams.get("tool") === "explore");
-  await page.getByText("Uses your active Command Centre plan", { exact: true }).waitFor();
+  await page.locator('iframe[src*="atlas.html"][aria-busy="false"]').waitFor();
   const frame = page.frameLocator('iframe[src*="atlas.html"]');
   await frame.locator("#visualCanvas").waitFor();
   await frame.getByRole("tab", { name: /Table/ }).click();
