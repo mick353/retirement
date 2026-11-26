@@ -24,18 +24,15 @@ includes(css, ".content button, .content a.primary, .content a.secondary, .conte
 includes(dashboard, "Age-by-age VR comparison table; scroll horizontally for all columns", "The VR table must expose its scrollable region to assistive technology");
 includes(dashboard, "tabIndex={0}", "The VR comparison table must be keyboard-scrollable");
 
-// Desktop-collapsible sidebar (Command Centre) — guard against silent regression
-includes(css, ".desktop-only { display: none; }", "Desktop sidebar toggle needs its base hidden rule");
-includes(css, "@media (min-width: 921px)", "Desktop collapse needs its >=921px breakpoint");
-const cc920 = css.indexOf("@media (max-width: 920px)");
-const cc921 = css.indexOf("@media (min-width: 921px)");
-const cc650 = css.indexOf("@media (max-width: 650px)");
-const ccNavCollapsed = css.indexOf(".app-layout.nav-collapsed { grid-template-columns: 0 minmax(0, 1fr); }");
-assert.ok(cc920 < cc921 && cc921 < cc650, "The desktop collapse @media (min-width: 921px) block must sit after the 920px block and before the 650px block, or the mobile drawer rules override it");
-assert.ok(ccNavCollapsed > cc921 && ccNavCollapsed < cc650, ".app-layout.nav-collapsed must be defined inside the @media (min-width: 921px) block");
-includes(dashboard, "id=\"nav-menu-button\"", "Mobile menu button needs its id for Escape focus return");
-includes(dashboard, "aria-controls=\"retirement-sidebar\" aria-expanded={!navCollapsed}", "Desktop sidebar toggle must expose aria-controls/aria-expanded on the sidebar");
-includes(dashboard, "inert={navCollapsed && !navOpen}", "Collapsed sidebar must be inert so hidden nav leaves the tab order (but stays reachable via the mobile drawer)");
+const commandDrawer = css.slice(css.indexOf("@media (max-width: 1180px)"),css.indexOf("@media (max-width: 920px)"));
+includes(commandDrawer, ".sidebar { display: none; position: fixed;", "The tablet and phone menu must open outside the content grid");
+includes(commandDrawer, ".sidebar.open { display: block; }", "The drawer must be visible when opened");
+includes(css, ".app-layout.nav-collapsed .sidebar { display: none; }", "Hiding the desktop menu must remove the sidebar from the grid");
+includes(css, ".app-layout.nav-collapsed .content { max-width: none; }", "Hiding the desktop menu must let wide charts grow");
+includes(dashboard, 'NAV_DRAWER_MEDIA = "(max-width: 1180px)"', "The menu state must use the layout's drawer breakpoint");
+includes(dashboard, "id=\"nav-menu-button\"", "The menu button must be consistently addressable");
+includes(dashboard, "aria-controls=\"retirement-sidebar\" aria-expanded={menuExpanded}", "The menu button must expose the sidebar's actual visibility");
+includes(dashboard, "inert={!menuExpanded}", "The hidden sidebar must leave the tab order");
 includes(dashboard, "robinson-retirement-nav-collapsed", "Sidebar collapse state must persist under the robinson-retirement-nav-collapsed key");
 
 includes(v23, "On a phone, swipe this row to reveal all actions.", "V23 must explain its mobile action strip");
