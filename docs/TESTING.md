@@ -42,4 +42,6 @@ The Decision Brief journey checks the default 70/30 election, its source amounts
 
 The spending-band journey checks that the year, amount and budget basis fit at widths from 320px to 2280px. It edits the Ramp preset with the keyboard, switches from dollars to return to mandatory draw, checks the 100% cap, and compares changes in both phase-table views against the spending chart. It also verifies that distinct draw percentages fund the same pension-only amount when the mandatory draw is zero.
 
-Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
+Decision-integrity checks use the review's $160,000 example. Of 600 seeded Command Centre paths, 427 pass the age-75 investment floor and 11 also fund every spending year. Existing balance paths and percentiles retain frozen-ledger parity. The browser checks the upfront verdict, trigger count, one-off limit, policy result invalidation, keyboard Guide, explicit Surface draft, and saved/revised annual forecast. Pension-calendar checks cover first-year pro-rating, leap years, 1 June and nearest-$10 rounding.
+
+The offline browser check installs the service worker, replaces an obsolete retirement cache, preserves an unrelated cache on the same origin, and opens the example Decision Brief offline. Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.

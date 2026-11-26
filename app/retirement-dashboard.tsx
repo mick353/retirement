@@ -19,7 +19,10 @@ import {
   abpMinimumRateAtAgeOn1July,
   calculateFlatRetirementLedger as calculateCanonicalFlatRetirementLedger,
   calculateWashOutcome as calculateCanonicalWashOutcome,
-  firstFinancialYearMinimum,
+  firstPensionFinancialYear,
+  commandCentreSpend,
+  countFundingPath,
+  fundingPathCounts,
   normaliseElectionForBasis as normaliseCanonicalElectionForBasis,
   normaliseProjectionBasis as normaliseCanonicalProjectionBasis,
   projectHostplusAt60,
@@ -71,7 +74,10 @@ type ReviewSnapshot = ScenarioState & {
   capturedAt: string;
   endCapital: number;
   estate: number;
+  annualForecast?: Record<number, ReviewForecast>;
 };
+
+type ReviewForecast = { capital: number; spending: number; pension: number };
 
 type ActualReviewCheckpoint = {
   reviewedAt: string;
@@ -79,7 +85,14 @@ type ActualReviewCheckpoint = {
   spending: number | null;
   pension: number | null;
   note: string;
+  baseline?: ReviewForecast & { capturedAt: string; origin: "snapshot" | "first-entry" };
 };
+
+const EMPTY_CHECKPOINT: ActualReviewCheckpoint = { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
+const forecastForReview = (row: { ending: number; spend: number; pension: number }): ReviewForecast => ({
+  capital: row.ending, spending: row.spend, pension: row.pension,
+});
+const RISK_ESSENTIALS_KEY = "robinson-retirement-risk-essentials";
 
 type Rail = {
   key: RailKey;
@@ -529,9 +542,10 @@ function quantile(values: number[], q: number) {
   return ordered[index] ?? 0;
 }
 
-function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear, volatility = 0.12, runs = 600, seed = 20260814) {
+function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear, volatility = 0.12, runs = 600, seed = 20260814, essentials: number | null = null) {
   const ages = Array.from({ length: 36 }, (_, index) => 60 + index);
   const paths = Array.from({ length: ages.length }, () => [] as number[]);
+  const funding = fundingPathCounts(ages.length);
   for (let run = 0; run < runs; run += 1) {
     const random = seededGenerator(seed + run * 7_919 + Math.round(rail.capital));
     const annualReturns: number[] = [];
@@ -543,8 +557,11 @@ function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear
     const path = calculateCanonicalFlatRetirementLedger({
       poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension,
       spend, realReturn: mean, poolCDrag: POOL_C_DRAG, annualReturns,
-    }).map((row) => row.ending);
-    path.forEach((capital, year) => paths[year].push(capital));
+    });
+    path.forEach((row, year) => paths[year].push(row.ending));
+    countFundingPath(funding, path.map(row => ({
+      age: row.age, capital: row.ending, planned: row.spend, funded: row.fundedSpend,
+    })), 500_000, essentials);
   }
   return {
     ages,
@@ -554,6 +571,7 @@ function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear
     p75: paths.map((values) => quantile(values, 0.75)),
     p90: paths.map((values) => quantile(values, 0.90)),
     paths,
+    funding,
   };
 }
 
@@ -1205,13 +1223,14 @@ function SurfaceWithdrawalComparison({ age, spend, withReserveDraw, withoutReser
   </div>;
 }
 
-function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }: {
+function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt, draftUrl }: {
   rail: Rail;
   spend: number;
   realReturn: number;
   targetAge: number;
   theme: Theme;
   onAdopt: (next: { spend: number; realReturn: number }) => void;
+  draftUrl?: (next: { spend: number; realReturn: number }) => string;
 }) {
   const [metric, setMetric] = useState<SurfaceMetric>("total-target");
   const [selected, setSelected] = useState<{ spend: number; realReturn: number } | null>(null);
@@ -1475,7 +1494,10 @@ function DecisionSurface({ rail, spend, realReturn, targetAge, theme, onAdopt }:
       <p><b>Selected alternative</b> · {money(selected.spend)} per year · {pct(selected.realReturn, 2)} real return</p>
       {metric !== "total-target" && <p>Chart result · {metricLabel(activeMetric)} · <b>{alternativeValue}</b>{metric.endsWith("-95") && alternative.firstShortfallAge !== null && ` · Spending shortfall starts at age ${alternative.firstShortfallAge}`}</p>}
       <SurfaceWithdrawalComparison age={targetAge} spend={selected.spend} withReserveDraw={alternative} withoutReserveDraw={alternativeReserveOnly} />
-      <div className="surface-actions"><button type="button" className="primary" onClick={() => { onAdopt(selected); setSelected(null); }}>Apply spending and return</button><button type="button" className="secondary" onClick={() => setSelected(null)}>Clear selection</button></div>
+      <p className="surface-explanation"><b>Before applying:</b> Command Centre uses the reserve rule shown above. Open a draft in V23 to try spending from Pool C.</p>
+      <div className="surface-actions"><button type="button" className="primary" onClick={() => { onAdopt(selected); setSelected(null); }}>Apply spending and return</button>
+        {draftUrl && <a className="secondary" href={draftUrl(selected)} target="_blank" rel="noreferrer">Review a Pool C draw in V23</a>}
+        <button type="button" className="secondary" onClick={() => setSelected(null)}>Clear selection</button></div>
     </div> : <p className="surface-explanation">Select a point to see an alternative here. Your current plan is shown above without selecting anything.</p>}
     <div className="note">Both projections assume steady returns, flat annual spending and a {pct(POOL_C_DRAG, 2)} annual drag on Pool C. Applying an alternative updates your shared spending and return settings. Lab uses the reserve rule shown above.</div>
   </section>;
@@ -2267,6 +2289,7 @@ export default function RetirementDashboard() {
   const [pssElection, setPssElection] = useState<PssElectionKey>("70-30");
   const [pssProjectionBasis, setPssProjectionBasis] = useState<PssProjectionBasisKey>("source-825");
   const [spend, setSpend] = useState(110_000);
+  const [riskEssentials, setRiskEssentials] = useState<number | null>(null);
   const [realReturn, setRealReturn] = useState(0.05);
   const [targetAge, setTargetAge] = useState(75);
   const [homeValue, setHomeValue] = useState(HOME_BASELINE);
@@ -2329,16 +2352,17 @@ export default function RetirementDashboard() {
   const activePssElections = electionsForBasis(pssProjectionBasis);
   const activePssElectionKeys = electionKeysForBasis(pssProjectionBasis);
   const effectivePssElection = normaliseElectionForBasis(pssProjectionBasis, pssElection);
-  const rail = railFor(railKey, effectivePssElection, pssProjectionBasis);
+  const rail = useMemo(() => railFor(railKey, effectivePssElection, pssProjectionBasis), [railKey, effectivePssElection, pssProjectionBasis]);
   const portfolioDraw = Math.max(0, spend - rail.netPension);
   const pssSurplus = Math.max(0, rail.netPension - spend);
   const ledger = useMemo(() => operationalLedger(rail, spend, realReturn, taxYear), [rail, spend, realReturn, taxYear]);
   const firstUnfundedYear = ledger.find((row) => !row.isOpening && row.shortfall > 0);
-  const firstYearStatutoryMinimum = firstFinancialYearMinimum(rail.poolA, 60);
+  const firstPaymentYear = firstPensionFinancialYear(rail.poolA, 60, "2033-12-21");
+  const firstYearStatutoryMinimum = firstPaymentYear.minimum;
   const endCapital = ledger.find((row) => row.age === targetAge)?.ending ?? rail.capital;
   const estate = endCapital + homeValue;
   const grossEquivalent = grossForNet(spend, taxYear);
-  const fan = useMemo(() => monteCarloFan(rail, spend, realReturn, taxYear, .12, 600, simulationSeed), [rail, spend, realReturn, taxYear, simulationSeed]);
+  const fan = useMemo(() => monteCarloFan(rail, spend, realReturn, taxYear, .12, 600, simulationSeed, riskEssentials), [rail, spend, realReturn, taxYear, simulationSeed, riskEssentials]);
   const trajectoryLabels = Array.from({ length: Math.max(1, targetAge - 60 + 1) }, (_, i) => 60 + i);
   const trajectoryReturns = [...new Set([0.04, realReturn, 0.065].map((value) => Number(value.toFixed(4))))].sort((a, b) => a - b);
   const trajectorySeries = trajectoryReturns.map((r, i) => ({
@@ -2358,6 +2382,7 @@ export default function RetirementDashboard() {
   const selectedVrPreserve = vrPreservePaths.find((row) => row.age === vrAge)!;
   const selectedVrPath = vrMode === "immediate" ? selectedVrImmediate : selectedVrPreserve;
   const v23SpendPlanUrl = sharedPageUrl("deep-model.html?page=income", currentScenario, theme);
+  const v23DecisionUrl = sharedPageUrl("deep-model.html?page=decisionbrief", currentScenario, theme);
   const v23PolicyUrl = sharedPageUrl("deep-model.html?page=guardrails", currentScenario, theme);
   const atlasUrl = sharedPageUrl("?section=scenario&tool=explore", currentScenario, theme);
   const targetIndex = clamp(targetAge - 60, 0, fan.ages.length - 1);
@@ -2492,12 +2517,16 @@ export default function RetirementDashboard() {
         const snapshot = localStorage.getItem("robinson-retirement-review-snapshot");
         const checks = localStorage.getItem("robinson-retirement-review-checks");
         const actuals = localStorage.getItem("robinson-retirement-actual-checkpoints");
+        const savedEssentials = localStorage.getItem(RISK_ESSENTIALS_KEY);
+        if (savedEssentials !== null && Number.isFinite(Number(savedEssentials)) && Number(savedEssentials)>=0) {
+          setRiskEssentials(Number(savedEssentials));
+        }
         const loadScenario = (candidate: Partial<ScenarioState>) => {
           const basis = normaliseProjectionBasis(candidate.pssProjectionBasis);
           setRailKey(candidate.rail === "A" ? "A" : "B");
           setPssElection(normaliseElectionForBasis(basis, candidate.pssElection));
           setPssProjectionBasis(basis);
-          setSpend(clamp(Number(candidate.spend) || 110_000, 76_000, MAX_FLAT_SPEND));
+          setSpend(commandCentreSpend(candidate.spend ?? 110_000));
           setRealReturn(clamp(Number(candidate.realReturn) || 0.05, 0.02, 0.075));
           setTargetAge(clamp(Number(candidate.targetAge) || 75, 70, 95));
           setHomeValue(clamp(Number(candidate.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
@@ -2589,7 +2618,8 @@ export default function RetirementDashboard() {
   };
 
   const captureReview = () => {
-    const snapshot: ReviewSnapshot = { ...currentScenario, capturedAt: new Date().toISOString(), endCapital, estate };
+    const annualForecast = Object.fromEntries(ledger.filter(row=>!row.isOpening).map(row=>[row.age,forecastForReview(row)]));
+    const snapshot: ReviewSnapshot = { ...currentScenario, capturedAt: new Date().toISOString(), endCapital, estate, annualForecast };
     setReviewSnapshot(snapshot);
     localStorage.setItem("robinson-retirement-review-snapshot", JSON.stringify(snapshot));
   };
@@ -2603,21 +2633,37 @@ export default function RetirementDashboard() {
   const updateActualCheckpoint = (field: "capital" | "spending" | "pension", rawValue: string) => {
     const value = rawValue === "" ? null : Number(rawValue);
     if (value !== null && (!Number.isFinite(value) || value < 0)) return;
-    const current = actualCheckpoints[actualReviewAge] ?? { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
-    const next = { ...actualCheckpoints, [actualReviewAge]: { ...current, [field]: value, reviewedAt: new Date().toISOString() } };
+    const current = actualCheckpoints[actualReviewAge] ?? EMPTY_CHECKPOINT;
+    const reviewedAt = new Date().toISOString();
+    const hasActual = [current.capital,current.spending,current.pension].some(item=>typeof item==="number");
+    const snapshotRow = reviewSnapshot?.annualForecast?.[actualReviewAge];
+    const ledgerRow = ledger.find(row=>row.age===actualReviewAge&&!row.isOpening);
+    let baseline = current.baseline;
+    if (!baseline && !hasActual && value !== null && ledgerRow) {
+      baseline = snapshotRow && reviewSnapshot
+        ? { ...snapshotRow, capturedAt: reviewSnapshot.capturedAt, origin: "snapshot" }
+        : { ...forecastForReview(ledgerRow), capturedAt: reviewedAt, origin: "first-entry" };
+    }
+    const next = { ...actualCheckpoints, [actualReviewAge]: { ...current, [field]: value, reviewedAt, baseline } };
     setActualCheckpoints(next);
     localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(next));
   };
 
   const updateActualCheckpointNote = (note: string) => {
-    const current = actualCheckpoints[actualReviewAge] ?? { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
+    const current = actualCheckpoints[actualReviewAge] ?? EMPTY_CHECKPOINT;
     const next = { ...actualCheckpoints, [actualReviewAge]: { ...current, note, reviewedAt: new Date().toISOString() } };
     setActualCheckpoints(next);
     localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(next));
   };
 
+  const applyRiskEssentials = (value: number | null) => {
+    setRiskEssentials(value);
+    if (value === null) localStorage.removeItem(RISK_ESSENTIALS_KEY);
+    else localStorage.setItem(RISK_ESSENTIALS_KEY, String(value));
+  };
+
   const exportSettings = () => {
-    const payload = { version: "2026-09-01.projection-basis.7", exportedAt: new Date().toISOString(), current: currentScenario, saved, reviewSnapshot, reviewChecks, actualCheckpoints };
+    const payload = { version: "2026-11-26.review.8", exportedAt: new Date().toISOString(), current: currentScenario, saved, reviewSnapshot, reviewChecks, actualCheckpoints, riskEssentials };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "robinson-retirement-scenarios.json"; a.click(); URL.revokeObjectURL(url);
@@ -2632,7 +2678,7 @@ export default function RetirementDashboard() {
         setRailKey(parsed.current.rail === "A" ? "A" : "B");
         setPssElection(normaliseElectionForBasis(basis, parsed.current.pssElection));
         setPssProjectionBasis(basis);
-        setSpend(clamp(Number(parsed.current.spend) || 110_000, 76_000, MAX_FLAT_SPEND));
+        setSpend(commandCentreSpend(parsed.current.spend ?? 110_000));
         setRealReturn(clamp(Number(parsed.current.realReturn) || 0.05, 0.02, 0.075));
         setTargetAge(clamp(Number(parsed.current.targetAge) || 75, 70, 95));
         setHomeValue(clamp(Number(parsed.current.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
@@ -2652,6 +2698,7 @@ export default function RetirementDashboard() {
       if (parsed.actualCheckpoints && typeof parsed.actualCheckpoints === "object") {
         setActualCheckpoints(parsed.actualCheckpoints); localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(parsed.actualCheckpoints));
       }
+      if (parsed.riskEssentials === null || (Number.isFinite(parsed.riskEssentials) && parsed.riskEssentials >= 0)) applyRiskEssentials(parsed.riskEssentials);
     } catch { alert("That file is not a valid retirement scenario export."); }
   };
 
@@ -2666,6 +2713,7 @@ export default function RetirementDashboard() {
             <button className="primary" onClick={() => go("scenario")}>Run a scenario</button>
             <button className="secondary" onClick={() => go("frontier")}>Inspect the frontier</button>
             <a className="secondary" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Set age-band spending in V23 ↗</a>
+            <a className="secondary" href={v23DecisionUrl} target="_blank" rel="noreferrer">Open V23 Decision Brief</a>
             <button className="secondary" onClick={() => go("visuals")}>Explore the plan</button>
           </div>
         </div>
@@ -2769,7 +2817,14 @@ export default function RetirementDashboard() {
       <section className="panel">
         <div className="panel-head"><div><h3>Reconciled annual planning ledger</h3><p>The opening position is capital on retirement day before annual cashflow. Each following row is a birthday-to-birthday planning year, not a fund payment instruction.</p></div><button className="secondary" onClick={() => setShowLedger(!showLedger)}>{showLedger ? "Hide table" : "Show full retirement ledger"}</button></div>
         <div className="first-year-explainer"><Badge tone="exact">OPENING POSITION</Badge><span>{money(ledger[0].ending)} on 21 Dec 2033</span><b>→</b><Badge tone="modelled">FIRST PLANNING YEAR</Badge><span>{money(ledger[1].pension)} PSSDB + {money(ledger[1].draw)} planning portfolio draw funds {money(ledger[1].fundedSpend)} spending{ledger[1].reinvestment > 0 ? ` and reinvests ${money(ledger[1].reinvestment)} surplus` : ""}</span></div>
-        <div className="note"><b>ABP payment control:</b> the first statutory minimum is an illustrative {money(firstYearStatutoryMinimum)} for 21 Dec 2033–30 Jun 2034, pro-rated from the Pool A opening balance under current-law assumptions. Your fund calculates the actual financial-year minimum; this birthday-year ledger is for planning only.</div>
+        <details className="note dated-payment"><summary>First retirement year and fund payment dates</summary>
+          <div className="metrics two">
+            <Metric label="Partial financial-year minimum" value={money(firstYearStatutoryMinimum)} sub={`21 Dec 2033 to 30 Jun 2034 · ${firstPaymentYear.elapsedDays} of ${firstPaymentYear.financialYearDays} days · rounded to $10`} />
+            <Metric label="First full model-year minimum" value={money(rail.poolA * abpMinimumRateAtAgeOn1July(60))} sub="Age 60 to 61 · a full year from the opening balance" />
+          </div>
+          <p>Illustration using today&apos;s rules. Your fund confirms the actual commencement date, balance and payment schedule. The amount you choose to draw for spending may be higher than the minimum.</p>
+          <a href="https://www.ato.gov.au/tax-and-super-professionals/for-superannuation-professionals/apra-regulated-funds/paying-benefits/income-streams" target="_blank" rel="noreferrer">ATO pension payment rules</a>
+        </details>
         {firstUnfundedYear ? <div className="note warn"><b>Funding shortfall:</b> {firstUnfundedYear.year} has {money(firstUnfundedYear.shortfall)} of the selected spending target unfunded after PSSDB and Pool A draw. Pool C is deliberately not spent automatically—choose and model a separate draw policy before treating it as income.</div> : <div className="note"><b>Funding check:</b> all displayed planning years are funded by PSSDB plus Pool A at this setting. Pool C remains a reserve and is not silently counted as spending money.</div>}
         <div className="table-wrap desktop-ledger"><table><thead><tr><th>Period</th><th>Age span</th><th>Opening capital</th><th>PSSDB pension</th><th>Hostplus accumulation</th><th>Hostplus pension</th><th>Pool C</th><th>Planning portfolio draw</th><th>Target spend</th><th>Funded spend</th><th>Shortfall</th><th>Reinvestment</th><th>Net investment growth</th><th>Pool C drag</th><th>Net income</th><th>Gross equivalent of income</th><th>Capital at period end</th></tr></thead><tbody>{ledger.slice(0, showLedger ? ledger.length : 6).map((r) => <tr key={r.age} className={r.isOpening ? "opening-row" : ""}><td><b>{r.year}</b><small className="ledger-period">{r.period}</small></td><td>{r.ageLabel}</td><td>{money(r.opening)}</td><td>{r.isOpening ? "—" : money(r.pension)}</td><td>{money(r.accumulation)}</td><td>{money(r.abp)}</td><td>{money(r.poolC)}</td><td>{r.isOpening ? "—" : money(r.draw)}</td><td>{r.isOpening ? "—" : money(r.spend)}</td><td>{r.isOpening ? "—" : money(r.fundedSpend)}</td><td>{r.isOpening ? "—" : r.shortfall > 0 ? money(r.shortfall) : "—"}</td><td>{r.isOpening ? "—" : money(r.reinvestment)}</td><td>{r.isOpening ? "—" : money(r.investmentGrowth)}</td><td>{r.isOpening ? "—" : money(r.tax)}</td><td>{r.isOpening ? "—" : money(r.netIncome)}</td><td>{r.isOpening ? "—" : money(r.grossEquivalent)}</td><td><b>{money(r.ending)}</b></td></tr>)}</tbody></table></div>
         <div className="mobile-ledger">{ledger.slice(0, showLedger ? ledger.length : 6).map((row) => row.isOpening ? <article className="opening-position" key={row.age}><header><div><span>Opening position</span><b>Age 60 · 21 Dec 2033</b></div><strong>{money(row.ending)}<small>opening capital</small></strong></header><p>No annual income or spending belongs in this snapshot. Your first retirement-year cashflow starts in the next card.</p><dl><div><dt>Hostplus pension</dt><dd>{money(row.abp)}</dd></div><div><dt>Pool C</dt><dd>{money(row.poolC)}</dd></div></dl></article> : <article key={row.age}><header><div><span>{row.year} · {row.period}</span><b>Age {row.ageLabel}</b></div><strong>{money(row.ending)}<small>ending capital</small></strong></header><dl><div><dt>PSSDB pension received</dt><dd>{money(row.pension)}</dd></div><div><dt>Planning portfolio draw</dt><dd>{money(row.draw)}</dd></div><div><dt>Target annual spending</dt><dd>{money(row.spend)}</dd></div><div><dt>Funded spending</dt><dd>{money(row.fundedSpend)}</dd></div>{row.shortfall > 0 && <div><dt>Unfunded target</dt><dd>{money(row.shortfall)}</dd></div>}<div><dt>Reinvested surplus</dt><dd>{money(row.reinvestment)}</dd></div><div><dt>Net investment growth</dt><dd>{money(row.investmentGrowth)}</dd></div><div><dt>Net income received</dt><dd>{money(row.netIncome)}</dd></div><div><dt>Gross salary equivalent</dt><dd>{money(row.grossEquivalent)}</dd></div><div><dt>Pool C at year end</dt><dd>{money(row.poolC)}</dd></div></dl></article>)}</div>
@@ -2959,10 +3014,34 @@ export default function RetirementDashboard() {
     const p90 = fan.p90[targetIndex];
     const shockAges = [61, 63, 65, 67, 70];
     const shocks = [-.10, -.20, -.30, -.40];
+    const counts = fan.funding[targetIndex];
+    const paths = fan.paths[targetIndex].length;
+    const frequency = (value: number) => `${value} of ${paths} paths`;
     return <>
-      <SectionHeading eyebrow="Uncertainty made visible" title="Risk studio" copy="The pension protects essential income. These views show how markets change optionality, recovery margin and estate—not whether the lifetime floor keeps paying." />
-      <div className="metrics four">
-        <Metric label={`Model success frequency ≥$500k at ${targetAge}`} value={pct(targetProbability, 0)} sub={`${pct(realReturn, 1)} real mean · three-pool ledger · not a forecast probability`} tone={targetProbability >= .8 ? "green" : "amber"} />
+      <SectionHeading eyebrow="Uncertainty made visible" title="Risk studio" copy="See how often the pension and permitted withdrawals fund the budget, and how often your investments clear the floor." />
+      <section className="panel risk-funding" aria-labelledby="risk-funding-heading">
+        <div className="panel-head">
+          <div><h3 id="risk-funding-heading">Spending and investment floor through age {targetAge}</h3><p>Each spending check covers every year through this age. Investment capital is measured at age {targetAge}. These tests use the same paths and preserve Pool C.</p></div>
+          <label htmlFor="cc-risk-essentials">Essential spending ($/yr)
+            <input key={riskEssentials ?? "unset"} id="cc-risk-essentials" type="number" defaultValue={riskEssentials ?? ""} min={0} step="any" inputMode="decimal" placeholder="Optional"
+              onBlur={event => {
+                const input = event.currentTarget;
+                if (!input.checkValidity()) { input.value = String(riskEssentials ?? ""); return; }
+                const value = input.valueAsNumber;
+                applyRiskEssentials(Number.isFinite(value) ? value : null);
+              }}
+              onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} />
+          </label>
+        </div>
+        {targetIndex>0 ? <div className="metrics four">
+          <Metric label="Investment floor reached" value={pct(counts.capital / paths, 1)} sub={`${frequency(counts.capital)} reached $500,000`} />
+          <Metric label="Full budget every year" value={pct(counts.lifestyle / paths, 1)} sub={frequency(counts.lifestyle)} />
+          <Metric label="Full budget and investment floor" value={pct(counts.lifestyleAndCapital / paths, 1)} sub={frequency(counts.lifestyleAndCapital)} />
+          {riskEssentials !== null && <Metric label="Essentials and investment floor" value={pct(counts.essentialsAndCapital / paths, 1)} sub={`${frequency(counts.essentialsAndCapital)} also funded ${money(riskEssentials)}/yr`} />}
+        </div> : <p>Age 60 is the opening snapshot. Choose a later age to check funded spending.</p>}
+        {targetIndex>0 && riskEssentials !== null && <p className="note">{frequency(counts.essentials)} funded the essential budget each year, regardless of the investment floor.</p>}
+      </section>
+      <div className="metrics three">
         <Metric label={`P10 capital @${targetAge}`} value={money(p10)} sub="Nine in ten paths finish above this level" tone="amber" />
         <Metric label={`Median capital @${targetAge}`} value={money(p50)} sub="Middle stochastic outcome" />
         <Metric label={`P90 capital @${targetAge}`} value={money(p90)} sub="Strong-path reference, not a forecast" tone="green" />
@@ -3128,12 +3207,14 @@ export default function RetirementDashboard() {
       { label: `Gross estate @${targetAge} · incl. home`, value: estate - priorComparableEstate, format: money },
     ] : [];
     const actualReviewRow = ledger.find((row) => row.age === actualReviewAge && !row.isOpening) ?? ledger[1];
-    const actualCheckpoint = actualCheckpoints[actualReviewAge] ?? { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
+    const actualCheckpoint = actualCheckpoints[actualReviewAge] ?? EMPTY_CHECKPOINT;
+    const original = actualCheckpoint.baseline;
+    const revised = forecastForReview(actualReviewRow);
     const actualComparisons = [
-      { label: "Investment capital", planned: actualReviewRow.ending, actual: actualCheckpoint.capital },
-      { label: "PSSDB pension received", planned: actualReviewRow.pension, actual: actualCheckpoint.pension },
-      { label: "Lifestyle spending", planned: actualReviewRow.spend, actual: actualCheckpoint.spending },
-    ];
+      ["capital", "Investment capital"],
+      ["pension", "PSSDB pension received"],
+      ["spending", "Lifestyle spending"],
+    ] as const;
     return <>
       <SectionHeading eyebrow="Governed update cycle" title="Annual retirement review" copy="Turn a complex model into a repeatable professional process: refresh evidence, compare changes, decide actions and preserve a dated baseline." />
       <section className="review-hero panel">
@@ -3146,7 +3227,7 @@ export default function RetirementDashboard() {
         {reviewSnapshot ? <div className="delta-grid">{deltas.map((delta) => <article key={delta.label} className={delta.value === 0 ? "neutral" : delta.value > 0 ? "up" : "down"}><span>{delta.label}</span><strong>{delta.value > 0 ? "+" : ""}{delta.format(delta.value)}</strong><small>{delta.value === 0 ? "No change" : "Since captured baseline"}</small></article>)}</div> : <div className="empty-state"><b>No earlier snapshot on this device</b><p>The site will not invent a comparison. Capture the governed current settings when you are ready to start the review cycle.</p></div>}
       </section>
       <section className="panel actual-plan-review">
-        <div className="panel-head"><div><h3>Actual versus plan checkpoint</h3><p>After a retirement planning year closes, record the confirmed outcome here. It compares observed values with that year&apos;s governed ledger without changing any forecast input.</p></div><label className="age-select">Planning year<select value={actualReviewAge} onChange={(event) => setActualReviewAge(Number(event.target.value))}>{ledger.filter((row) => !row.isOpening).map((row) => <option key={row.age} value={row.age}>{row.year} · age {row.ageLabel}</option>)}</select></label></div>
+        <div className="panel-head"><div><h3>Actual versus plan checkpoint</h3><p>Record the confirmed outcome after each planning year. The first entry keeps a copy of the saved forecast, or the forecast at entry when no dated snapshot is available.</p></div><label className="age-select">Planning year<select value={actualReviewAge} onChange={(event) => setActualReviewAge(Number(event.target.value))}>{ledger.filter((row) => !row.isOpening).map((row) => <option key={row.age} value={row.age}>{row.year} · age {row.ageLabel}</option>)}</select></label></div>
         <div className="actual-plan-layout">
           <div className="actual-plan-inputs">
             <label><span>Actual investment capital at year end</span><input inputMode="decimal" type="number" min="0" placeholder={String(Math.round(actualReviewRow.ending))} value={actualCheckpoint.capital ?? ""} onChange={(event) => updateActualCheckpoint("capital", event.target.value)} /><small>Combined Pool A and Pool C; enter a confirmed statement value.</small></label>
@@ -3154,12 +3235,24 @@ export default function RetirementDashboard() {
             <label><span>Actual lifestyle spending</span><input inputMode="decimal" type="number" min="0" placeholder={String(Math.round(actualReviewRow.spend))} value={actualCheckpoint.spending ?? ""} onChange={(event) => updateActualCheckpoint("spending", event.target.value)} /><small>Observed annual spend, not the future spending control.</small></label>
             <label className="actual-plan-note"><span>Review note</span><textarea placeholder="Source, timing or explanation for any variance" value={actualCheckpoint.note} onChange={(event) => updateActualCheckpointNote(event.target.value)} /></label>
           </div>
-          <div className="actual-plan-results" aria-live="polite">{actualComparisons.map((item) => {
-            const variance = item.actual === null ? null : item.actual - item.planned;
-            return <article key={item.label} className={variance === null ? "neutral" : variance === 0 ? "neutral" : variance > 0 ? "up" : "down"}><span>{item.label}</span><b>{money(item.planned)} plan</b><strong>{item.actual === null ? "Not entered" : money(item.actual)}</strong><small>{variance === null ? "Enter confirmed value" : `${variance > 0 ? "+" : ""}${money(variance)} vs plan`}</small></article>;
+          <div className="actual-plan-results" aria-live="polite">{actualComparisons.map(([field,label]) => {
+            const actual = actualCheckpoint[field];
+            const baseline = original?.[field];
+            const variance = actual === null || baseline === undefined ? null : actual - baseline;
+            return <article key={field} data-review-field={field}>
+              <h4>{label}</h4>
+              <dl>
+                <div><dt>Saved forecast</dt><dd>{baseline===undefined?"Unavailable":money(baseline)}</dd></div>
+                <div><dt>Recorded actual</dt><dd>{actual===null?"Not entered":money(actual)}</dd></div>
+                <div><dt>Current forecast</dt><dd>{money(revised[field])}</dd></div>
+              </dl>
+              {variance!==null && <small>{variance>0?"+":""}{money(variance)} vs saved forecast</small>}
+            </article>;
           })}</div>
         </div>
-        <p className="actual-plan-footnote">Device-local and included in the review export. It is an observed record for the selected year, not a live account feed and not a change to the retirement model.</p>
+        <p className="actual-plan-footnote">{original
+          ?`Forecast saved ${new Date(original.capturedAt).toLocaleDateString("en-AU")} ${original.origin==="snapshot"?"in the plan snapshot":"when the first actual was entered"}.`
+          :"Earlier actuals can have no saved forecast. Capture a dated plan snapshot before recording future years."} Records are device-local and included in the review export.</p>
       </section>
       <section className="review-grid">
         <div className="panel checklist-panel"><div className="panel-head"><div><h3>Review checklist</h3><p>Complete in order; each task preserves an auditable decision trail.</p></div><button className="text-button" onClick={() => { setReviewChecks({}); localStorage.removeItem("robinson-retirement-review-checks"); }}>Reset</button></div>{checklist.map(([key, label, detail], index) => <label className={reviewChecks[key] ? "done" : ""} key={key}><input type="checkbox" checked={Boolean(reviewChecks[key])} onChange={() => toggleReviewCheck(key)} /><span>{index + 1}</span><div><b>{label}</b><small>{detail}</small></div></label>)}</div>
@@ -3200,6 +3293,7 @@ export default function RetirementDashboard() {
       realReturn={realReturn}
       targetAge={targetAge}
       theme={theme}
+      draftUrl={(next) => sharedPageUrl("deep-model.html?page=decisionbrief&poolC=after-abp", { ...currentScenario, ...next }, theme)}
       onAdopt={({ spend: nextSpend, realReturn: nextReturn }) => {
         setSpend(clamp(nextSpend, 76_000, MAX_FLAT_SPEND));
         setRealReturn(clamp(nextReturn, 0.02, 0.075));

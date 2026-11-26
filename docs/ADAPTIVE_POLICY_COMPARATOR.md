@@ -17,10 +17,12 @@ The default multipliers are the existing advisory zone values: 70%, 90%, 100%, 1
 
 The results distinguish desired, permitted and funded spending; an adaptive cut does not erase an unmet desired lifestyle. Funded discretionary spending is the amount funded above the explicitly entered essential budget. Core shortfalls compare funded spending to that budget. The table reports actual investment balances and cut/shortfall years; paired Monte Carlo reports absolute values and within-path deltas.
 
+The output lists the essentials budget, election basis, age checks and economic settings used. A change to the plan or comparison fields clears the previous result until the user reruns it. The essentials budget in Plan controls is a separate planning test. Comparison essentials support an explicit what-if and leave the saved plan in advisory mode.
+
 Age 60–69 and 60–74 totals include only spending years that begin within the stated range. An earlier custom start does not add extra years to either sum. Across-election comparisons use the provider's age-60 estimates. To compare policies with a custom retirement age, keep the current election.
 
 ## Coverage boundary
 
-This first release does not rank after-tax inheritance. Existing Hostplus component and Pool C cost-basis uncertainty makes a precise pathwise after-tax comparison unsupported. Gross investment capital is not a home-inclusive estate measure. A liquidity reserve is not inferred from all invested Pool C assets. The age checks here do not represent an absolute estate floor or liquidity requirement. The existing V23 one-off capacity tool remains separate and has not been reclassified as a multi-constraint solver.
+Estate analysis remains illustrative while Hostplus components and Pool C cost bases are incomplete. The age checks use gross investment capital across Pools A, B and C. The separate one-off tool tests a single upfront cost on the likely path against essential spending and the selected-age investment floor.
 
 `npm run validate:policy` checks advisory and all-ones parity, changed adaptive paths, opening-period causality, random-path reproducibility, election semantics, hard-check classification and rendered comparator output. It is part of the production build gate.

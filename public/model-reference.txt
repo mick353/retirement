@@ -1,7 +1,7 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Source reconciliation: 9 September 2026; guide review: 30 September 2026
-Canonical retirement-engine version: 2026-09-09.1
+Source reconciliation: 9 September 2026; guide review: 26 November 2026
+Canonical retirement-engine version: 2026-11-26.1; detailed workbench V23.11
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -22,6 +22,14 @@ START HERE: USE AND READ THE PLAN
 5. Before a real decision, check the source date and limits below, refresh actual balances and confirm current provider and tax rules.
 
 Keep desired spending, funded spending and investment capital separate. Higher investment capital can result from spending less. Gross estate may add the selected home value; it is not an after-tax inheritance estimate.
+
+DECISION AND REVIEW
+- Start with the V23 Decision Brief at ./deep-model.html?page=decisionbrief. Enter an annual net essentials budget in Plan controls to test that minimum through the selected age. Check the first missed year and investments at 75 and 85.
+- Risk and Monte Carlo report full-budget, essentials, capital-floor and joint measures. Spending checks cover each intervening year. Capital is measured at the checkpoint. The joint tests use the same simulated path for both requirements.
+- Surface applies spending and return under Command Centre's reserve rule. Reviewing a Pool C draw opens a V23 draft that requires a separate apply action. Returning from V23 previews the first-year budget as a flat comparison.
+- One-off capacity shows the investment-floor-only maximum and the editable range. The essentials limit also checks ordinary spending through the selected age.
+- The Policy Comparator snapshots the inputs used for each run and clears its result when relevant inputs change. Advisory remains the active plan.
+- In Annual review, capture a dated forecast and record each year's actuals. A recorded year keeps its saved forecast when current assumptions change. V23 settings backup includes checklist progress, essentials and the reserve-month setting.
 
 CLASSIFICATIONS
 - EXACT: documented source value or direct arithmetic from it.

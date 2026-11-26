@@ -34,8 +34,8 @@ vm.runInContext(browserEngineSource, browserEngineContext);
 const browserEngine = browserEngineContext.RetirementEngine;
 assert.ok(browserEngine, "Browser retirement engine must register on globalThis");
 assert.equal(browserEngine.RETIREMENT_ENGINE_VERSION, core.RETIREMENT_ENGINE_VERSION, "Browser retirement engine version");
-assert.match(atlasHtml, /<script src="\.\/retirement-engine\.js\?v=2"><\/script>/, "Atlas loads the canonical browser engine beside its legacy calculations");
-assert.match(v23Source, /<script src="\.\/retirement-engine\.js\?v=2"><\/script>/, "V23 loads the canonical browser engine beside its legacy calculations");
+assert.match(atlasHtml, /<script src="\.\/retirement-engine\.js\?v=3"><\/script>/, "Atlas loads the current shared engine");
+assert.match(v23Source, /<script src="\.\/retirement-engine\.js\?v=3"><\/script>/, "V23 loads the current shared engine");
 const reactStub = { useEffect: () => undefined, useMemo: (factory) => factory(), useRef: () => ({ current: null }), useState: (value) => [value, () => undefined] };
 const dashboard = runCommonJs(
   compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_PRUDENT_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, VR_AGES, VR_AGE_FACTORS, normaliseProjectionBasis, normaliseElectionForBasis, railBForElection, definedBenefitAt60, vrScenarioPath, washOutcome, operationalLedger, monteCarloFan };`),
