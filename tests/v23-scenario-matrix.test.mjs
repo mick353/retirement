@@ -123,6 +123,11 @@ test("drafts explain the cashflow trade-off and use the independently replayed m
     const openPoolC=extended.find(plan=>plan.id==="reserve");
     const later={both75:openPoolC.funding.lifestyleAndCapital,both85:openPoolC.laterFunding.lifestyleAndCapital,
       unpaid:Math.round(openPoolC.laterCheck.planned-openPoolC.laterCheck.funded),firstMiss:openPoolC.laterCheck.firstBudgetMiss.age,capital:openPoolC.laterCheck.capital};
+    const misses=openPoolC.misses.budget;
+    const group=misses.find(group=>group.age===75);
+    const replay=policyReturnPath(openPoolC.pathSettings,group.example.pathIndex);
+    const {sim:history}=scenarioStateResult(openPoolC.state,75,replay,85,openPoolC.profile);
+    const example=history.rows.find(row=>row.spendingShortfall>=.005);
     const raisedGoal=compareDecisionDrafts({...original,laterCheckAge:85,investmentFloor:700000},{budget:122000,election:"100",semantics:"total"});
     const changed=JSON.stringify(original)!==JSON.stringify(captureScenarioState());
     const bands={...original,totalSpendTarget:null,spendMode:"fixed",gapGrowth:0,gapBands:[{age:60,amount:24000,unit:"dollar",startOnBirthday:false},{age:70,amount:18000,unit:"dollar",startOnBirthday:true}]};
@@ -133,11 +138,19 @@ test("drafts explain the cashflow trade-off and use the independently replayed m
     const altGap=scenarioStateResult(sameGap.state).sim.rows[1].gap;
     const noPct=decisionDraftPlans({...bands,gapBands:[{age:60,amount:70,unit:"drawPct"}]},{election:"100",semantics:"total"}).find(plan=>plan.id==="election");
     return JSON.stringify({summary,later,changed,baseline,flatSameTotal,altGap,unsupported:Boolean(noPct.state),
+      firstMissTotals:[70,75,85].map(age=>misses.findLast(group=>group.age<=age)?.cumulative??0),
+      historyResult:{age:example.age,gap:example.spendingShortfall,exampleGap:group.example.unpaid,
+        essentialCount:openPoolC.misses.essentials.at(-1).cumulative,fulfilled:openPoolC.laterFunding.lifestyle},
       goals:raisedGoal.map((plan,index)=>({capital:plan.check.capital,previousCapital:extended[index].check.capital,
         funded:plan.check.funded,previousFunded:extended[index].check.funded,floor:plan.check.capital-plan.check.floorMargin,
         joint:plan.funding.lifestyleAndCapital,previousJoint:extended[index].funding.lifestyleAndCapital}))});
   })()`, context));
   assert.equal(result.changed, false, "A comparison does not change the active plan");
+  assert.deepEqual(result.firstMissTotals, [7, 60, 157]);
+  assert.equal(result.historyResult.age, 75);
+  assert.ok(Math.abs(result.historyResult.gap - result.historyResult.exampleGap) < .005);
+  assert.equal(result.historyResult.fulfilled, 43);
+  assert.ok(result.historyResult.essentialCount < 157);
   assert.deepEqual(result.summary.filter(plan => plan.id !== "election"), [
     { id: "current", firstYearBudget: 160000, miss: 69, essentialMiss: 70, unfunded: 414150, capital: 717616, both: 1 },
     { id: "budget", firstYearBudget: 122000, miss: null, essentialMiss: null, unfunded: 0, capital: 1062576, both: result.summary[1].both },
@@ -149,6 +162,30 @@ test("drafts explain the cashflow trade-off and use the independently replayed m
   assert.ok(result.goals.some(goal => goal.joint < goal.previousJoint));
   assert.equal(result.baseline, result.flatSameTotal, "Fixed-band budget dollars and timing both carry to the alternate election");
   assert.equal(result.unsupported, false);
+});
+
+test("the active minimum takes precedence over profile references in V23 decisions", () => {
+  const result = JSON.parse(vm.runInContext(`(() => {
+    return JSON.stringify([500,1000,1200,1500,1800].map(floor=>{
+      const p={floor,target:1000,strong:1500};
+      const minimum=floor*1000;
+      const assessment={years:15};
+      const baseline={p,row:{total:minimum-1},assessment};
+      const release=triggerStatusRows(p,{total:2_500_000,poolC:0},assessment,75).find(row=>row[0]==="Lifestyle release");
+      return {
+        before:targetStatus(minimum-1,p).cls, at:targetStatus(minimum,p).cls, after:targetStatus(minimum+1,p).cls,
+        fromNav:navBadgeFor("executive",baseline),
+        zone:guardrailForRow(baseline.row,p).zone,
+        higherZone:adaptivePolicyDecision({openingCapital:2_500_000,desiredTotal:100000,essentialTotal:80000,p}).zone,
+        release:release[2],
+      };
+    }));
+  })()`, modelContext()));
+  for (const row of result) {
+    assert.deepEqual([row.before, row.at, row.after, row.fromNav, row.zone], ["bad", "good", "good", "bad", "Protect floor"]);
+  }
+  assert.deepEqual(result.map(row => row.higherZone), ["Legacy surplus", "Legacy surplus", "Legacy surplus", "Core plan", "Core plan"]);
+  assert.deepEqual(result.map(row => row.release), ["Active", "Active", "Active", "Manual", "Manual"]);
 });
 
 test("a near-floor handoff labels a different verdict across the two ledgers", () => {

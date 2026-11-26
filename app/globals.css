@@ -515,6 +515,10 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .settings-export-dialog summary { cursor: pointer; }
 .settings-export-dialog pre { max-height: 30dvh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
 .settings-export-dialog .panel-actions { flex-wrap: wrap; }
+.settings-import-dialog { width: min(760px, calc(100vw - 24px)); }
+.settings-import-dialog th,.settings-import-dialog td { white-space: normal; }
+.settings-import-dialog .table-wrap { margin-block: 12px; max-height: 52dvh; }
+.settings-import-dialog .settings-change td:last-child { font-weight: 750; background: var(--panel-2); }
 .cc-print-goal { display: none; }
 @media print { .cc-print-goal { display: block; } }
 .dated-payment summary { cursor: pointer; font-weight: 700; }
@@ -532,6 +536,12 @@ tbody tr:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .payment-calendar-inputs label { display: grid; min-width: 0; gap: 4px; }
 .payment-calendar-inputs input { min-width: 0; width: 100%; }
 .calendar-actions,.calendar-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cash-bridge { margin-block: 12px; min-width: 0; }
+.cash-bridge-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); align-items: end; gap: 8px; min-width: 0; margin-block: 8px; }
+fieldset.cash-bridge-fields { border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.cash-bridge-fields label { display: grid; min-width: 0; gap: 4px; }
+.cash-bridge-fields input,.cash-bridge-fields select { min-width: 0; width: 100%; }
+.cash-bridge > .secondary { margin-block: 8px; }
 .command-plan-id code { overflow-wrap: anywhere; }
 .actual-plan-results span, .actual-plan-results b, .actual-plan-results strong, .actual-plan-results small { display: block; }
 .actual-plan-results span, .actual-plan-results small { color: var(--muted); font-size: 10px; }
