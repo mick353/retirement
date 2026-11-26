@@ -11,6 +11,7 @@ const browserEngineSource = normalise(await readFile(new URL("../public/retireme
 const atlasHtml = normalise(await readFile(new URL("../public/atlas.html", import.meta.url), "utf8"));
 const atlasSource = normalise(await readFile(new URL("../public/atlas.js", import.meta.url), "utf8"));
 const v23Source = normalise(await readFile(new URL("../public/deep-model.html", import.meta.url), "utf8"));
+const serviceWorker = normalise(await readFile(new URL("../public/sw.js", import.meta.url), "utf8"));
 assert.match(atlasHtml, /id="tradeAssumptions" aria-live="polite"/, "Trade-off context is announced accessibly");
 assert.match(atlasSource, /\$\("tradeAssumptions"\)\.textContent = .*pct\(state\.realReturn\)/, "Trade-off context uses the active real return");
 
@@ -34,8 +35,11 @@ vm.runInContext(browserEngineSource, browserEngineContext);
 const browserEngine = browserEngineContext.RetirementEngine;
 assert.ok(browserEngine, "Browser retirement engine must register on globalThis");
 assert.equal(browserEngine.RETIREMENT_ENGINE_VERSION, core.RETIREMENT_ENGINE_VERSION, "Browser retirement engine version");
-assert.match(atlasHtml, /<script src="\.\/retirement-engine\.js\?v=3"><\/script>/, "Atlas loads the current shared engine");
-assert.match(v23Source, /<script src="\.\/retirement-engine\.js\?v=3"><\/script>/, "V23 loads the current shared engine");
+const engineAddress = markup => markup.match(/<script src="\.\/(retirement-engine\.js\?v=\d+)"><\/script>/)?.[1];
+const atlasEngine = engineAddress(atlasHtml);
+assert.ok(atlasEngine, "Atlas loads a versioned shared engine");
+assert.equal(engineAddress(v23Source), atlasEngine, "V23 and Atlas load the same shared engine");
+assert.ok(serviceWorker.includes(`scopedUrl("${atlasEngine}")`), "Offline installs cache that shared engine");
 const reactStub = { useEffect: () => undefined, useMemo: (factory) => factory(), useRef: () => ({ current: null }), useState: (value) => [value, () => undefined] };
 const dashboard = runCommonJs(
   compile(`${dashboardSource}\nmodule.exports = { RAILS, PSS_ELECTIONS, PSS_PRUDENT_ELECTIONS, PSS_ELECTION_ORDER, PSS_PROJECTION_BASES, VR_AGES, VR_AGE_FACTORS, normaliseProjectionBasis, normaliseElectionForBasis, railBForElection, definedBenefitAt60, vrScenarioPath, washOutcome, operationalLedger, monteCarloFan };`),
@@ -43,7 +47,7 @@ const dashboard = runCommonJs(
     if (name === "react") return reactStub;
     if (name === "react/jsx-runtime") return { Fragment: Symbol("Fragment"), jsx: () => null, jsxs: () => null };
     if (name === "./retirement-core") return core;
-    if (name === "./retirement-ai") return { default: () => null };
+    if (name === "./retirement-ai" || name === "./retirement-payment-calendar") return { default: () => null };
     throw new Error(`Unexpected dashboard dependency: ${name}`);
   },
 );
