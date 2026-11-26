@@ -673,6 +673,23 @@ async function exerciseDecisionIntegrity(page, base) {
   assert.equal(await summary.isVisible(), true);
   assert.match(await summary.innerText(), /\$414,150 unfunded.*age 69/s);
   assert.match(await summary.innerText(), /\$717,616.*\$1,130,536/s);
+  for (const theme of ["dark", "light"]) {
+    if ((await page.locator("html").getAttribute("data-theme")) !== theme) await page.locator("#btn-theme").click();
+    const ratios = await summary.locator(".card .sub").evaluateAll((notes) => {
+      const luminance = (color) => {
+        const components = color.match(/\d+(?:\.\d+)?/g).slice(0, 3).map(value => Number(value) / 255);
+        const [red, green, blue] = components.map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4);
+        return .2126 * red + .7152 * green + .0722 * blue;
+      };
+      return notes.map(note => {
+        const text = luminance(getComputedStyle(note).color);
+        const background = luminance(getComputedStyle(note.closest(".card")).backgroundColor);
+        return (Math.max(text, background) + .05) / (Math.min(text, background) + .05);
+      });
+    });
+    assert.equal(ratios.length, 4);
+    assert.ok(ratios.every(ratio => ratio >= 4.5), `${theme} result notes must meet 4.5:1 contrast (found ${ratios.join(", ")})`);
+  }
   const beforeControls = await summary.evaluate(element =>
     element.getBoundingClientRect().top < document.getElementById("profile-controls").getBoundingClientRect().top);
   assert.equal(beforeControls, true, "The decision lands above the controls");
@@ -790,18 +807,18 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    await page.evaluate(async () => {
-      await caches.open("robinson-retirement-pages-v28");
-      await caches.open("robinson-retirement-pages-v29");
+    const retiredCaches = [28, 29, 30].map(version => `robinson-retirement-pages-v${version}`);
+    await page.evaluate(async retiredCaches => {
+      await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
-    });
+    }, retiredCaches);
     const deep = new URL("deep-model.html?page=decisionbrief&shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=75", base);
     await open(page, deep);
     const canonical = page.url();
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
     const cacheNames = await page.evaluate(() => caches.keys());
     assert.ok(cacheNames.includes("unrelated-site-cache"), "Cache activation leaves other sites' caches intact");
-    assert.ok(!cacheNames.includes("robinson-retirement-pages-v28") && !cacheNames.includes("robinson-retirement-pages-v29"), "The obsolete retirement caches are removed");
+    assert.ok(retiredCaches.every(name => !cacheNames.includes(name)), "The obsolete retirement caches are removed");
     await context.setOffline(true);
     for (const url of new Set([canonical, deep.href])) {
       await open(page, new URL(url));
