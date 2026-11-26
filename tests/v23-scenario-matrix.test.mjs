@@ -235,7 +235,7 @@ test("Pool C spending policy is explicit, reconciled and reduces rather than hid
   assert.equal(result.after.reconciled, true);
 });
 
-test("V23 exposes every navigation page and every page has a renderer", () => {
+test("every V23 navigation page has a renderer and a guide", () => {
   const context = modelContext();
   const result = JSON.parse(vm.runInContext(`JSON.stringify({
     nav:[...${JSON.stringify([...v23.matchAll(/data-page="([a-z]+)"/g)].map((match) => match[1]))}],
@@ -243,5 +243,10 @@ test("V23 exposes every navigation page and every page has a renderer", () => {
   })`, context));
   const navPages = [...new Set(result.nav)];
   assert.ok(navPages.length >= 30);
-  for (const page of navPages) assert.ok(result.renderers.includes(page), `Missing renderer for ${page}`);
+  const guideBlock = v23.slice(v23.indexOf("const GUIDE = {"), v23.indexOf("const CONTROLS = ["));
+  const guides = [...guideBlock.matchAll(/^([a-z]+):\{t:"[^"]+",w:"[^"]+"/gm)].map(match=>match[1]);
+  for (const page of navPages) {
+    assert.ok(result.renderers.includes(page), `Missing renderer for ${page}`);
+    assert.ok(guides.includes(page), `Missing guide for ${page}`);
+  }
 });

@@ -826,6 +826,12 @@ dialog.v23-overlay::backdrop{background:transparent}
 .v23-guide-item{padding:12px 0;border-bottom:1px solid var(--border);}
 .v23-guide-item:last-child{border-bottom:0;}
 .v23-guide-item h4{margin:0 0 4px;font-size:13px;color:var(--text);}
+#v23-guide .v23-tab{min-height:40px;font-size:12px}
+#v23-guide .v23-modal{max-height:88dvh}
+.v23-guide-context{display:flex;flex-wrap:wrap;gap:6px 16px;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin:0 0 12px;background:var(--panel2)}
+.v23-guide-context p{margin:0}
+.v23-guide-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.v23-guide-links .btn,.v23-guide-item .btn{min-height:40px}
 .v23-kbd{font-family:'DM Mono',monospace;font-size:10.5px;border:1px solid var(--border);
   border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--chip);color:var(--chipText);}
 
@@ -1031,7 +1037,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.13 · 26 Nov 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.14 · 26 Nov 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1377,7 +1383,7 @@ main{min-width:0;}
         <div class="panel"><h2>Active assumptions</h2><table id="brief_assumptions"></table></div>
         <div class="panel"><h2>Next actions</h2><table id="brief_actions"></table></div>
       </div>
-      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="decisionbrief" placeholder="Add adviser/family notes for the decision brief..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
+      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="decisionbrief" placeholder="Add adviser/family notes for the decision brief..."></textarea><div class="note-meta">Saved in this browser. Download a full backup to include these notes.</div></div>
     </section>
     <dialog class="v23-overlay" id="decision-draft-preview" aria-labelledby="decision-draft-heading">
       <div class="v23-modal">
@@ -1465,6 +1471,7 @@ main{min-width:0;}
           <label>Essential total spending per year ($) <input id="pc_essential" type="number" min="0" step="1000" placeholder="Required for adaptive mode"></label>
           <label>Other PSS election <select id="pc_election"><option value="same">Current election only</option><option value="60-40">60 / 40</option><option value="65-35">65 / 35</option><option value="70-30">70 / 30</option><option value="100">100% pension</option></select></label>
           <label>Monte Carlo paths <input id="pc_runs" type="number" min="1" max="1000" step="1" value="200"></label>
+          <p class="muted smaller" style="grid-column:1/-1">These age 75 and 85 settings apply to this comparison. The Decision Brief and Monte Carlo fan use the ages you choose in Plan controls.</p>
           <div><label for="pc_75_kind">Age 75 check</label> <select id="pc_75_kind"><option value="informational">Informational only</option><option value="preferred">Preferred target</option><option value="hard">Hard constraint</option><option value="inactive">Inactive</option></select> <input id="pc_75_amount" aria-label="Age 75 investment capital target ($)" type="number" min="0" step="any" placeholder="Capital target ($)"></div>
           <div><label for="pc_85_kind">Age 85 check</label> <select id="pc_85_kind"><option value="informational">Informational only</option><option value="preferred">Preferred target</option><option value="hard">Hard constraint</option><option value="inactive">Inactive</option></select> <input id="pc_85_amount" aria-label="Age 85 investment capital target ($)" type="number" min="0" step="any" placeholder="Capital target ($)"></div>
         </div>
@@ -1489,7 +1496,7 @@ main{min-width:0;}
         </div>
       </div>
       <div class="panel"><h2>Operating rules by age</h2><table id="gr_tbl"></table></div>
-      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="guardrails" placeholder="Add notes about guardrail spending rules..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
+      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="guardrails" placeholder="Add notes about guardrail spending rules..."></textarea><div class="note-meta">Saved in this browser. Download a full backup to include these notes.</div></div>
     </section>
 
     <section class="page" id="page-trajectory">
@@ -1822,7 +1829,7 @@ main{min-width:0;}
       <div class="note"><b>Comparison save slots.</b> Save the current dashboard settings into A/B/C, reload them later, or compare against the current live settings. Stored locally in this browser.</div>
       <div class="cards" id="slot_cards"></div>
       <div class="panel"><h2>Saved scenario comparison</h2><table id="slot_tbl"></table></div>
-      <div class="panel adviser-notes"><h2>Scenario notes</h2><textarea data-note-key="saveslots" placeholder="Add notes about saved scenarios A/B/C..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
+      <div class="panel adviser-notes"><h2>Scenario notes</h2><textarea data-note-key="saveslots" placeholder="Add notes about saved scenarios A/B/C..."></textarea><div class="note-meta">Saved in this browser. Download a full backup to include these notes.</div></div>
     </section>
 
     <section class="page" id="page-poolcetf">
@@ -1888,7 +1895,7 @@ main{min-width:0;}
       </div>
       <div class="panel"><h2>Delta detail</h2><table id="rv_tbl"></table></div>
       </div>
-      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="reviewdelta" placeholder="Add notes about the annual review variance..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
+      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="reviewdelta" placeholder="Add notes about the annual review variance..."></textarea><div class="note-meta">Saved in this browser. Download a full backup to include these notes.</div></div>
     </section>
 
     <section class="page" id="page-triggers">
@@ -1898,7 +1905,7 @@ main{min-width:0;}
         <div class="panel"><h2>Trigger register</h2><table id="trigger_tbl"></table></div>
         <div class="panel"><h2>Trigger timeline</h2><div class="chart-wrap"><canvas id="trigger_chart"></canvas></div></div>
       </div>
-      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="triggers" placeholder="Add notes about action triggers and governance thresholds..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
+      <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="triggers" placeholder="Add notes about action triggers and governance thresholds..."></textarea><div class="note-meta">Saved in this browser. Download a full backup to include these notes.</div></div>
     </section>
 
     <section class="page" id="page-recalibrate">
@@ -1940,7 +1947,7 @@ main{min-width:0;}
       <div class="decision-grid" id="dec_cards"></div>
       <div class="panel"><h2>Decision register</h2><table id="dec_tbl"></table></div>
       <div class="panel"><h2>Version history</h2><table id="change_tbl"></table></div>
-      <div class="panel adviser-notes"><h2>Decision notes</h2><textarea data-note-key="decisions" placeholder="Add notes about decisions, sources, or review triggers..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
+      <div class="panel adviser-notes"><h2>Decision notes</h2><textarea data-note-key="decisions" placeholder="Add notes about decisions, sources, or review triggers..."></textarea><div class="note-meta">Saved in this browser. Download a full backup to include these notes.</div></div>
     </section>
 
   </main>
@@ -1964,7 +1971,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.13";
+const APP_VERSION = "v23.14";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -4500,6 +4507,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.14","Nov 2026","Updated the on-site guide, control instructions and reading examples."],
     ["v23.13","Nov 2026","Added a shared investment goal, an optional later spending check, a capped Pool C draw and plan-only exports."],
     ["v23.12","Nov 2026","The Decision Brief can compare and apply drafts, trace annual cash flows, and identify plans in settings exports and print."],
     ["v23.11.2","Nov 2026","The Decision Brief heading and small result details are easier to read in both themes."],
@@ -6307,7 +6315,7 @@ trajectory:{t:"Capital trajectory",w:"Total and per-pool investments by age, wit
 ["Three-scenario chart","Conservative / Base / Strong total-capital lines against the floor, target and strong reference bands."],
 ["Opening to closing capital","The bars show cumulative amounts from retirement to the target age. Transfers between investment pools do not change total capital."],
 ["Pools chart","Pool A vs B vs C vs Total on the likely path — shows the A-shrinks/C-grows crossover."]]},
-income:{t:"Income & draws",w:"Set your spending in Plan controls and check how much the pension and investments fund.",h:["For one budget, choose Total annual spending and select Apply spending. To vary it over time, choose Spending by age. Pick Total spending for a whole budget or Extra above net PSS for a top-up.","The annual ledger treats the illustrated ABP draws separately from salary and PSS pension tax. Confirm actual fund payments and tax treatment before acting."],f:[
+income:{t:"Income & draws",w:"Set your planned spending and see what the pension and investments can pay each year.",h:["For one budget, choose Total annual spending in Plan controls and select Apply spending.","To change spending with age, choose Spending by age. Pick Total spending for the whole after-tax budget, or Extra above net PSS for a pension top-up. A new band starting at 70 takes effect on your 70th birthday.","Read planned spending, funded spending and the shortfall together. A net pension larger than your budget leaves a surplus that goes into Pool C."],f:[
 ["Average annual spending funded","Total annual living costs the plan pays from retirement through age 95, divided by the number of spending years. The opening balance and separately itemised one-offs are outside the average. Compare with the planned amount and any average shortfall."],
 ["PSS net pension","Full after-tax pension in today’s dollars. The model invests any part left over after spending in Pool C."],
 ["Total spending funded to age 95","Cumulative amount spent over the modelled retirement years, in today’s dollars."],
@@ -6319,18 +6327,18 @@ income:{t:"Income & draws",w:"Set your spending in Plan controls and check how m
 ["Avg compulsory ABP payment","Average minimum payment calculated from the Pool A balance and the applicable statutory age rate. It can become very small after Pool A has been heavily drawn down. Your provider determines the legal financial-year amount, including first-year pro-rating."],
 ["Avg planned gap / funded gap / shortfall","Planned gap is the amount requested above the PSS pension by your age band. Funded gap is what the active PSS, Pool A/B and Pool C policy actually delivers. Shortfall is the difference; it is never silently counted as income or spending."],
 ["Band input","The exact age-band setting that created this lifestyle phase. Editing or adding a 'From age' band creates one matching row; it is never averaged into a preset calendar bucket."],
-["Avg lifestyle gap","The average annual amount actually spent above the PSS pension in that one band: amount spent from the mandatory draw plus any voluntary Pool A draw."],
+["Avg lifestyle gap","The average annual amount spent from investments in that band. It includes the mandatory draw you used, any extra Pool A or B draw and any Pool C withdrawal allowed by your rule."],
 ["Avg spent from mandatory","The portion of the lifestyle gap funded from the compulsory ABP minimum draw."],
 ["Avg voluntary Pool A/B draw","The portion of the lifestyle gap that exceeds the compulsory ABP minimum and is funded from Pools A or B. It is structurally $0 in 'Override: % of mandatory drawdown' mode. Pool C support, when selected and needed, is shown separately."],
 ["Gross salary equivalent","The illustrative resident salary that leaves the same spendable amount, including a 2% Medicare levy. The table shows the comparison year. A Command Centre hand-off carries its selected year."],
-["Max without extra draw (amber line)","Chart ceiling = PSS pension + the mandatory ABP draw for that year. Spending at or below it consumes only money the ABP is legally forced to pay out. Any orange stacked ABOVE the amber line is capital you chose to withdraw early."],
+["Max without extra draw","This line adds your net pension and the modelled mandatory draw for that year. A larger budget may need additional withdrawals or leave a shortfall."],
 ["Avg surplus→C","Average unconsumed mandatory draw recycled out of the ABP — the first $5,000 refills Pool A headroom, essentially everything after routes to Pool C."],
 ["Retained /yr","Average investment earnings plus saved PSS pension minus spending from investments. A negative amount means the plan uses more capital than those sources add over the period."],
 ["Retained (phase)","The same cashflow summed over all the years in the phase."],
 ["Avg funded spending /yr · /pf · Cumulative","Spending covered by the pension and investment withdrawals. The first two columns show the annual and fortnightly averages. Cumulative adds up funded spending from retirement through that row."],
 ["Lifestyle phases","Each phase follows a spending rule from the age-band editor. It can have several rows if its funding changes. For percentage bands, the Band input column includes the average mandatory draw or positive earnings that the percentage applies to."],
 ["Investment earnings (Pool A + Pool C)","Second chart, green area: the total return the portfolio generated that year, before any spending. This is the pot the '% of earnings' rule divides."],
-["Lifestyle spending (gap)","Second chart, amber line: everything you actually spent above the pension (drawn from the mandatory minimum + any voluntary extra). Where it rises ABOVE the green area you are consuming capital, not just growth."],
+["Lifestyle spending (gap)","The line shows the amount investments actually paid. Compare it with investment earnings for the same year. Spending above earnings uses capital."],
 ["Retained earnings (compounds)","Second chart, dashed line: earnings minus spending. Positive = growth left invested to compound. Below the zero line = net capital erosion."],
 ["AGES row","The final row averages annual dollar amounts over the whole retirement period. Retained (phase) and Cumulative show full-period totals. The percentages use totals, weighted by the actual dollars in each year."],
 ["Exact dollars","Use the full-dollar table values when reconciling funded spending, mandatory draws and surplus; rounded chart labels are for orientation."]]},
@@ -6347,7 +6355,7 @@ guardrails:{t:"Guardrail spending",w:"Advisory zone instructions remain the defa
 ["Guardrail gap @target","The same gap after the zone multiplier (70% / 90% / 100% / 120% / 135%). Advisory only — it does not feed back into the projection."],
 ["Comparison basis","Hold total lifestyle keeps overall desired spending the same across PSS elections. Hold additional gap above PSS keeps the extra programme the same, so total spending changes with the pension."],
 ["Comparison availability","Across-election comparison requires Rail B. Hold total lifestyle needs dollar age bands or an explicit total-spending target. Percentage-of-current-return spending cannot run an opening-year adaptive decision."],
-["Age 75 and 85 checks","Informational is the default. Preferred shows a goal without treating a miss as a hard breach. Hard requires your explicit amount and flags a miss. These are investment-capital checks and exclude the home."],
+["Age 75 and 85 checks","These checks belong to this comparison. Informational shows the balance. Preferred tests a goal. Hard flags any miss against the amount you enter. Decision Brief and Monte Carlo use the ages and investment floor in Plan controls."],
 ["Paired Monte Carlo","Advisory and adaptive policies face the same simulated return path. Median is the middle sampled result; P10 is a weaker sampled result, not a guaranteed worst case. Read the spending delta beside the investment delta."],
 ["Funded age 60–69 / 60–74 / lifetime","Cumulative total spending the ledger actually funds over each stated age span, in today's dollars. Age 60 is an opening snapshot: the 60–69 window sums ten spending years ending at ages 61–70, and 60–74 sums fifteen ending at ages 61–75. These columns are sums, not annual amounts."],
 ["Discretionary age 60–74","Cumulative funded spending above the entered essential total budget over the same fifteen spending years ending at ages 61–75. A higher value means more above-essential lifestyle was funded."],
@@ -6356,13 +6364,13 @@ guardrails:{t:"Guardrail spending",w:"Advisory zone instructions remain the defa
 ["Paired delta and breach frequency","Adaptive minus advisory is computed within each identical return path. Positive capital delta may reflect less spending. A hard-check breach frequency is the share of sampled paths missing an explicitly entered hard threshold, not forecast odds."],
 ["Coverage boundary","The comparator does not rank after-tax inheritance or infer a cash reserve from invested Pool C assets. It leaves the active plan and Command Centre flat comparison unchanged."],
 ["Tighten / expand years","How many ages in the advisory projection fall into a cut zone versus an upside zone."]]},
-reinvest:{t:"Drawdown & reinvestment",w:"Where mandatory draws go when they exceed spending, and whether the selected policy later uses Pool C to support a gap.",h:["This is why Pool C can grow with no planned deposits — it is the default destination for forced-draw surplus.","Negative bars are explicit Pool C withdrawals, permitted only under the use-after-A/B policy."],f:[
+reinvest:{t:"Drawdown & reinvestment",w:"Follow the parts of your pension and mandatory withdrawals that stay invested, and any withdrawals from Pool C.",h:["Unused pension and mandatory withdrawals can add to Pool C, alongside investment gains or losses.","Negative bars are Pool C withdrawals. They appear under the full or capped draw rule when Pool C pays a gap."],f:[
 ["Pool C recycling and use (chart)","Positive bars are dollars recycled to Pool A or Pool C; negative bars are Pool C used for spending after A/B under the selected policy."],
 ["Reinvestment table","Year-by-year: compulsory draw, amount spent, surplus banked, Pool C withdrawal, return and ending balance."],
 ["Surplus → Pool A (TBC headroom)","While transfer-balance headroom exists (e.g. after a wash commutation), surplus can re-enter the 0%-tax pension phase — the preferred destination."],
 ["Surplus → Pool C (External ETF)","Once the cap is saturated, surplus defaults outside super. This is the dominant recycling pathway in the plan."],
 ["Pool C reconciliation","The ending balance is the prior balance plus growth and deposits, less withdrawals. For the capped rule, use the Decision Brief trace to see whether Pool C closed below its reserve."]]},
-oneoff:{t:"One-off capacity",w:"See what the retirement one-off can cost under the investment floor and under your separately entered essentials budget.",h:["Set the requested amount in Plan controls. Check the editable range and the effect on ordinary spending below the cards.","The chart omits unfunded requests. The reference cards use the investment floor and each of their stated returns."],f:[
+oneoff:{t:"One-off capacity",w:"See what the plan can pay at retirement while meeting your investment goal and any essentials budget you set.",h:["Enter the requested amount in Plan controls. Read the funded and unpaid amounts and check the effect on your ordinary spending.","If you use a capped Pool C draw, switch on one-off access in Plan controls to use the amount above the reserve for this expense."],f:[
 ["Max @ Conservative (4%)","Largest Day-1 one-off that still clears the floor if returns run at 4% real."],
 ["Max @ Base (5%) / Strong (7%)","Same test at the base and strong returns — the spread shows how return-sensitive spare capacity is."],
 ["One-off funding at retirement","Shows the requested, funded and unfunded amounts for the current Plan controls setting."],
@@ -6398,8 +6406,8 @@ estate:{t:"Estate & DBT analysis",w:"Illustrative death-benefit-tax and Pool C g
 ["Tax dependant note","The model's death-benefit-tax scenario assumes a non-tax-dependant beneficiary. Actual beneficiary classification and tax treatment must be confirmed."],
 ["Estate composition donut","Split of the target-age estate across pools and tax treatments."],
 ["Pool C after illustrative sale tax","The higher-tax scenario treats the entire Pool C balance as the gain. Actual sale tax requires the cost basis and the beneficiary’s circumstances."]]},
-montecarlo:{t:"Monte Carlo fan",w:"Spending outcomes and investment balances from the same simulated market paths.",h:["Keep the seed fixed when comparing input changes.","Read the spending and capital check first. Then use P10, the median and P90 to see the range of modelled investment balances."],f:[
-["Joint funding check","A path passes when it covers spending each year through the selected age and reaches the investment floor at that age. Plan controls allows a separate essentials test."],
+montecarlo:{t:"Monte Carlo fan",w:"See the range of spending and investment outcomes across simulated market histories.",h:["Set your investment floor and target age in Plan controls. Add a later check to use the same market histories at both ages.","Read the spending and investment checks first. Then use P10, the median and P90 to see the range of balances. Keep the seed fixed while comparing inputs."],f:[
+["Full budget and capital floor","Counts histories that cover the full budget every year through the selected birthday and reach the investment goal on that birthday. The essentials result uses your separate essentials budget."],
 ["P10 (downside)","At each age, about 10% of this run's sampled capital values are below this percentile. It is a sample statistic, not a worst case."],
 ["P25 / P50 / P75","Lower quartile, median (central path), upper quartile."],
 ["P90 (upside)","Only 10% of paths end above this — the lucky-decile outcome."],
@@ -6415,7 +6423,7 @@ histogram:{t:"Outcome histogram",w:"Distribution of investment capital at the se
 ["Floor breach (< floor) %","The stat-table row giving the exact share of simulated paths ending below the floor — the single number summarising downside risk."],
 ["Re-render stability","The histogram is fixed for unchanged inputs and seed. The Spend-% slider has a real effect only in Override mode; use New repeatable sample when you deliberately want a different path set."],
 ["Target","The target-band reference marker on the distribution — read the mass of outcomes to the right of it."]]},
-longevity:{t:"Longevity risk",w:"Sampled investment-capital threshold frequencies at later ages.",h:["This page tests the capital stack, not whether a future pension payment is guaranteed.","Read the age-85 and age-95 cards as model frequencies above the stated capital floor; inspect spending shortfalls separately."],f:[
+longevity:{t:"Longevity risk",w:"See the share of simulated paths reaching capital thresholds at later ages.",h:["Ages 85 and 95 are fixed references on this page. For budget and investment checks at the ages you choose, open Monte Carlo fan.","Read each capital result alongside the Decision Brief or Income & draws to see whether spending was paid."],f:[
 ["Survival (≥floor) @85","Share of simulated paths still above the floor band at 85."],
 ["Survival (≥floor) @95","Same at 95 — the stress case for a four-decade retirement."],
 ["Survival curve","Breach risk by age; a flat curve near 100% is the signature of a floor-protected structure."],
@@ -6484,7 +6492,7 @@ scencomp:{t:"Scenario comparison",w:"Compare the active V23 plan in Scenario A w
 ["Scenario B gap shape","B applies its gap as a single flat band from retirement — it ignores your age-band schedule. Comparing banded A against flat B at the same average spend is still meaningful, but timing effects belong to A only."],
 ["Re-render stability","Both MC cards use the same fixed seed so like-for-like input changes are visible. Choose a new sample only when you want to inspect sampling variation."],
 ["Scenario A vs B spend rules","A uses your LIVE rule (age bands or whichever override is active). B always applies its own flat dollar gap from the Right: Annual gap slider — it is pinned to fixed-dollar so that slider always works. When an override is active the B title says so explicitly. This means B is a fixed-dollar comparator, not a copy of your rule."]]},
-saveslots:{t:"Scenario save slots",w:"Save and reload named assumption sets in this browser, with notes.",h:["Slots persist in this browser only — Export settings gives a portable JSON backup.","Keep one slot as the untouched annual baseline."],f:[
+saveslots:{t:"Scenario save slots",w:"Save and reload named plans in this browser.",h:["Use Export settings → Download full backup to move saved slots and notes. Plan only shares the active calculation inputs.","Keep one slot as the annual baseline so you can compare later changes."],f:[
 ["Save current","Writes the entire live assumption set to the slot."],
 ["Load","Restores every slider/band from the slot."],
 ["Clear","Empties the slot."],
@@ -6546,33 +6554,41 @@ decisions:{t:"Decision log",w:"Settled decisions with dates and evidence — the
 /* ---------- global control panel reference ---------- */
 const CONTROLS = [
 ["Profile and PSS election","Rail A preserves the March control. The four Rail B election buttons load the selected provider estimates. The profile badge tells you whether V23 is using source figures or custom figures. Open Profile & PSS and select Reset custom figures to restore the figures for the selected basis and election and keep your spending plan."],
-["Command Centre hand-off","The banner shows the figures V23 uses now. Changing the PSS election updates the pension, the portfolio and how much spending comes from each. The spending budget still follows Plan controls. Your V23 edits take precedence when you reload the same link. Open Imported Command Centre assumptions to compare. Restore imported plan puts the imported election, flat spending, return and target age back, and clears custom profile figures."],
-["Retirement age","Pension start age. Locked plan: 60 (Dec 2033). Changing it moves every downstream date."],
+["Command Centre handoff","Read the active figures in the banner. Expand Imported Command Centre assumptions to see what came across. Use the carry-goals checkbox at the sending workspace to transfer the investment goal and later-age setting. Restore imported plan restores the imported inputs and clears custom profile figures."],
+["Retirement age","The source plan opens at age 60. A custom retirement age requires opening pension and investment figures for that age. The profile status tells you which age the model is using."],
 ["Gross PSS pension (pa)","Selected source pension before tax treatment. The model also uses it to calculate the ×16 transfer-balance special value."],
-["Net PSS pension (pa)","The spendable floor after the over-60 offset — the number all spending sits on top of."],
+["Net PSS pension (pa)","Annual pension after modelled tax. When the budget is smaller, the plan spends the budget and invests the surplus in Pool C."],
 ["PSS lump sum","The lump amount for the selected source election; it can be zero under 100% pension."],
 ["Hostplus at retirement","Enter the modelled balance on retirement day, then press Tab or Enter. V23 adds it to the PSS lump sum and recalculates every V23 page. Once Pool A reaches its modelled limit, the rest starts in Pool C. The edit is saved in this browser for V23. Command Centre and Atlas use their own sourced balances."],
 ["TBC at retirement","Transfer balance cap anchor ($2.1M real). Pool A is sized to this minus the special value minus the $5k buffer."],
-["Default gap (pa)","Annual lifestyle spending ABOVE the net pension, in real dollars. The single most powerful lever in the model."],
-["Floor / Target / Strong","Three investment-capital planning bands at the selected target age. A target-age pass does not test every intervening year."],
-["Spending by age","Set different annual budgets for different ages. Choose a total budget or enter an amount to add to net PSS."],
+["Default gap for band reset (pa)","The annual top-up above net pension used when resetting the age bands. Edit your current spending in Plan controls."],
+["Minimum total investments ($)","The investment floor for all three pools together, excluding the home. Clear the field to use the active profile’s default floor. The profile also supplies Target and Strong guide levels."],
+["Spending by age","Set bands in Plan controls and choose a Budget basis for each one. For example, choose Total spending and enter $160,000 from 60 and $122,000 from 70. Check First spending year beside each amount."],
 ["Band presets","Flat (constant), Ramp (rising), Front-load (heavy 60s), Base lifestyle, Travel-heavy 60s, Floor protection (defensive), Legacy maximiser (lean spend), Shock recovery (post-crash trim)."],
 ["Gap real growth","Extra real escalation applied on top of the bands — models lifestyle creep beyond CPI."],
 ["Spending rule","Total annual spending is one after-tax budget. A budget below net PSS sends the remainder to Pool C. New age bands start on the birthday listed. Saved bands keep their original start timing and show the first spending year in the editor. When you change the budget basis, V23 uses the band's first year to find a starting amount. % draw is capped at 100% of the mandatory draw. If there is no draw or positive earnings to convert, the new percentage starts at zero. V23 remembers your flat budget and bands when you switch rules."],
 ["Spend % (override slider)","The caption names the active denominator: positive investment earnings or the modelled mandatory draw. The slider is inactive in age-band mode. Compare desired with funded spending after changing it; a target may exceed what the chosen pool policy supplies."],
-["Target age","The horizon age at which the bands are tested (default 75; slider adjustable)."],
+["Target age for capital checks","Choose the birthday when you want to measure investments. Spending checks cover the years from retirement up to that birthday. The model projects through age 95."],
+["Later check age","Optional. Enter a later birthday up to 95. Decision Brief and Monte Carlo check spending and investments at both ages, using the same market histories for the sampled results. Clear the field to keep one checkpoint."],
+["Essential spending ($/yr after tax)","Enter what you need the plan to pay every year. The site checks this separately alongside your full budget. The adaptive comparison has its own essentials input."],
+["Pool C spending policy","Choose to keep Pool C invested, use it after Pools A and B, or use only the amount above a reserve. With $320,000 in Pool C and a $300,000 reserve, up to $20,000 can be drawn from it for a remaining gap."],
+["Keep invested in Pool C ($)","A blank reserve keeps Pool C invested. A $0 reserve lets the full available balance fund remaining spending. Market losses can take the balance below the reserve. The one-off switch also applies the cap to modelled care costs."],
 ["Likely real return","A chosen after-inflation return for the deterministic path and sampled-return mean. It is an assumption, not a forecast."],
 ["Volatility (std dev)","Annual return standard deviation for Monte Carlo. Higher = wider fan, fatter tails."],
 ["Requested one-off at retirement","A lump sum you want to withdraw at retirement. The funding note shows what the selected Pool C policy can actually fund."],
 ["Pool C ETF drag","The main model's 0.35% annual Pool C distribution-drag assumption. It is not a measured upper bound or a complete personal tax calculation."],
-["MC runs","Number of Monte Carlo paths. More = smoother percentiles, slower recompute (especially mobile)."]];
+["MC runs","How many market histories Monte Carlo uses. More runs can smooth the sample, and take longer to calculate."],
+["Export settings and Import","Plan only previews and downloads the inputs for your active calculation. Full backup also includes notes, saved slots and checklist. Import into V23 on either host and check the plan ID under Decision Brief."],
+["Print and CSV","Choose Brief pack for the goal, trace and plan ID. CSV downloads the modelled annual ledger. Use Export settings to reopen an editable plan later."]];
 
 /* ---------- glossary ---------- */
 const _PRESET_NOTE=1;
 const GLOSSARY = [
 ["Real dollars","Today's purchasing power. Every figure in this dashboard is real unless explicitly labelled nominal — a 2045 number is directly comparable to a 2026 one."],
 ["Floor / Target / Strong bands","Investment-capital thresholds at the selected target age. Floor is the lower planning band; a result above it at that age does not prove it stayed above it in every year."],
-["Gap","Annual spending above the net PSS pension. The pension covers the base; the gap is what capital must fund."],
+["Budget, funded and unfunded","The budget is what you plan to spend. Funded is the amount the pension and allowed withdrawals pay. Unfunded is the part of the budget they cannot pay."],
+["Gap","The part of the annual budget above your net PSS pension that investments need to fund."],
+["Pool C reserve","A withdrawal limit for one pool. The minimum investment goal measures all pools together at the selected birthday. Investment losses can take the Pool C balance below its reserve."],
 ["TBC — Transfer Balance Cap","Lifetime cap ($2.1M) on capital moved into 0%-tax retirement phase. The DB pension consumes special value; Pool A takes the rest."],
 ["Special value (SV)","Gross DB pension × 16 — the TBC amount the pension consumes at commencement. Fixed forever, never re-indexed."],
 ["TSB — Total Super Balance","All super interests measured each 30 June. Governs NCC eligibility — the wash commutation must land before the snapshot."],
@@ -6588,7 +6604,7 @@ const GLOSSARY = [
 ["MC P(>= X)","The share of this model's sampled return paths whose investment capital at the selected age is at or above threshold X. It depends on assumptions, volatility, seed and sample size; it is not a personal forecast probability."],
 ["Mandatory drawdown (ABP minimum)","The model uses current age bands to estimate Pool A payments in birthday-year planning rows. The fund calculates the actual financial-year minimum, including any first-year pro-rating. Unspent modelled payments may be routed to Pool C."],
 ["Earnings vs mandatory draw (the two denominators)","Earnings means modelled return on invested assets; the mandatory draw is a payment from Pool A under a separate age-based rule. They are not interchangeable. Compare the live dollar outputs before using a percentage spending rule."],
-["Extra draw (voluntary)","Any withdrawal above the compulsory ABP minimum, funded from Pool A. It is the only mechanism in the model that shrinks super capital faster than the statutory schedule requires. Always $0 in '% of mandatory drawdown' mode."],
+["Extra draw (voluntary)","A Pool A or B withdrawal above the compulsory minimum for living costs. V23 shows any Pool C withdrawal in a separate amount."],
 ["Sampling noise (MC jitter)","The Monte Carlo pages use a fixed seed, so the same inputs reproduce the same sample. Use New repeatable sample only when you deliberately want to inspect a different sample; raise Runs to smooth sample noise."],
 ["Percentage points (pts)","The unit for probability deltas: 90% − 85% = 5 pts. Never read as relative percent."]];
 
@@ -6673,49 +6689,63 @@ function buildGuide(){
   const m=el("div",{class:"v23-modal"});
   m.innerHTML=`<button class="btn v23-close" id="v23-guide-x" autofocus>✕ Close</button>
     <div class="v23-kicker">V23 · User guide</div><h3 id="v23-guide-h">Guide</h3>
-    <div class="v23-tabs">
-      <button class="v23-tab active" data-tab="page">This page</button>
-      <button class="v23-tab" data-tab="controls">Controls</button>
-      <button class="v23-tab" data-tab="gloss">Glossary</button>
-      <button class="v23-tab" data-tab="quick">Quick start</button>
-      <button class="v23-tab" data-tab="keys">Shortcuts</button>
-      <button class="v23-tab" data-tab="all">All pages</button>
+    <div class="v23-tabs" role="group" aria-label="Guide section">
+      <button class="v23-tab active" data-tab="page" aria-pressed="true">This page</button>
+      <button class="v23-tab" data-tab="quick" aria-pressed="false">Quick start</button>
+      <button class="v23-tab" data-tab="controls" aria-pressed="false">Controls</button>
+      <button class="v23-tab" data-tab="gloss" aria-pressed="false">Glossary</button>
+      <button class="v23-tab" data-tab="all" aria-pressed="false">All pages</button>
+      <button class="v23-tab" data-tab="keys" aria-pressed="false">Shortcuts</button>
     </div><div id="v23-guide-body"></div>`;
   o.appendChild(m);
   $("#v23-guide-x").addEventListener("click",closeOverlays);
-  m.querySelectorAll(".v23-tab").forEach(t=>t.addEventListener("click",()=>{
-    m.querySelectorAll(".v23-tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");
-    renderGuide(t.dataset.tab);
-  }));
+  m.querySelectorAll(".v23-tab").forEach(t=>t.addEventListener("click",()=>selectGuideSection(t.dataset.tab)));
+  $("#v23-guide-body").addEventListener("click",event=>{
+    const page=event.target.closest("button[data-guide-page]")?.dataset.guidePage;
+    if(!page)return;
+    closeOverlays();navTo(page);
+  });
+}
+function selectGuideSection(tab){
+  const guide=$("#v23-guide");
+  guide.querySelectorAll(".v23-tab").forEach(button=>{
+    const active=button.dataset.tab===tab;
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-pressed",String(active));
+  });
+  renderGuide(tab);
+  guide.querySelector(".v23-modal").scrollTop=0;
 }
 function renderGuide(tab){
   const b=$("#v23-guide-body"),h=$("#v23-guide-h");
   const dl=rows=>`<div class="v23-dl">${rows.map(r=>`<div class="v23-field"><b>${r[0]}</b><span>${r[1]}</span></div>`).join("")}</div>`;
+  const jump=(page,label)=>`<button class="btn" type="button" data-guide-page="${page}">${label}</button>`;
+  const ages=STATE.laterCheckAge===null?`Age ${STATE.targetAge}`:`Ages ${STATE.targetAge} and ${STATE.laterCheckAge}`;
+  const planContext=`<div class="v23-guide-context" aria-label="Active investment checks"><p><b>${ages}</b></p><p>${fmtFull(getProfile().floor*1000)} minimum total investments</p></div>`;
   if(tab==="page"){
-    const g=GUIDE[currentPage()]||{t:"This page",w:"No guide entry.",h:[],f:[]};
+    const page=currentPage();
+    const g=GUIDE[page]||{t:"This page",w:"No guide entry.",h:[],f:[]};
+    const checks=["decisionbrief","montecarlo"].includes(page)?planContext:"";
     h.textContent=g.t;
-    b.innerHTML=`<p>${g.w}</p><ul>${g.h.map(x=>`<li>${x}</li>`).join("")}</ul>
-      ${g.f&&g.f.length?`<p class="v23-kicker" style="margin-top:16px">Fields on this page</p>${dl(g.f)}`:""}
-      <p class="v23-kicker" style="margin-top:16px">Engine provenance</p>
-       <p>Read each result with its active source, pension election, spending rule and return assumption. Projections and sampled frequencies are model outputs in today's dollars, not guarantees. Confirm current provider values and rules before acting.</p>`;
+    b.innerHTML=`${checks}<p>${g.w}</p><ul>${g.h.map(x=>`<li>${x}</li>`).join("")}</ul>
+      ${g.f&&g.f.length?`<details class="v23-guide-fields" open><summary>Read the figures on this page</summary>${dl(g.f)}</details>`:""}
+      <p>Figures use today's dollars and the current pension source, spending rule and return assumptions.</p>`;
   }else if(tab==="controls"){
     h.textContent="Shared V23 plan controls";
-    b.innerHTML=`<p>These settings drive every V23 page. Expand Plan controls to edit; the age-band summary remains visible when collapsed. The ledger strip under the header mirrors the live values; tap a chip to jump to its control. Command Centre’s Scenario workspace is a separate flat-spending comparison: it does not replace your saved V23 age bands.</p>${dl(CONTROLS)}`;
+    b.innerHTML=`${planContext}<p>Expand Plan controls to edit the active plan. The collapsed panel shows your spending rule and goal. On a phone, tap Adjust to open the controls.</p>${dl(CONTROLS)}`;
   }else if(tab==="gloss"){
     h.textContent="Glossary";
     b.innerHTML=`<p>Cross-cutting terms used throughout the dashboard.</p>${dl(GLOSSARY)}`;
   }else if(tab==="quick"){
     h.textContent="Quick start";
     b.innerHTML=`<div class="v23-steps">
-      <div><p><b>Choose your source and pension election</b> in Profile. Each available election uses its own verified source figures. Check the active basis before comparing results.</p></div>
-      <div><p><b>Set spending in Income &amp; draws.</b> Expand Plan controls to choose gaps by age, real return and volatility. These controls drive every V23 page; collapse them to keep the age-band summary without the full editor.</p></div>
-      <div><p><b>Two workspaces:</b> Command Centre compares a flat annual net spending target. Its single <b>Scenario</b> workspace contains Lab, Explore, Compare, Frontier and Risk; Explore includes all six former Atlas illustrations. V23 is your detailed age-band workbench. A shared link carries headline assumptions; it does not silently overwrite an existing V23 age-band plan.</p></div>
-       <div><p><b>Check funding before capital:</b> in Income &amp; draws compare planned and funded spending, then inspect shortfalls and the investment path. Executive and Decision brief summarise the selected assumptions.</p></div>
-       <div><p><b>Test uncertainty:</b> use Monte Carlo, Sequence and Stress as separate sensitivities. The sampled frequencies are not personal forecast odds.</p></div>
-       <div><p><b>Test adaptive spending if useful:</b> on Guardrail spending, enter essential total spending and compare advisory with adaptive on paired market paths. Read spending cuts beside age-75/85 capital; the comparison does not change your saved plan.</p></div>
-       <div><p><b>At each annual review:</b> enter confirmed balances in Recalibration and What changed?, review Triggers and Checklist, record a decision, then Export settings. The comparison pages do not automatically adopt a new baseline.</p></div>
-      <div><p><b>Back up:</b> Export settings (JSON) and CSV of the simulation; Print packs for file copies.</p></div>
-    </div>`;
+      <div><p><b>Choose your pension.</b> Open Profile &amp; PSS and select a CSC basis and election. The badge shows whether you are using source or custom figures.</p></div>
+      <div><p><b>Set your spending.</b> In Plan controls choose Total annual spending for one budget. For a changing budget, choose Spending by age and Total spending for each band. Enter $160,000 from 60 and $122,000 from 70 to see how a stepped budget works.</p></div>
+      <div><p><b>Pick what to check.</b> Set minimum total investments and your target age. Add a later check or an essentials budget if useful. Read spending paid, any amount unpaid, and investments left in the Decision Brief. Select the first shortfall to see that year.</p></div>
+      <div><p><b>Compare choices.</b> Compare alternatives uses the same market histories across plans and ages. Command Centre compares a flat annual budget in Lab, Explore, Compare, Frontier, Surface and Risk. Choose the carry-goals option when you want to share the investment checks.</p></div>
+      <div><p><b>Save or share.</b> Use Download plan only for inputs and Download full backup for notes, slots and checklist. Import into the same workspace on either host. Use the Brief pack for a readable copy and CSV for the annual figures.</p></div>
+    </div>
+    <div class="v23-guide-links">${jump("income","Open Income &amp; draws")}${jump("decisionbrief","Open Decision Brief")}${jump("montecarlo","Open Monte Carlo fan")}</div>`;
   }else if(tab==="keys"){
     h.textContent="Keyboard shortcuts";
     b.innerHTML=`<p><span class="v23-kbd">Ctrl / ⌘</span> + <span class="v23-kbd">K</span> — page palette (search &amp; jump)<br>
@@ -6724,15 +6754,14 @@ function renderGuide(tab){
     <span class="v23-kbd">Esc</span> — close dialogs</p>`;
   }else{
     h.textContent="All pages";
-    b.innerHTML=pagesList().map(p=>{const g=GUIDE[p.id];return `<div class="v23-guide-item"><h4>${p.label}</h4><p>${g?g.w:""}</p>${g&&g.f?`<p style="font-size:11px;color:var(--soft)">${g.f.length} fields documented — open this page and press <span class="v23-kbd">?</span> for detail.</p>`:""}</div>`;}).join("");
+    b.innerHTML=pagesList().map(p=>`<div class="v23-guide-item"><h4>${jump(p.id,p.label)}</h4><p>${GUIDE[p.id]?.w??""}</p></div>`).join("");
   }
 }
 function openGuide(){
   const guide=$("#v23-guide");
   if(guide.open)return;
   closeOverlays();
-  renderGuide("page");
-  guide.querySelectorAll(".v23-tab").forEach(tab=>tab.classList.toggle("active",tab.dataset.tab==="page"));
+  selectGuideSection("page");
   guide.showModal();
   $("#v23-guide-x").focus();
 }

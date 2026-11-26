@@ -16,8 +16,9 @@ Command Centre uses a flat annual net-spending comparison. V23 keeps its separat
 1. Check the active rail, dated CSC provider basis and PSS election. The provider basis sets retirement-day pension and lump figures; the site's real-return control applies afterwards.
 2. In Scenario → Lab, compare desired and funded spending, then inspect the annual ledger and investment capital. A spending shortfall is not income.
 3. Use Scenario → Explore for age-by-age values, Compare and Frontier for flat-spending trade-offs, and Risk for sampled and stress sensitivities. Sample frequencies are model outputs, not personal forecast odds.
-4. Open V23 Income & draws for spending that changes by age. On Guardrail spending, advice is the default; the opt-in Adaptive Policy Comparator requires an explicit essential total budget and compares policies on paired return paths without changing the saved plan.
-5. Read the static model reference for source dates, calculation boundaries and tax assumptions before making a real decision.
+4. Open V23 Income & draws and use Plan controls to set spending by age, the investment goal and any later checkpoint. The Decision Brief shows spending funded, any unpaid amount and investments at the chosen ages.
+5. Use the on-site Guide for the controls and examples. Export settings can share the active plan inputs or back up notes, saved comparisons and review records.
+6. Read the static model reference for source dates, calculation boundaries and tax assumptions. [Read the guide](https://mick353.github.io/retirement/model-reference.html#using-the-planner)
 
 ## What is included
 

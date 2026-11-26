@@ -991,6 +991,47 @@ async function exerciseInvestmentGoalsAndExports(page, base) {
   assert.equal(await page.locator(".actual-plan-note textarea").inputValue(),"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
 }
 
+async function exerciseGuideHelp(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  const shared = "shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=74&floor=710000&checkAge=86";
+  await open(page, new URL(`deep-model.html?page=decisionbrief&${shared}`, base));
+  const launch = page.locator("#v23-btn-guide");
+  const guide = page.locator("#v23-guide");
+  const guideBody = guide.locator("#v23-guide-body");
+  await launch.click();
+  assert.match(await guideBody.innerText(), /Ages 74 and 86\s+\$710,000 minimum total investments/);
+  const quick = guide.getByRole("button", { name: "Quick start", exact: true });
+  await quick.click();
+  assert.equal(await quick.getAttribute("aria-pressed"),"true");
+  assert.match(await guideBody.innerText(), /\$160,000 from 60 and \$122,000 from 70/);
+  assert.match(await guideBody.innerText(), /Command Centre compares a flat annual budget in Lab, Explore, Compare, Frontier, Surface and Risk/);
+  assert.equal(await guide.locator(".v23-modal").evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+  await guide.getByRole("button", { name:"Controls", exact:true }).click();
+  assert.match(await guideBody.innerText(),/A blank reserve keeps Pool C invested/);
+  assert.match(await guideBody.innerText(),/Full backup also includes notes, saved slots and checklist/);
+  await guide.getByRole("button", { name:"All pages", exact:true }).click();
+  const guideItems = guideBody.locator(".v23-guide-item");
+  assert.equal(await guideItems.count(),33);
+  assert.ok((await guideItems.locator("p").allTextContents()).every(text=>text.trim().length>0));
+  await guideBody.locator('[data-guide-page="montecarlo"]').click();
+  await page.locator("#page-montecarlo").waitFor();
+  assert.equal(await guide.isVisible(),false);
+  await launch.click();
+  assert.match(await guideBody.innerText(),/Ages 74 and 86\s+\$710,000 minimum total investments/);
+  await page.keyboard.press("Escape");
+  await open(page,new URL(`?section=scenario&tool=risk&${shared}`,base));
+  const help = page.locator(".workspace-guide");
+  await help.locator(":scope > summary").click();
+  assert.match(await help.innerText(),/600 histories with 12% volatility.*separate sample/s);
+  await help.getByText("Plan controls, handoff and backups",{exact:true}).click();
+  assert.match(await help.innerText(),/Download full backup to include saved plans, checklist and recorded actuals/);
+  const reference = help.getByRole("link",{name:"Open the guide and model reference",exact:true});
+  await reference.click();
+  await page.locator("#using-the-planner").waitFor();
+  assert.match(await page.locator("#scope").innerText(),/\$160,000 from 60 and \$122,000 from 70/);
+  assert.match(await page.locator("#scope").innerText(),/\$320,000 in Pool C and \$300,000 reserved/);
+}
+
 async function exerciseAIContextPrivacy(page, base) {
   const requests = [];
   const endpoint = "**/api/retirement-ai";
@@ -1042,7 +1083,7 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30, 31, 32, 33].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31, 32, 33, 34].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
@@ -1139,6 +1180,7 @@ try {
       }
       await exerciseDecisionWorkbench(page, preview.base);
       await exerciseInvestmentGoalsAndExports(page, preview.base);
+      await exerciseGuideHelp(page, preview.base);
       await exerciseAIContextPrivacy(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px${mobileEngine ? ` (${mobileEngine} profile)` : ""} on ${preview.base.href}`);
