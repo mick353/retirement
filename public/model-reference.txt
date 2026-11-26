@@ -1,7 +1,7 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
-Source reconciliation: 9 September 2026; guide review: 26 November 2026
-Canonical retirement-engine version 2026-11-26.3. Detailed workbench V23.14.
+Source reconciliation: 9 September 2026. Guide review: 27 November 2026.
+Canonical retirement-engine version 2026-11-27.1. Detailed workbench V23.15.
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -20,15 +20,18 @@ In Command Centre, Show menu and Hide menu are at the top left. On narrower scre
 2. In Scenario > Lab, compare desired spending with funded spending. A shortfall is not extra income. Read the annual ledger and investment capital at your selected age together.
 3. In V23 Income & draws, open Plan controls and select Spending by age. Each band can use a whole budget or a top-up above net PSS. For a whole-budget example, choose Total spending and set $160,000 from 60 and $122,000 from 70. The new band begins on the 70th birthday.
 4. Set the investment goal and target age. Add a later age if needed. Open V23 Decision Brief or Command Centre Scenario > Risk to see the budget paid, spending unfunded and investments left. The goal covers all three investment pools and excludes the home.
-5. Select Export settings to preview the plan-only file or download a full backup. Check the plan ID and version after importing into the same workspace.
+5. Select Export settings for a plan-only file or a full backup. Import into the same workspace and review both plans before applying. Undo import restores the prior plan in the same tab and keeps later edits to saved records.
 
 Keep desired spending, funded spending and investment capital separate. Higher investment capital can result from spending less. Gross estate may add the selected home value; it is not an after-tax inheritance estimate.
 
 DECISION AND REVIEW
 - Start with the V23 Decision Brief at ./deep-model.html?page=decisionbrief. In Plan controls set the target age, minimum total investments, optional later check and optional essentials budget. Command Centre shows the checks in Scenario > Risk. Select the handoff option when you want both workspaces to use the same goal.
 - Compare alternatives puts the current plan, a different flat budget, another pension election and a Pool C policy on the same 200 market paths. Check the budget rule before applying a draft.
+- The Executive summary uses your minimum investment goal for its verdict. Profile target and strong references have separate margins. Passing the goal checks the balance on that birthday. Spending is checked separately for every year leading up to it.
+- In V23 Compare alternatives or Command Centre Risk, use When spending first falls short to see each history's first missed year for the full budget or essentials. The typical gap is the median unpaid amount in the first missed year. Inspect one path to see its pension and withdrawals.
 - Inspect the first missed year to trace what the pension and each pool paid. The Brief print pack includes the investment goal and plan ID. Export settings previews a plan-only file with active inputs, including any manual figures. Download a full backup to also keep notes, saved comparisons and review records. Either file can be imported into the same workspace on the other host.
 - The Scenario Lab payment calendar separates planned living costs, estimated PSS payments and the financial-year ABP minimum. Enter provider dates and balances when available. The calendar uses Schedule 7 as at 1 July 2026.
+- Cash until the first pension payments uses bank cash at retirement, entered dated payments and extra bills, and daily costs from the active annual budget. Read the lowest closing balance, its date and the first day that ends short of cash. Plan-only exports include entered cash and payment assumptions.
 - Preview data before sending in either AI panel. Saved reviews, personal notes and recent chat are independent choices and start off.
 - Risk and Monte Carlo use the same market histories at your target and optional later age. The joint result counts histories that meet the budget in every preceding spending year and reach the investment goal on the chosen birthday.
 - V23 can keep Pool C invested, use it after Pools A and B, or use only the amount above a reserve. With $320,000 available and $300,000 reserved, Pool C can pay up to $20,000 of a remaining gap. Market losses can take it below the reserve. Switch on one-off access to use the same cap for an extra expense.

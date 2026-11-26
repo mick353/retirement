@@ -85,11 +85,12 @@ export function validateLedgerMigration({ core, browserEngine, dashboard, atlasS
     }
   }
   for (const rail of rails.slice(0,8)) for (const spend of [90000,167104]) {
-    const { funding, ...legacyShape } = dashboard.monteCarloFan(rail,spend,.065,"2026-27",.12,30,20260814);
+    const { funding, misses, ...legacyShape } = dashboard.monteCarloFan(rail,spend,.065,"2026-27",.12,30,20260814);
     assert.deepEqual(json(legacyShape),
       json(oldDashboard.monteCarloFan(rail,spend,.065,"2026-27",.12,30,20260814)),
       "Seeded Monte Carlo: every path and percentile matches the frozen baseline");
     assert.equal(funding.length, legacyShape.ages.length);
+    assert.equal(misses.budget.at(-1)?.cumulative ?? 0, 30 - funding.at(-1).lifestyle);
   }
   const auditRail=dashboard.railBForElection("70-30","prudent-630");
   const audit=dashboard.monteCarloFan(auditRail,160000,.05,"2026-27",.12,600,20260814,122000);
@@ -98,6 +99,8 @@ export function validateLedgerMigration({ core, browserEngine, dashboard, atlasS
   }, "Capital and funded-budget outcomes are counted on the same 600 paths");
   assert.equal(audit.funding[25].capital, 518);
   assert.equal(audit.funding[25].lifestyleAndCapital, 0);
+  assert.equal(audit.misses.budget.findLast(group => group.age <= 75).cumulative, 589);
+  assert.equal(audit.misses.essentials.findLast(group => group.age <= 75).cumulative, 584);
   console.log("Seeded risk parity: 16 scenarios, 480 paths and all percentiles unchanged.");
   assert.ok(correctedRows > 0, "Sampled fixtures must exercise the corrected loss-year withdrawal");
   const lossYear = { poolA: 100_000, poolC: 50_000, netPension: 100_000, spend: 200_000, realReturn: .05, annualReturns: [-.30], poolCDrag: 0, endAge: 61 };

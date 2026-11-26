@@ -59,6 +59,38 @@ test("the payment calendar differentiates living costs, fortnightly PSS and the 
   assert.throws(() => core.retirementPaymentCalendar({ ...inputs, firstPssPayday: "2033-12-01" }), /on or after retirement/);
 });
 
+test("the cash bridge uses dated net receipts, extra bills and financial-year day rates", () => {
+  const settings = { startingCash: 500, days: 4, events: [
+    { kind: "bill", date: "2028-07-01", amount: 700 },
+    { kind: "abp", date: "2028-07-02", amount: 450 },
+    { kind: "pss", date: "2028-07-02", amount: 640 },
+    { kind: "other", date: "2028-07-04", amount: 200 },
+  ] };
+  const result = core.retirementCashBridge("2028-06-30", 36_600, settings);
+  assert.deepEqual(result.rows.map(row => [row.date, row.deposits, row.bills, row.balance]), [
+    ["2028-06-30", 0, 0, 400],
+    ["2028-07-01", 0, 700, -400.27],
+    ["2028-07-02", 1090, 0, 589.45],
+    ["2028-07-03", 0, 0, 489.18],
+  ]);
+  assert.deepEqual(result.lowest, { date: "2028-07-01", balance: -400.27, atOpening: false });
+  assert.equal(result.firstNegative, "2028-07-01");
+  assert.equal(result.outsideWindow.length, 1);
+  assert.deepEqual(core.retirementCashBridge("2028-06-30", 0, {startingCash:0,days:1,events:[]}).lowest,
+    { date: "2028-06-30", balance: 0, atOpening: true });
+  assert.throws(() => core.readCashBridgeSettings({ ...settings, days: 367 }), /between 1 and 366/);
+  assert.throws(() => core.readCashBridgeSettings({ ...settings, events: [{kind:"pss",date:"2028-02-30",amount:100}] }), /valid cash movement date/);
+});
+
+test("undo reverses imported review records while keeping later edits", () => {
+  const before = { A: "my saved plan", B: "original B", C: "original C" };
+  const after = { A: "imported A", C: "imported C", D: "new imported entry" };
+  const current = { A: "edited after import", C: "imported C", D: "new imported entry", E: "added later" };
+  assert.deepEqual(core.undoImportedEntries(current, before, after), {
+    A: "edited after import", B: "original B", C: "original C", E: "added later",
+  });
+});
+
 test("plan IDs travel across builds and track material assumption changes", () => {
   const input = {
     workspace: "v23", modelRevision: "test", source: "CSC", sourceDate: "9 September 2026",
@@ -152,8 +184,8 @@ test("active return drives Command Centre frontier outputs", () => {
 
 test("V23 headline prioritises the selected likely return", () => {
   assert.match(v23, /Active capital @\$\{ta\}/);
-  assert.match(v23, /\$\{fmtPct\(STATE\.likely\)\} real \[MODELLED\]/);
-  assert.match(v23, /Reference only: 4\.0% conservative to 5\.0% base/);
+  assert.match(v23, /\$\{fmtPct\(STATE\.likely\)\} real · \$\{likelyStatus\.detail\}/);
+  assert.match(v23, /4\.0% conservative and 5\.0% base references/);
   assert.match(v23, /id="sl_targetage" min="70" max="95"/);
   assert.match(v23, /id="sl_likely" min="2" max="7\.5"/);
   assert.match(v23, /launchSnapshot:true/);

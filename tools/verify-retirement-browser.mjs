@@ -279,6 +279,7 @@ async function exerciseV23(page, base) {
   assert.match(await active.innerText(), /100% pension.*age-band spending/);
   await restore.click();
   await page.locator("#inp-import-settings").setInputFiles({ name: "verified-settings.json", mimeType: "application/json", buffer: backup });
+  await page.locator("#v23-import-dialog").getByRole("button", { name: "Apply import", exact: true }).click();
   await active.filter({ hasText: /100% pension.*age-band spending/ }).waitFor();
   await open(page, handoff);
   assert.deepEqual(await birthdayBudgets(), [90000, 99000]);
@@ -868,6 +869,19 @@ async function exerciseDecisionWorkbench(page, base) {
   assert.equal(await value(result("reserve"), "Full budget + floor through 85"), "17 of 200 (8.5%)");
   assert.equal(await value(result("reserve"), "Budget unfunded through 85"), "$366,896");
   assert.equal(await value(result("reserve"), "Investments at 85"), "$0");
+  await page.locator("#decision-miss-plan").selectOption("reserve");
+  assert.match(await page.locator("#decision-miss-checkpoints").innerText(), /60 of 200 histories first fall short by age 75.*157 of 200 histories first fall short by age 85/);
+  const age70Miss = page.locator("#decision-miss-table tbody tr").filter({ has: page.locator('[data-miss-age="70"]') });
+  assert.equal(await age70Miss.locator("td").nth(2).innerText(), "7");
+  await page.locator('[data-miss-age="75"]').click();
+  assert.match(await page.locator("#decision-trace-label").innerText(), /Use Pool C after A\/B.*age 74 to 75.*simulated market path/i);
+  const paid = Number((await value(trace, "Spending paid")).replace(/[$,]/g, ""));
+  const unpaid = Number((await value(trace, "Spending unfunded")).replace(/[$,]/g, ""));
+  assert.ok(unpaid > 0);
+  assertMoney(paid + unpaid, 160000, "Selected simulated year reconciles to the budget");
+  assert.equal(await value(trace, "Cash flow reconciliation difference"), "$0.00");
+  await page.locator("#decision-miss-kind").selectOption("essentials");
+  assert.doesNotMatch(await page.locator("#decision-miss-checkpoints").innerText(), /157 of 200/);
   await result("reserve").getByRole("button", { name: "Trace first shortfall: age 79 to 80" }).click();
   assert.match(await page.locator("#decision-trace-label").innerText(), /Use Pool C after A\/B.*age 79 to 80/);
   assert.equal(await value(trace, "Cash flow reconciliation difference"), "$0.00");
@@ -889,6 +903,7 @@ async function exerciseDecisionWorkbench(page, base) {
   assert.match(await fullBudget.innerText(), /\$414,150 unfunded/);
   await page.locator("#decision-draft-budget").fill("125000");
   assert.equal(await page.locator("#decision-draft-results").isVisible(), false);
+  assert.equal(await page.locator("#decision-first-misses").isVisible(), false);
   await page.locator("#decision-draft-budget").fill("122000");
   await run.click();
   await openBudget.click();
@@ -913,9 +928,43 @@ async function exerciseDecisionWorkbench(page, base) {
   await calendar.getByLabel("Age at next 1 July").fill("65");
   await calendar.getByRole("button", { name: "Update calendar" }).click();
   assert.match(await calendar.innerText(), /13 estimated PSS paydays.*\$20,000.*26 estimated PSS paydays/s);
+  const cash = calendar.getByRole("region", { name: "Cash until the first pension payments" });
+  assert.match(await cash.innerText(), /No dated PSS deposit entered.*No dated ABP deposit entered/s);
+  await cash.getByLabel("Starting cash ($)", { exact: true }).fill("5000");
+  await cash.getByLabel("Days from retirement").fill("20");
+  const movements = [
+    ["pss", "2034-01-05", "3670.55"], ["abp", "2034-01-07", "2000"], ["bill", "2033-12-28", "1200"],
+  ];
+  for (const [index, [kind, date, amount]] of movements.entries()) {
+    await cash.getByRole("button", { name: "Add dated movement" }).click();
+    const fields = cash.getByRole("group", { name: `Cash movement ${index + 1}` });
+    await fields.getByLabel("Type").selectOption(kind);
+    await fields.getByLabel("Date", { exact: true }).fill(date);
+    await fields.getByLabel("Amount ($)", { exact: true }).fill(amount);
+  }
+  await cash.getByRole("button", { name: "Calculate cash balance" }).click();
+  assert.match(await cash.locator("#cash-bridge-lowest").innerText(), /-\$2,775\.34 on 4 Jan(?:uary)? 2034/);
+  assert.match(await cash.innerText(), /29 Dec(?:ember)? 2033.*\$703\.43/s);
+  await cash.getByRole("button", { name: "Show every day" }).click();
+  assert.equal(await cash.locator("tbody tr").count(), 20);
+  const calendarExport = JSON.parse(await downloadSettings(page, "plan only"));
+  assert.equal(calendarExport.calendar.cashBridge.events[0].amount, 3670.55);
   await page.reload({waitUntil:"domcontentloaded"});
   await calendar.locator(":scope > summary").click();
   assert.match(await calendar.innerText(), /\$20,000.*26 estimated PSS paydays/s);
+  assert.match(await cash.locator("#cash-bridge-lowest").innerText(), /-\$2,775\.34/);
+}
+
+async function exerciseMinimumVerdict(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  const link = new URL("deep-model.html?page=executive&shared=1&rail=B&pss=70-30&basis=prudent-630&spend=122000&return=.05&age=75&floor=1200000", base);
+  await open(page, link);
+  assert.match(await page.locator("#exec_badges .status-pill").first().innerText(), /Below minimum goal.*\$137,424 below the \$1,200,000 minimum/s);
+  assert.match(await page.locator("#exec_cards").innerText(), /\$1,062,576/);
+  assert.match(await page.locator("#exec_tbl").innerText(), /Profile target \(reference only\)/i);
+  assert.equal(await page.locator('nav [data-page="executive"] .nav-badge.bad').count(), 1);
+  await open(page, new URL(link.href.replace("page=executive", "page=guardrails")));
+  assert.match(await page.locator("#gr_cards").innerText(), /Protect floor.*\$137,424 below the \$1,200,000 minimum/s);
 }
 
 async function exerciseInvestmentGoalsAndExports(page, base) {
@@ -935,6 +984,14 @@ async function exerciseInvestmentGoalsAndExports(page, base) {
   await risk.getByRole("button", { name: /Inspect first shortfall/ }).first().click();
   const trace = page.getByRole("region", { name: "Selected-year three-pool money flow" });
   assert.match(await trace.innerText(), /target remains unfunded/);
+  const timing = page.getByRole("region", { name: "When spending first falls short" });
+  const fullyFunded = risk.locator(".risk-checkpoint").first().locator(".metric").filter({ has: page.getByText("Full budget every year", { exact: true }) });
+  const fundedPaths = parseInt(await fullyFunded.locator(".metric-sub").innerText(), 10);
+  assert.match(await timing.getByRole("status").innerText(), new RegExp(`${600 - fundedPaths} of 600 histories first fall short by age 75`));
+  await timing.getByRole("button", { name: /Inspect one path for age/ }).first().click();
+  assert.match(await trace.innerText(), /Simulated market path [0-9]+/);
+  await trace.getByRole("button", { name: "Return to steady path" }).click();
+  assert.match(await trace.innerText(), /Steady return path/);
   const handoff = page.locator(".cc-goal-handoff");
   assert.equal(new URL(await handoff.getByRole("link").getAttribute("href"), base).searchParams.get("floor"), null);
   await handoff.getByRole("checkbox").check();
@@ -965,9 +1022,29 @@ async function exerciseInvestmentGoalsAndExports(page, base) {
   assert.equal(JSON.parse(await downloadSettings(page)).notes.decisionbrief,"SYNTHETIC NOTE LOCAL TO V23");
   await v23Floor.fill("850000");
   await v23Floor.press("Tab");
-  await page.locator("#inp-import-settings").setInputFiles({name:"plan-only.json",mimeType:"application/json",buffer:portableBytes});
+  const loadV23 = (buffer) => page.locator("#inp-import-settings").setInputFiles({name:"plan-only.json",mimeType:"application/json",buffer});
+  const v23Import = page.locator("#v23-import-dialog");
+  await loadV23(portableBytes);
+  assert.match(await v23Import.getByRole("row", {name: /Minimum investment goal/}).innerText(), /\$850,000.*\$800,000/s);
+  assert.match(await v23Import.getByRole("row", {name: /Target check/}).innerText(), /funded.*unfunded.*invested/s);
+  await v23Import.getByRole("button", {name:"Cancel",exact:true}).click();
+  assert.equal(await v23Floor.inputValue(),"850000");
+  await loadV23(portableBytes);
+  await v23Import.getByRole("button", {name:"Apply import",exact:true}).click();
   await page.getByText(`Plan ${portable.plan.planId} restored with matching inputs and calculation version.`, { exact:true }).waitFor({state:"attached"});
   assert.equal(await note.inputValue(),"SYNTHETIC NOTE LOCAL TO V23");
+  await page.getByRole("button", {name:"Undo import",exact:true}).click();
+  assert.equal(await v23Floor.inputValue(),"850000");
+  const changedBackup = { ...portable, exportScope:"backup", notes:{decisionbrief:"IMPORTED NOTE",guardrails:"IMPORTED SECOND NOTE"} };
+  await loadV23(Buffer.from(JSON.stringify(changedBackup)));
+  await v23Import.getByRole("button", {name:"Apply import",exact:true}).click();
+  assert.equal(await note.inputValue(),"IMPORTED NOTE");
+  await note.fill("EDITED AFTER IMPORT");
+  await page.getByRole("button", {name:"Undo import",exact:true}).click();
+  assert.equal(await note.inputValue(),"EDITED AFTER IMPORT");
+  assert.equal(await page.locator('[data-note-key="guardrails"]').inputValue(),"");
+  await loadV23(portableBytes);
+  await v23Import.getByRole("button", {name:"Apply import",exact:true}).click();
   await page.locator("#v23-command-link").click();
   assert.match(await page.locator("#v23-handoff-comparison").innerText(), /V23 goal \$800,000.*Command Centre goal \$700,000/s);
   await page.locator("#v23-handoff-goals").check();
@@ -983,10 +1060,27 @@ async function exerciseInvestmentGoalsAndExports(page, base) {
   assert.equal(command.current.laterCheckAge,85);
   for(const field of ["actualCheckpoints","saved","reviewChecks","reviewSnapshot"]) assert.equal(command[field],undefined);
   assert.equal(JSON.parse(await downloadSettings(page)).actualCheckpoints[75].note,"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
-  await open(page,new URL(`?section=scenario&tool=lab&${fixture}`,base));
-  await page.locator(".scenario-actions input[type=file]").setInputFiles({name:"plan-only.json",mimeType:"application/json",buffer:commandBytes});
+  await open(page,new URL(`?section=scenario&tool=lab&floor=500000&checkAge=none&${fixture}`,base));
+  const priorPlanId = await page.locator(".command-plan-id code").textContent();
+  const loadCommand = (buffer) => page.locator(".scenario-actions input[type=file]").setInputFiles({name:"plan-only.json",mimeType:"application/json",buffer});
+  const ccImport = page.getByRole("dialog", {name:"Review Command Centre settings import"});
+  await loadCommand(commandBytes);
+  assert.match(await ccImport.getByRole("row", {name:/Minimum investment goal/}).innerText(), /\$500,000.*\$800,000/s);
+  await ccImport.getByRole("button", {name:"Cancel",exact:true}).click();
+  assert.equal(await page.locator(".command-plan-id code").textContent(),priorPlanId);
+  await loadCommand(commandBytes);
+  await ccImport.getByRole("button", {name:"Apply import",exact:true}).click();
   await page.getByText("Imported plan ID and calculation version match.",{exact:true}).waitFor({state:"attached"});
   assert.equal(await page.locator(".command-plan-id code").textContent(),command.plan.planId);
+  await page.getByRole("button", {name:"Undo import",exact:true}).click();
+  assert.equal(await page.locator(".command-plan-id code").textContent(),priorPlanId);
+  const commandBackup = { ...command, exportScope:"backup", reviewChecks:{spending:true}, actualCheckpoints:{75:{note:"IMPORTED RECORD"}} };
+  await loadCommand(Buffer.from(JSON.stringify(commandBackup)));
+  await ccImport.getByRole("button", {name:"Apply import",exact:true}).click();
+  const recorded = () => page.evaluate(() => JSON.parse(localStorage.getItem("robinson-retirement-actual-checkpoints"))[75].note);
+  assert.equal(await recorded(),"IMPORTED RECORD");
+  await page.getByRole("button", {name:"Undo import",exact:true}).click();
+  assert.equal(await recorded(),"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
   await open(page,new URL("?section=review",base));
   assert.equal(await page.locator(".actual-plan-note textarea").inputValue(),"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
 }
@@ -1141,7 +1235,7 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30, 31, 32, 33, 34, 35].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31, 32, 33, 34, 35, 36].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
@@ -1237,6 +1331,7 @@ try {
         await exerciseDecisionIntegrity(page, preview.base);
       }
       await exerciseDecisionWorkbench(page, preview.base);
+      await exerciseMinimumVerdict(page, preview.base);
       await exerciseInvestmentGoalsAndExports(page, preview.base);
       await exerciseGuideHelp(page, preview.base);
       if (!mobileEngine && width === 1440) await exerciseSideMenu(page, preview.base);

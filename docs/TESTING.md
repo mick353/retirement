@@ -12,12 +12,14 @@ npm exec -- playwright install --only-shell chromium
 
 | Checkout | Command | Result |
 | --- | --- | --- |
-| GitHub Pages | `npm run typecheck && npm test && npm run test:browser` | TypeScript, model and website checks, 28 Node tests, and browser journeys against the Pages build |
-| ChatGPT Sites | `npm test` | Sites build, model and website checks, 29 Node tests, and browser journeys against the built Worker and assets |
+| GitHub Pages | `npm run typecheck && npm test && npm run test:browser` | TypeScript, model and website checks, Node regression tests, and browser journeys against the Pages build |
+| ChatGPT Sites | `npm test` | Sites build, model and website checks, Node regression tests, and browser journeys against the built Worker and assets |
 
 The V23 matrix tests 384 combinations of PSS basis, election, annual return, spending rule, and Pool C policy. The separate core validator checks prior calculation behaviour against the recorded deterministic and seeded-risk fixtures.
 
 The reserve case covers $320,000 available with $300,000 protected, a market loss below the reserve, a blank reserve, a zero reserve and explicit one-off access. Paired checkpoint tests reproduce the $160,000 example at ages 75 and 85 on the same 200 paths, and confirm that raising the goal to $700,000 changes the check while leaving cash flows intact.
+
+The first-shortfall check reproduces 7, 60 and 157 first full-budget misses by ages 70, 75 and 85 across the same 200 paths. It replays one history and reconciles its funded and unfunded amounts. Command Centre's first misses reconcile to its existing 600-path funding counts. The minimum-goal tests check thresholds below, at and above the profile references and verify the original $1.2 million goal in the Executive summary and Guardrails.
 
 ## Sites releases
 
@@ -43,6 +45,8 @@ The audited-control checks read the actual Average annual spending funded field 
 The Decision Brief journey checks the default 70/30 election, its source amounts, the flat budget, all three age-75 capital cards and the likely chart figure. It then changes the election and budget, checks the shortfall alongside preserved capital, and reloads to verify the saved plan.
 
 The goals and exports journey exercises a $700,000 goal carried into V23, distinct goals shown in the return preview, a capped reserve below its target, and plan-only and full downloads. It confirms that importing the plan-only file restores the calculation ID and preserves local review notes in both workspaces. The Decision Brief journey opens the later first shortfall on the alternative's own ledger.
+
+Import journeys check the incoming and current values before applying, cancel without changes, apply, and undo both plan-only and full backups. An edited V23 note survives undo. The cash bridge checks a leap-year change in daily living costs, two deposits on one day, a bill outside the date range, and a browser example with the exact lowest balance and dates after reload.
 
 The guide tests check that every V23 page has help, the Guide uses the selected ages and investment goal, and the Quick start and All pages links open the intended view. They check the guide at phone and desktop widths, then follow Command Centre's Risk help to the on-site model reference.
 

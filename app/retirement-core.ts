@@ -140,6 +140,59 @@ export function retirementPaymentCalendar(input: RetirementCalendarInputs) {
   });
 }
 
+export const CASH_BRIDGE_EVENT_LABELS = {
+  pss: "PSS payment",
+  abp: "ABP payment",
+  other: "Other cash in",
+  bill: "Extra bill",
+} as const;
+
+export type CashBridgeEvent = { date: string; amount: number; kind: keyof typeof CASH_BRIDGE_EVENT_LABELS };
+export type CashBridgeSettings = { startingCash: number; days: number; events: CashBridgeEvent[] };
+
+export function readCashBridgeSettings(value: unknown): CashBridgeSettings {
+  if (!value || typeof value !== "object") throw new Error("Enter the starting cash and the number of days to check.");
+  const { startingCash, days, events } = value as CashBridgeSettings;
+  if (!Number.isFinite(startingCash) || startingCash < 0) throw new Error("Enter a non-negative starting cash balance.");
+  if (!Number.isInteger(days) || days < 1 || days > 366) throw new Error("Check between 1 and 366 days.");
+  if (!Array.isArray(events) || events.length > 100) throw new Error("Enter up to 100 dated cash movements.");
+  return { startingCash, days, events: events.map(event => {
+    if (!event || !Object.hasOwn(CASH_BRIDGE_EVENT_LABELS, event.kind) || !Number.isFinite(event.amount) || event.amount <= 0) {
+      throw new Error("Enter a positive amount and a type for every dated cash movement.");
+    }
+    calendarDate(event.date, "cash movement date");
+    return { date: event.date, amount: event.amount, kind: event.kind };
+  }) };
+}
+
+/** Cash held outside investment pools, with daily living costs from the calendar budget. */
+export function retirementCashBridge(retirementDate: string, annualLivingCosts: number, settings: CashBridgeSettings) {
+  const retire = calendarDate(retirementDate, "retirement date");
+  const { startingCash, days, events } = readCashBridgeSettings(settings);
+  if (!Number.isFinite(annualLivingCosts) || annualLivingCosts < 0) throw new Error("Enter a non-negative annual budget.");
+  const end = calendarStamp(retire + (days - 1) * CALENDAR_DAY);
+  const outsideWindow = events.filter(event => event.date < retirementDate || event.date > end);
+  let runningCents = Math.round(startingCash * 100);
+  let costs = 0;
+  let lowest = { date: retirementDate, balance: runningCents / 100, atOpening: true };
+  const rows = Array.from({ length: days }, (_, index) => {
+    const timestamp = retire + index * CALENDAR_DAY;
+    const date = calendarStamp(timestamp);
+    const year = financialYearEnd(timestamp);
+    const previousCostCents = Math.round(costs * 100);
+    costs += annualLivingCosts * CALENDAR_DAY / (Date.UTC(year, 6, 1) - Date.UTC(year - 1, 6, 1));
+    const costCents = Math.round(costs * 100) - previousCostCents;
+    const dayEvents = events.filter(event => event.date === date);
+    const billCents = dayEvents.reduce((sum, event) => sum + (event.kind === "bill" ? Math.round(event.amount * 100) : 0), 0);
+    const depositCents = dayEvents.reduce((sum, event) => sum + (event.kind === "bill" ? 0 : Math.round(event.amount * 100)), 0);
+    runningCents += depositCents - costCents - billCents;
+    const balance = runningCents / 100;
+    if (balance < lowest.balance) lowest = { date, balance, atOpening: false };
+    return { date, dailyCosts: costCents / 100, events: dayEvents, bills: billCents / 100, deposits: depositCents / 100, balance };
+  });
+  return { rows, end, lowest, firstNegative: rows.find(row => row.balance < 0)?.date ?? null, outsideWindow };
+}
+
 export type PoolCSpendingPolicy = "preserve" | "after-abp" | "above-reserve";
 
 export const COMMAND_CENTRE_DEFAULT_FLOOR = 500_000;
@@ -184,6 +237,20 @@ export function planReceipt({ assumptions, ...about }: PlanReceiptInput) {
     hash = BigInt.asUintN(64, (hash ^ BigInt(canonical.charCodeAt(i))) * 0x100000001b3n);
   }
   return { schema: 1, ...about, planId: `${about.workspace}-${hash.toString(16).padStart(16, "0")}` };
+}
+
+/** Reverse imported values individually, preserving entries edited since the import. */
+export function undoImportedEntries<T>(current: Record<string, T>, before: Record<string, T>, after: Record<string, T>) {
+  const restored = { ...current };
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of keys) {
+    if (JSON.stringify(current[key]) !== JSON.stringify(after[key])) continue;
+    if (Object.hasOwn(before, key)) Object.defineProperty(restored, key, {
+      value: before[key], writable: true, enumerable: true, configurable: true,
+    });
+    else delete restored[key];
+  }
+  return restored;
 }
 
 export const FUNDING_TOLERANCE = 0.005;
@@ -231,23 +298,52 @@ export function fundingPathCounts(years: number): PathFundingCounts[] {
   }));
 }
 
+export type FirstFundingMiss = { age: number; unpaid: number };
+export type FundingMissKind = "budget" | "essentials";
+export type PathFundingMisses = Partial<Record<FundingMissKind, FirstFundingMiss>>;
+
 export function countFundingPath(
   counts: PathFundingCounts[], path: SpendingYear[], floor: number, essentials: number | null,
-) {
-  let lifestyleMet = true;
-  let essentialsMet = essentials !== null;
+): PathFundingMisses {
+  const misses: PathFundingMisses = {};
   for (let index = 1; index < path.length; index += 1) {
     const row = path[index];
     const result = counts[index];
     const capitalMet = row.capital >= floor;
-    lifestyleMet &&= row.planned - row.funded < FUNDING_TOLERANCE;
-    if (essentials !== null) essentialsMet &&= essentials - row.funded < FUNDING_TOLERANCE;
+    const budgetGap = row.planned - row.funded;
+    if (budgetGap >= FUNDING_TOLERANCE) misses.budget ??= { age: row.age, unpaid: budgetGap };
+    if (essentials !== null && essentials - row.funded >= FUNDING_TOLERANCE) {
+      misses.essentials ??= { age: row.age, unpaid: essentials - row.funded };
+    }
+    const lifestyleMet = !misses.budget;
+    const essentialsMet = essentials !== null && !misses.essentials;
     if (capitalMet) result.capital += 1;
     if (lifestyleMet) result.lifestyle += 1;
     if (lifestyleMet && capitalMet) result.lifestyleAndCapital += 1;
     if (essentialsMet) result.essentials += 1;
     if (essentialsMet && capitalMet) result.essentialsAndCapital += 1;
   }
+  return misses;
+}
+
+export function fundingMissTimeline(paths: PathFundingMisses[], kind: FundingMissKind) {
+  const byAge = new Map<number, { unpaid: number; pathIndex: number }[]>();
+  paths.forEach((path, pathIndex) => {
+    const miss = path[kind];
+    if (!miss) return;
+    const group = byAge.get(miss.age) ?? [];
+    group.push({ unpaid: miss.unpaid, pathIndex });
+    byAge.set(miss.age, group);
+  });
+  let cumulative = 0;
+  return [...byAge].sort(([a], [b]) => a - b).map(([age, group]) => {
+    group.sort((a, b) => a.unpaid - b.unpaid || a.pathIndex - b.pathIndex);
+    const middle = Math.floor((group.length - 1) / 2);
+    const example = group[middle];
+    const median = (example.unpaid + group[Math.floor(group.length / 2)].unpaid) / 2;
+    cumulative += group.length;
+    return { age, count: group.length, cumulative, median, example };
+  });
 }
 
 /**
@@ -259,7 +355,7 @@ export function countFundingPath(
  * Pool B, one-off and policy-aware workbench ledger until that richer domain
  * can be migrated with its own parity contract.
  */
-export const RETIREMENT_ENGINE_VERSION = "2026-11-26.3";
+export const RETIREMENT_ENGINE_VERSION = "2026-11-27.1";
 export const TRANSFER_BALANCE_CAP = 2_100_000;
 export const TRANSFER_BALANCE_BUFFER = 5_000;
 export const HOSTPLUS_OPENING_ANCHOR = 317_447.66;

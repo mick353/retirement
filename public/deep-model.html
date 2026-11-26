@@ -7,7 +7,7 @@
 <link rel="manifest" href="./manifest.webmanifest" />
 <title>Robinson Retirement Dashboard V23 — Guardrails · Decision Brief · Three-Pool</title>
 <script src="./vendor/chart.umd.js"></script>
-<script src="./retirement-engine.js?v=5"></script>
+<script src="./retirement-engine.js?v=6"></script>
 <style>
 /* ROBINSON RETIREMENT — DRAMATIC VISUAL REDESIGN v21 */
 
@@ -338,13 +338,20 @@ body.print-pack section.page.print-pack-include{display:flex}
 .cash-trace h3{margin-bottom:5px;font-size:14px}
 .decision-trace-period{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .decision-trace-period select{min-height:40px}
+.first-miss-scroll,.import-review-scroll{overflow:auto;max-width:100%}
+.first-miss-scroll th,.first-miss-scroll td,.import-review-scroll th,.import-review-scroll td{white-space:normal}
+.import-review-scroll{max-height:52dvh}
+#decision-miss-table{min-width:310px}
+#decision-miss-table .btn{display:block;margin-top:5px;line-height:1.25;text-align:left}
+#v23-import-preview{min-width:420px}
+#v23-import-preview .settings-change td:last-child{font-weight:750;background:var(--panel2)}
+#decision-first-misses{margin-top:16px}
 .v23-reserve-fields:not([hidden]){display:grid;gap:8px;margin-top:10px}
 .v23-reserve-fields input[type=number],#v23_investment_floor,#v23_later_check_age{width:100%;min-width:0}
 .decision-receipt{overflow-wrap:anywhere}
 .decision-receipt dl div{flex-wrap:wrap}
 .decision-proof-note{color:var(--muted);font-size:13px}
 .decision-proof-note[hidden]{display:none}
-.decision-receipt #v23-import-result{margin:8px 0 0}
 @media print{
   .decision-workbench{padding:10px;break-inside:avoid}
   .decision-workbench .decision-form,.decision-trace-period select,.decision-trace-period label{display:none!important}
@@ -1033,11 +1040,23 @@ main{min-width:0;}
     </form>
   </div>
 </dialog>
+<dialog class="v23-overlay" id="v23-import-dialog" aria-labelledby="v23-import-heading">
+  <div class="v23-modal v23-handoff-preview">
+    <h3 id="v23-import-heading">Review V23 settings import</h3>
+    <p id="v23-import-scope"></p>
+    <p>Spending and balances use each plan’s own steady return and check ages. Amounts are in today’s dollars.</p>
+    <div class="import-review-scroll v23-tblwrap" role="region" aria-label="Current and incoming V23 plan" tabindex="0"><table id="v23-import-preview"></table></div>
+    <form method="dialog" class="decision-summary-actions">
+      <button class="btn" value="cancel" autofocus>Cancel</button>
+      <button class="btn v23-primary" value="apply">Apply import</button>
+    </form>
+  </div>
+</dialog>
 <header>
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.14 · 26 Nov 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.15 · 27 Nov 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1054,7 +1073,8 @@ main{min-width:0;}
     <button class="btn" id="btn-print">Print</button>
     <a href="./" class="btn" style="color:var(--acc2);border-color:rgba(47,212,146,.45);text-decoration:none">📊 Integrated Summary</a>
     <button class="btn" id="btn-export-settings" title="Download plan inputs or a full backup">Export settings</button>
-    <button class="btn" id="btn-import-settings" title="Restore dashboard settings from JSON">Import</button>
+    <button class="btn" id="btn-import-settings" title="Review settings from a JSON file">Import</button>
+    <button class="btn" id="btn-undo-import" type="button" hidden>Undo import</button>
     <button class="btn" id="btn-theme">☾ Theme</button>
     <button class="btn" id="btn-reset">↺ Reset V23</button>
     <input type="file" id="inp-import-settings" accept="application/json,.json" style="display:none"/>
@@ -1319,6 +1339,7 @@ main{min-width:0;}
 
     <!-- ========== PAGES ========== -->
 
+    <p class="decision-proof-note" id="v23-import-result" role="status" hidden></p>
     <section class="page active" id="page-executive">
       <div class="spending-control-callout">
         <div><b>Set the age-by-age spending plan in Income &amp; draws.</b><span>The controls above are global; use age bands there for the actual gap and drawdown periods, then review their result on the Income &amp; draws page.</span></div>
@@ -1367,6 +1388,16 @@ main{min-width:0;}
         </form>
         <p id="decision-draft-status" class="decision-proof-note" role="status">Run the comparison when the inputs are ready.</p>
         <div id="decision-draft-results" class="decision-alternatives" hidden></div>
+        <section id="decision-first-misses" aria-labelledby="decision-first-miss-title" hidden>
+          <h3 id="decision-first-miss-title">When spending first falls short</h3>
+          <p class="decision-proof-note">Each history is counted once per spending check. The amount is the middle unpaid amount in the first missed year for histories starting to fall short that year. This is a spending check. The investment goal is shown above.</p>
+          <div class="decision-trace-period">
+            <label for="decision-miss-plan">Plan</label><select id="decision-miss-plan"></select>
+            <label for="decision-miss-kind">Spending to check</label><select id="decision-miss-kind"><option value="budget">Full budget</option><option value="essentials">Essentials</option></select>
+          </div>
+          <p id="decision-miss-checkpoints" class="decision-proof-note" role="status"></p>
+          <div class="first-miss-scroll v23-tblwrap" id="decision-miss-region" role="region" aria-label="First spending shortfalls by year" tabindex="0" hidden><table id="decision-miss-table"></table></div>
+        </section>
       </details>
       <details class="panel decision-workbench" id="decision-cash-trace">
         <summary>Trace spending and investments by year</summary>
@@ -1377,7 +1408,6 @@ main{min-width:0;}
       <details class="panel decision-workbench decision-receipt" id="decision-plan-receipt">
         <summary>Plan ID and calculation basis</summary>
         <div id="decision-plan-record"></div>
-        <p class="decision-proof-note" id="v23-import-result" role="status"></p>
       </details>
       <div class="grid-2">
         <div class="panel"><h2>Active assumptions</h2><table id="brief_assumptions"></table></div>
@@ -1971,7 +2001,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.14";
+const APP_VERSION = "v23.15";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -2667,8 +2697,7 @@ function runModel(opts){
 
 function adaptivePolicyDecision({openingCapital,desiredTotal,essentialTotal,p,multipliers}){
   if(essentialTotal>desiredTotal)throw Error("Essential spending exceeds desired total spending.");
-  const thresholds=[(p.floor||0)*1000+100000,(p.target||0)*1000,(p.strong||0)*1000,(p.strong||0)*1000+250000];
-  const index=openingCapital<thresholds[0]?0:openingCapital<thresholds[1]?1:openingCapital<thresholds[2]?2:openingCapital<thresholds[3]?3:4;
+  const index=guardrailIndex(openingCapital,p);
   const allowed=multipliers||[.70,.90,1,1.20,1.35];
   if(!Array.isArray(allowed)||allowed.length!==5||allowed.some(v=>!Number.isFinite(v)||v<0))throw Error("Five non-negative adaptive multipliers are required.");
   const multiplier=allowed[index];
@@ -2722,11 +2751,15 @@ function runMC(opts){
 /* ========== PAIRED POLICY COMPARATOR ========== */
 function policyReturnPaths({runs,years,mean,sd,seed}){
   if(!Number.isInteger(runs)||runs<1||runs>1000||!Number.isInteger(years)||years<1||!Number.isFinite(mean)||!Number.isFinite(sd)||sd<0||!Number.isSafeInteger(seed))throw Error("Invalid Monte Carlo settings.");
-  // Zero is remapped: xorshift32 with a zero state never advances.
+  return Array.from({length:runs},(_,index)=>policyReturnPath({years,mean,sd,seed},index));
+}
+function policyReturnPath({years,mean,sd,seed},index){
+  // Zero is remapped because a zero xorshift32 state never advances.
   const base=(seed>>>0)||0x6d2b79f5;
-  return Array.from({length:runs},(_,i)=>{
-    const random=seededRandom((base+Math.imul(i+1,7919))>>>0||0x6d2b79f5);
-    return Array.from({length:years},()=>{const ret=sd===0?mean:Math.max(-.55,Math.min(.45,mean+sd*gauss(random)));return{A:ret,B:ret*.85};});
+  const random=seededRandom((base+Math.imul(index+1,7919))>>>0||0x6d2b79f5);
+  return Array.from({length:years},()=>{
+    const ret=sd===0?mean:Math.max(-.55,Math.min(.45,mean+sd*gauss(random)));
+    return {A:ret,B:ret*.85};
   });
 }
 function policySummary(sim,profile,checks,essentialTotal=0){
@@ -3139,12 +3172,29 @@ function renderTable(elId,rows,headers){
 }
 
 /* ========== STATUS HELPERS ========== */
+function investmentLevels(p){
+  const minimum=(p.floor??0)*1000,target=p.target*1000,strong=p.strong*1000;
+  return {minimum,target:target>minimum?target:null,strong:strong>Math.max(minimum,target||0)?strong:null};
+}
 function targetStatus(capital,p){
-  const fl=p.floor*1000,tg=p.target*1000,sg=p.strong*1000;
-  if(capital>=sg)return{cls:"good",label:"Strong",detail:`${fmt$(capital-sg)} above strong`};
-  if(capital>=tg)return{cls:"good",label:"Target met",detail:`${fmt$(capital-tg)} above target`};
-  if(capital>=fl)return{cls:"warn",label:"Floor met",detail:`${fmt$(capital-fl)} above floor`};
-  return{cls:"bad",label:"Floor breach",detail:`${fmt$(fl-capital)} below floor`};
+  const goal=investmentLevels(p).minimum;
+  const met=capital>=goal,margin=capital-goal;
+  return {
+    cls:met?"good":"bad",
+    label:met?"Minimum goal met":"Below minimum goal",
+    detail:margin===0?`Exactly at the ${fmtFull(goal)} minimum`:
+      `${fmtFull(Math.abs(margin))} ${met?"above":"below"} the ${fmtFull(goal)} minimum`
+  };
+}
+function capitalReferenceLabel(p,key){
+  return `Profile ${key}${investmentLevels(p)[key]===null?" (reference only)":""}`;
+}
+function guardrailIndex(capital,p){
+  const {minimum,target,strong}=investmentLevels(p);
+  if(capital<minimum+100000)return 0;
+  if(target!==null&&capital<target)return 1;
+  if(strong===null||capital<strong)return 2;
+  return capital<strong+250000?3:4;
 }
 function pillHtml(s,prefix=""){
   return`<span class="status-pill ${s.cls}">${prefix}${s.label}<span class="muted"> · ${s.detail}</span></span>`;
@@ -3157,7 +3207,7 @@ function renderExecutive(){
   const base=runModel({profile:p,abpReturn:SCENARIOS.base.abp,accumReturn:SCENARIOS.base.accum});
   const likely=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const ta=STATE.targetAge,idx=tIdx();
-  document.getElementById("exec_chart_title").textContent=`Capital at age ${ta} against target bands`;
+  document.getElementById("exec_chart_title").textContent=`Investments at age ${ta} against your minimum goal`;
   const rows=[
     {name:"Conservative 4.0%",sim:conservative,r:SCENARIOS.conservative.abp},
     {name:"Base 5.0%",sim:base,r:SCENARIOS.base.abp},
@@ -3183,8 +3233,8 @@ function renderExecutive(){
   document.getElementById("exec_cards").innerHTML=`
     <div class="card accent"><div class="label">Presentation answer</div><div class="value">${isRailBProfile(p)?(PSS_ELECTIONS[p.pssElection]?.label||"Rail B selected"):"Rail A control"}</div><div class="sub">Active source set; compare pension, capital, TBC, spending surplus/gap, wash and estate outcomes together.</div></div>
     <div class="card"><div class="label">TBC planning anchor</div><div class="value">${fmt$(p.tbc)}</div><div class="sub">TBC headroom $${tbcAlloc.poolA.toLocaleString()}; Day 1 Pool A $${(p.poolA_day1??tbcAlloc.poolA).toLocaleString()} after $5k XD.</div></div>
-    <div class="card good"><div class="label">Active capital @${ta}</div><div class="value">${fmt$(likely_cap)}</div><div class="sub">${fmtPct(STATE.likely)} real [MODELLED] · ${likelyStatus.detail}.</div></div>
-    <div class="card"><div class="label">Fixed comparison range @${ta}</div><div class="value">${fmt$(conserv_cap)} – ${fmt$(base_cap)}</div><div class="sub">Reference only: 4.0% conservative to 5.0% base. Active result is the green card.</div></div>
+    <div class="card ${likelyStatus.cls}"><div class="label">Active capital @${ta}</div><div class="value">${fmtFull(likely_cap)}</div><div class="sub">${fmtPct(STATE.likely)} real · ${likelyStatus.detail}.</div></div>
+    <div class="card"><div class="label">Fixed comparison range @${ta}</div><div class="value">${fmt$(conserv_cap)} – ${fmt$(base_cap)}</div><div class="sub">4.0% conservative and 5.0% base references.</div></div>
     <div class="card"><div class="label">Pool A / B / C start</div><div class="value">${fmt$(p.poolA_day1??tbcAlloc.poolA)} / ${fmt$(p.poolB_day1??tbcAlloc.poolB)} / ${fmt$(p.poolC_day1??0)}</div><div class="sub">${openingPoolNote(p)}</div></div>
     <div class="card"><div class="label">Average usable income</div><div class="value">${fmt$(avgIncome)}/yr</div><div class="sub">PSS plus funded investment-pool spending, likely path to 95.</div></div>
   `;
@@ -3193,17 +3243,18 @@ function renderExecutive(){
     type:"bar",
     data:{labels:rows.map(r=>r.name),datasets:[
       {label:`Capital @${ta}`,data:rows.map(r=>r.sim.rows[idx].total),backgroundColor:c.acc,borderColor:c.acc,borderWidth:1},
-      {type:"line",label:"Floor",data:rows.map(()=>p.floor*1000),borderColor:c.warn,borderDash:[5,5],pointRadius:0,borderWidth:2},
-      {type:"line",label:"Target",data:rows.map(()=>p.target*1000),borderColor:c.acc2,borderDash:[4,4],pointRadius:0,borderWidth:2},
-      {type:"line",label:"Strong",data:rows.map(()=>p.strong*1000),borderColor:c.acc3,borderDash:[3,4],pointRadius:0,borderWidth:2}
+      {type:"line",label:"Minimum investment goal",data:rows.map(()=>p.floor*1000),borderColor:c.warn,borderDash:[5,5],pointRadius:0,borderWidth:2},
+      {type:"line",label:capitalReferenceLabel(p,"target"),data:rows.map(()=>p.target*1000),borderColor:c.acc2,borderDash:[4,4],pointRadius:0,borderWidth:2},
+      {type:"line",label:capitalReferenceLabel(p,"strong"),data:rows.map(()=>p.strong*1000),borderColor:c.acc3,borderDash:[3,4],pointRadius:0,borderWidth:2}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
       plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{ticks:{callback:moneyTick}}}}
   });
   renderTable("exec_tbl",rows.map(r=>{
     const cap=r.sim.rows[idx].total;const st=targetStatus(cap,p);
-    return[r.name,fmt$(cap),fmt$(cap-p.floor*1000),fmt$(cap-p.target*1000),`<span class="audit-${st.cls==="good"?"ok":st.cls==="warn"?"watch":"lock"}">${st.label}</span>`];
-  }),["Scenario",`Capital @${ta}`,"Floor margin","Target margin","Status"]);
+    const margin=threshold=>cap<threshold?`−${fmtFull(threshold-cap)}`:fmtFull(cap-threshold);
+    return[r.name,fmtFull(cap),margin(p.floor*1000),margin(p.target*1000),margin(p.strong*1000),`<span class="audit-${st.cls==="good"?"ok":"lock"}">${st.label}</span>`];
+  }),["Scenario",`Capital @${ta}`,`Minimum margin (${fmtFull(p.floor*1000)})`,`${capitalReferenceLabel(p,"target")} margin (${fmtFull(p.target*1000)})`,`${capitalReferenceLabel(p,"strong")} margin (${fmtFull(p.strong*1000)})`,"Minimum goal"]);
   document.getElementById("exec_policy").innerHTML=[
     ["PSS election",isRailBProfile(p)?(PSS_PROJECTION_BASES[STATE.pssProjectionBasis].elections[p.pssElection]?.label||"Selected"):"Rail A control","Compare every source-backed election available in the selected provider basis; Pool C routing, TBC use and the pension-versus-capital trade-off update together."],
     ["TBC mechanics","Use $2.1M anchor","Today's-dollar modelling means future indexation is not double-counted; update only if real policy changes."],
@@ -3224,9 +3275,9 @@ function renderOverview(){
   const likely=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85});
   const ta=STATE.targetAge;const idx=tIdx();
   document.getElementById("targetBanner").innerHTML=`
-    <div class="tier"><div class="lbl">Floor (must not breach)</div><div class="v">${fmt$(p.floor*1000)} @${ta}</div></div>
-    <div class="tier"><div class="lbl">Target (acceptable)</div><div class="v">${fmt$(p.target*1000)} @${ta}</div></div>
-    <div class="tier"><div class="lbl">Strong</div><div class="v">${fmt$(p.strong*1000)} @${ta}</div></div>
+    <div class="tier"><div class="lbl">Minimum investment goal</div><div class="v">${fmtFull(p.floor*1000)} @${ta}</div></div>
+    <div class="tier"><div class="lbl">${capitalReferenceLabel(p,"target")}</div><div class="v">${fmtFull(p.target*1000)} @${ta}</div></div>
+    <div class="tier"><div class="lbl">${capitalReferenceLabel(p,"strong")}</div><div class="v">${fmtFull(p.strong*1000)} @${ta}</div></div>
     <div class="tier"><div class="lbl">Aspirational</div><div class="v">${fmt$(2000000)} @${ta}</div></div>
   `;
   const spending=fundedSpendingSummary(likely.rows);
@@ -3405,9 +3456,9 @@ function renderTrajectory(){
     {label:"Conservative",data:conserv.rows.map(r=>r.total),borderColor:tc.warn,tension:.25},
     {label:"Base",data:base.rows.map(r=>r.total),borderColor:tc.acc,tension:.25},
     {label:"Likely",data:likely.rows.map(r=>r.total),borderColor:tc.good,tension:.25},
-    {label:"Floor "+fmt$(p.floor*1000),data:fl,borderColor:tc.bad,borderDash:[4,4],pointRadius:0},
-    {label:"Target "+fmt$(p.target*1000),data:tl,borderColor:tc.acc3,borderDash:[4,4],pointRadius:0},
-    {label:"Strong "+fmt$(p.strong*1000),data:sl,borderColor:tc.acc2,borderDash:[4,4],pointRadius:0}
+    {label:"Minimum "+fmt$(p.floor*1000),data:fl,borderColor:tc.bad,borderDash:[4,4],pointRadius:0},
+    {label:capitalReferenceLabel(p,"target")+" "+fmt$(p.target*1000),data:tl,borderColor:tc.acc3,borderDash:[4,4],pointRadius:0},
+    {label:capitalReferenceLabel(p,"strong")+" "+fmt$(p.strong*1000),data:sl,borderColor:tc.acc2,borderDash:[4,4],pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},
     plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},
     scales:{y:{ticks:{callback:moneyTick}}}},_milestones:[{age:65,label:"65"},{age:75,label:"75"},{age:80,label:"80"}]});
@@ -4507,6 +4558,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.15","Nov 2026","Minimum investment verdict, first-shortfall histories, import review and undo, and Command Centre cash timing."],
     ["v23.14","Nov 2026","Updated the on-site guide, control instructions and reading examples."],
     ["v23.13","Nov 2026","Added a shared investment goal, an optional later spending check, a capped Pool C draw and plan-only exports."],
     ["v23.12","Nov 2026","The Decision Brief can compare and apply drafts, trace annual cash flows, and identify plans in settings exports and print."],
@@ -4639,7 +4691,7 @@ function cashTrace(rows,index){
   const equation=opening+change+row.pensionSurplus-abUsed-cUsed-oneOff-health;
   return {row,opening,change,abUsed,cUsed,oneOff,health,balanceResidual:row.total-equation};
 }
-let activeDecisionTraceRows=[],decisionTraceRows=[],decisionTracePlan="";
+let activeDecisionTraceRows=[],decisionTraceRows=[],decisionTracePlan="",decisionTraceMiss=null;
 function renderDecisionTrace(){
   const control=document.getElementById("decision-trace-age");
   const results=document.getElementById("decision-trace-results");
@@ -4649,7 +4701,8 @@ function renderDecisionTrace(){
   const {row,opening,change,abUsed,cUsed,oneOff,health,balanceResidual}=cashTrace(decisionTraceRows,index);
   const money=value=>value<-.005?`−${fmtCents(-value)}`:fmtCents(Math.abs(value)<.005?0:value);
   const title=document.getElementById("decision-trace-label");
-  title.textContent=(decisionTracePlan?`${decisionTracePlan} · `:"")+(row.launchSnapshot?`Opening at age ${row.age} · before the first spending year`:`${agePeriodLabel(row.age)} · likely return path · today's dollars`);
+  title.textContent=(decisionTracePlan?`${decisionTracePlan} · `:"")+(row.launchSnapshot?`Opening at age ${row.age} · before the first spending year`:
+    `${agePeriodLabel(row.age)} · ${decisionTraceMiss?`simulated market path ${decisionTraceMiss.pathIndex+1}`:"likely return path"} · today's dollars`);
   const spending=row.launchSnapshot?
     [["One-off requested",money(row.oneOffRequested)],["One-off paid from Pools A/B",money(row.oneOffDrawn)],["One-off paid from Pool C",money(row.oneOffPoolCDrawn)],["One-off unfunded",money(row.oneOffShortfall)]]:
     [["Annual budget",money(row.targetSpend)],["Net pension spent",money(row.pensionSpent)],["Pools A/B spent",money(abUsed)],["Pool C spent",money(cUsed)],["Spending paid",money(row.fundedTotalSpend)],["Spending unfunded",money(row.spendingShortfall)],["Pension saved in Pool C",money(row.pensionSurplus)],["Unused mandatory draw kept in Pool A",money(row.toABP)],["Unused mandatory draw moved to Pool C",money(row.toPoolC-row.pensionToPoolC)]];
@@ -4658,17 +4711,24 @@ function renderDecisionTrace(){
     ...(health?[["Health cost paid",money(-health)]]:[]),["Closing Pool A",money(row.poolA)],["Closing Pool B",money(row.poolB)],["Closing Pool C",money(row.poolC)],
     ...(row.poolCReserve==null?[]:[["Pool C reserve",money(row.poolCReserve)],["Pool C below reserve by",money(row.poolCReserveGap)]]),
     ["Closing investments",money(row.total)],["Cash flow reconciliation difference",money(balanceResidual)]];
+  if(decisionTraceMiss&&!row.launchSnapshot){
+    capital.splice(1,0,["Pool A real return this year",fmtPctClean(row.rA,2)]);
+    if(decisionTraceMiss.essentials!==null)spending.push(
+      ["Essential budget",money(decisionTraceMiss.essentials)],
+      ["Essentials unfunded",money(Math.max(0,decisionTraceMiss.essentials-row.fundedTotalSpend))]);
+  }
   results.replaceChildren(...[["Spending and saving",spending],["Investment movement",capital]].map(([heading,fields])=>{
     const box=document.createElement("div"),label=document.createElement("h3");
     label.textContent=heading;box.append(label,reportFields(fields));return box;
   }));
 }
-function syncDecisionTrace(rows,planName="",traceAge=null){
+function syncDecisionTrace(rows,planName="",traceAge=null,miss=null){
   const select=document.getElementById("decision-trace-age");
   if(!select)return;
   const selected=traceAge===null?(select.value||String(STATE.targetAge)):String(traceAge);
   if(!planName)activeDecisionTraceRows=rows;
   decisionTracePlan=planName;
+  decisionTraceMiss=miss;
   document.getElementById("decision-trace-active").hidden=!planName;
   decisionTraceRows=rows;
   select.replaceChildren(...rows.map(row=>{
@@ -4738,7 +4798,8 @@ function compareDecisionDrafts(state,options,runs=200){
   const start=profileForScenario(state).retireAge;
   const laterAge=RETIREMENT_ENGINE.laterInvestmentCheckAge(state.laterCheckAge,age);
   const years=Math.max(1,(laterAge??age)-start);
-  const paths=policyReturnPaths({runs,years,mean:state.likely,sd:state.vol,seed:state.simulationSeed});
+  const pathSettings={years,mean:state.likely,sd:state.vol,seed:state.simulationSeed};
+  const paths=policyReturnPaths({runs,...pathSettings});
   return plans.map(plan=>{
     if(!plan.state)return plan;
     const {profile,sim}=scenarioStateResult(plan.state,age);
@@ -4746,12 +4807,16 @@ function compareDecisionDrafts(state,options,runs=200){
     const annualRows=spendingYears(sim.rows);
     const assess=checkpoint=>RETIREMENT_ENGINE.assessSpending(annualRows,checkpoint,floor,state.essentialSpending);
     const funding=RETIREMENT_ENGINE.fundingPathCounts(years+1);
-    for(const market of paths){
+    const misses=paths.map(market=>{
       const {sim:path}=scenarioStateResult(plan.state,age,market,start+years,profile);
-      RETIREMENT_ENGINE.countFundingPath(funding,spendingYears(path.rows),floor,state.essentialSpending);
-    }
+      return RETIREMENT_ENGINE.countFundingPath(funding,spendingYears(path.rows),floor,state.essentialSpending);
+    });
     return {...plan,profile,check:assess(age),runs,firstYearBudget:sim.rows[1].targetSpend,launch:sim.rows[0],funding:age>start?funding[age-start]:null,
       laterCheck:laterAge===null?null:assess(laterAge),laterFunding:laterAge===null?null:funding[laterAge-start],
+      pathSettings,misses:{
+        budget:RETIREMENT_ENGINE.fundingMissTimeline(misses,"budget"),
+        essentials:RETIREMENT_ENGINE.fundingMissTimeline(misses,"essentials"),
+      },
       rows:sim.rows};
   });
 }
@@ -4765,6 +4830,7 @@ function invalidateDecisionDrafts(){
   decisionComparison=null;
   const results=document.getElementById("decision-draft-results");
   results.hidden=true;results.replaceChildren();
+  document.getElementById("decision-first-misses").hidden=true;
   if(decisionTracePlan&&activeDecisionTraceRows.length)syncDecisionTrace(activeDecisionTraceRows);
   document.getElementById("decision-draft-status").textContent="Settings changed. Run the comparison again to see current results.";
 }
@@ -4790,6 +4856,24 @@ function draftOutcomeFields(plan){
   return [["Net PSS per year",fmtCents(plan.profile.netPension)],["First-year budget",fmtCents(plan.firstYearBudget)],
     ...(plan.launch.oneOffRequested>0?[["Retirement one-off",`${fmtFull(plan.launch.oneOffFunded)} paid · ${fmtFull(plan.launch.oneOffShortfall)} unpaid`]]:[]),
     ...fieldsAt(check,funding),...(plan.laterCheck?fieldsAt(plan.laterCheck,plan.laterFunding):[])];
+}
+function renderDecisionMissTimeline(){
+  const plan=decisionComparison?.plans.find(item=>item.id===document.getElementById("decision-miss-plan").value);
+  const kind=document.getElementById("decision-miss-kind").value;
+  const region=document.getElementById("decision-miss-region");
+  if(!plan?.misses)return;
+  const ages=[plan.check.age,...(plan.laterCheck?[plan.laterCheck.age]:[])];
+  const groups=plan.misses[kind].filter(group=>group.age<=ages.at(-1));
+  const summary=document.getElementById("decision-miss-checkpoints");
+  summary.textContent=ages.map(age=>{
+    const count=groups.findLast(group=>group.age<=age)?.cumulative??0;
+    return `${count} of ${plan.runs} histories first fall short by age ${age}`;
+  }).join(" · ");
+  region.hidden=!groups.length;
+  renderTable("decision-miss-table",groups.map(group=>[
+    `${agePeriodLabel(group.age)}<button class="btn" type="button" data-miss-age="${group.age}" aria-label="Inspect one path for age ${group.age}">Inspect one path</button>`,
+    group.count,group.cumulative,fmtCents(group.median),
+  ]),["Spending year","First miss","Missed by then","Typical first-year gap"]);
 }
 function renderPlanDrafts(event){
   event.preventDefault();
@@ -4820,9 +4904,18 @@ function renderPlanDrafts(event){
       return article;
     }));
     results.hidden=false;
+    const select=document.getElementById("decision-miss-plan");
+    select.replaceChildren(...plans.filter(plan=>plan.misses).map(plan=>new Option(plan.title,plan.id)));
+    const kind=document.getElementById("decision-miss-kind");
+    kind.options[1].disabled=state.essentialSpending===null;
+    kind.value="budget";
+    document.getElementById("decision-first-misses").hidden=false;
+    renderDecisionMissTimeline();
     status.textContent=`200 identical market paths · age ${state.targetAge}${state.laterCheckAge===null?"":` and ${state.laterCheckAge}`} · ${fmtFull(profileForScenario(state).floor*1000)} investment floor · ${state.essentialSpending===null?"essentials budget unset":fmtFull(state.essentialSpending)+"/yr essentials"} · advisory rules.`;
   }catch(error){
-    decisionComparison=null;results.hidden=true;results.replaceChildren();status.textContent=error.message;
+    decisionComparison=null;results.hidden=true;results.replaceChildren();
+    document.getElementById("decision-first-misses").hidden=true;
+    status.textContent=error.message;
   }
 }
 function previewDecisionDraft(id){
@@ -4844,6 +4937,8 @@ function wireDecisionTools(){
   document.getElementById("decision-draft-form")?.addEventListener("submit",renderPlanDrafts);
   document.getElementById("decision-draft-form")?.addEventListener("input",invalidateDecisionDrafts);
   document.getElementById("decision-trace-age")?.addEventListener("change",renderDecisionTrace);
+  document.getElementById("decision-miss-plan")?.addEventListener("change",renderDecisionMissTimeline);
+  document.getElementById("decision-miss-kind")?.addEventListener("change",renderDecisionMissTimeline);
   document.getElementById("decision-trace-active")?.addEventListener("click",()=>{
     syncDecisionTrace(activeDecisionTraceRows);
     document.getElementById("decision-trace-age").focus();
@@ -4856,9 +4951,18 @@ function wireDecisionTools(){
     document.getElementById("decision-draft-status").textContent=`${plan.title} applied in V23. Run the comparison again to check this plan.`;
   });
   document.addEventListener("click",event=>{
-    const button=event.target.closest?.("button[data-decision-destination],button[data-decision-trace-age],button[data-preview-draft]");
+    const button=event.target.closest?.("button[data-decision-destination],button[data-decision-trace-age],button[data-preview-draft],button[data-miss-age]");
     if(!button)return;
     if(button.dataset.previewDraft){previewDecisionDraft(button.dataset.previewDraft);return;}
+    if(button.dataset.missAge){
+      const plan=decisionComparison?.plans.find(item=>item.id===document.getElementById("decision-miss-plan").value);
+      const kind=document.getElementById("decision-miss-kind").value;
+      const example=plan?.misses?.[kind].find(group=>group.age===Number(button.dataset.missAge))?.example;
+      if(!example)return;
+      const market=policyReturnPath(plan.pathSettings,example.pathIndex);
+      const {sim}=scenarioStateResult(plan.state,plan.check.age,market,plan.profile.retireAge+plan.pathSettings.years,plan.profile);
+      syncDecisionTrace(sim.rows,plan.title,button.dataset.missAge,{pathIndex:example.pathIndex,essentials:plan.state.essentialSpending});
+    }
     if(button.dataset.decisionTraceAge){
       const draft=decisionComparison?.plans.find(plan=>plan.id===button.dataset.traceDraft);
       syncDecisionTrace(draft?.rows??activeDecisionTraceRows,draft?.title??"",button.dataset.decisionTraceAge);
@@ -4919,7 +5023,7 @@ function renderDecisionBrief(){
     ["Investment return",fmtPctClean(STATE.likely),"Likely path, after inflation"],
     ["Pool C tax drag",fmtPctClean(STATE.poolCDrag,2),"Modelled drag on investment returns"],
     ["Transfer balance cap",fmtFull(p.tbc),"Active planning input"],
-    ["Capital goals",`Floor ${fmtFull(floor)} · target ${fmtFull(p.target*1000)} · strong ${fmtFull(p.strong*1000)}`,`Checked at age ${ta}`]
+    ["Capital goals",`Minimum ${fmtFull(floor)} · ${capitalReferenceLabel(p,"target")} ${fmtFull(p.target*1000)} · ${capitalReferenceLabel(p,"strong")} ${fmtFull(p.strong*1000)}`,`Checked at age ${ta}`]
   ],["Assumption","Current value","Basis"]);
   renderTable("brief_actions",[
     ["Now","Save the current plan in a scenario slot","Keep a reference for later comparisons."],
@@ -4938,7 +5042,7 @@ function renderGuardrails(){
   const taRow=rows[Math.max(0,Math.min(rows.length-1,tIdx()))];
   const cuts=rows.filter(r=>!r.launchSnapshot&&r.gr.mult<1).length,ups=rows.filter(r=>!r.launchSnapshot&&r.gr.mult>1).length;
   document.getElementById("gr_cards").innerHTML=`
-    <div class="card ${taRow.gr.cls}"><div class="label">Current target-age zone</div><div class="value">${taRow.gr.zone}</div><div class="sub">${taRow.gr.action}</div></div>
+    <div class="card ${taRow.gr.cls}"><div class="label">Spending zone at age ${taRow.age}</div><div class="value">${taRow.gr.zone}</div><div class="sub">${targetStatus(taRow.total,p).detail}. ${taRow.gr.action}</div></div>
     <div class="card"><div class="label">Normal gap @${STATE.targetAge}</div><div class="value">${fmt$(taRow.gap)}</div><div class="sub">Before guardrail multiplier</div></div>
     <div class="card accent"><div class="label">Guardrail gap @${STATE.targetAge}</div><div class="value">${fmt$(taRow.gap*taRow.gr.mult)}</div><div class="sub">${Math.round(taRow.gr.mult*100)}% of base gap</div></div>
     <div class="card"><div class="label">Tighten / expand years</div><div class="value">${cuts} / ${ups}</div><div class="sub">Advisory suggestions on the unchanged path</div></div>
@@ -4949,9 +5053,9 @@ function renderGuardrails(){
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{ticks:{callback:moneyTick}}}}});
   makeChart("gr_zone_chart",{type:"line",data:{labels:rows.map(r=>r.age),datasets:[
     {label:"Capital",data:rows.map(r=>r.total),borderColor:tc.acc,tension:.2,borderWidth:3},
-    {label:"Floor",data:rows.map(()=>p.floor*1000),borderColor:tc.bad,borderDash:[4,4],pointRadius:0},
-    {label:"Target",data:rows.map(()=>p.target*1000),borderColor:tc.acc3,borderDash:[4,4],pointRadius:0},
-    {label:"Strong",data:rows.map(()=>p.strong*1000),borderColor:tc.good,borderDash:[4,4],pointRadius:0}
+    {label:"Minimum investment goal",data:rows.map(()=>p.floor*1000),borderColor:tc.bad,borderDash:[4,4],pointRadius:0},
+    {label:capitalReferenceLabel(p,"target"),data:rows.map(()=>p.target*1000),borderColor:tc.acc3,borderDash:[4,4],pointRadius:0},
+    {label:capitalReferenceLabel(p,"strong"),data:rows.map(()=>p.strong*1000),borderColor:tc.good,borderDash:[4,4],pointRadius:0}
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{ticks:{callback:moneyTick}}}}});
   renderTable("gr_tbl",rows.filter(r=>[p.retireAge,65,70,75,80,85,90,95].includes(r.age)).map(r=>[r.age,fmt$(r.total),r.gr.zone,Math.round(r.gr.mult*100)+"%",fmt$(r.gap*r.gr.mult),r.gr.action]),["Age","Capital","Zone","Spend factor","Guardrail gap","Instruction"]);
 }
@@ -4970,9 +5074,10 @@ function renderSaveSlots(){
   const live=captureScenarioState();const slots=["A","B","C"];
   document.getElementById("slot_cards").innerHTML=slots.map(slot=>{
     const s=getSlot(slot);const title=STATE.slotNames?.[slot]||`Scenario ${slot}`;
+    const safeTitle=String(title).replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;");
     const row=s?scenarioStateResult(s.state).row:null;
     return `<div class="card ${s?"good":""}"><div class="label">Slot ${slot}</div>
-      <input type="text" value="${title}" onchange="renameSlot('${slot}',this.value)" aria-label="Scenario slot ${slot} name" style="width:100%;margin:6px 0 4px;font-weight:700"/>
+      <input type="text" value="${safeTitle}" onchange="renameSlot('${slot}',this.value)" aria-label="Scenario slot ${slot} name" style="width:100%;margin:6px 0 4px;font-weight:700"/>
       <div class="sub">${s?`Saved ${new Date(s.savedAt).toLocaleString()} · @${s.state.targetAge} ${row?fmt$(row.total):"outside forecast"}`:"Empty"}</div>
       <div class="band-actions"><button class="pill" onclick="setSlot('${slot}')">Save current</button><button class="pill" onclick="loadSlot('${slot}')">Load</button><button class="pill" onclick="clearSlot('${slot}')">Clear</button></div></div>`;
   }).join("");
@@ -5030,9 +5135,9 @@ function renderReviewDelta(){
 
 /* ========== ACTION TRIGGERS ========== */
 function triggerStatusRows(profile,target,assessment,age){
-  const floor=profile.floor*1000;
-  const release=profile.strong*1000+250000;
-  const canRelease=target.total>release&&assessment.years>0&&!assessment.firstBudgetMiss&&!assessment.firstEssentialMiss;
+  const {minimum:floor,strong}=investmentLevels(profile);
+  const release=strong===null?null:strong+250000;
+  const canRelease=release!==null&&target.total>release&&assessment.years>0&&!assessment.firstBudgetMiss&&!assessment.firstEssentialMiss;
   return [
     ["Essential spending",STATE.essentialSpending===null?"Enter an essentials budget":`Annual essentials ${fmtFull(STATE.essentialSpending)} through age ${age}`,
       assessment.firstEssentialMiss?"Active":STATE.essentialSpending===null||!assessment.years?"Manual":"Clear",
@@ -5042,7 +5147,9 @@ function triggerStatusRows(profile,target,assessment,age){
       assessment.firstBudgetMiss?`${fmtFull(assessment.planned-assessment.funded)} unfunded. First shortfall in the year ending at age ${assessment.firstBudgetMiss.age}.`:
         assessment.years?"Budget funded in each assessed year.":"The selected age is the opening snapshot."],
     ["Floor defence",`Capital @${age} < ${fmt$(floor+100000)}`,target.total<floor+100000?"Active":"Clear",target.total<floor+100000?"Review discretionary spending and one-offs.":"Capital clears the early-warning level."],
-    ["Lifestyle release",`Capital @${age} > ${fmt$(release)} and spending funded`,canRelease?"Active":"Watch",canRelease?"Review additional spending or portfolio risk.":"Keep normal bands and check funding first."],
+    ["Lifestyle release",release===null?"Set a higher strong reference":`Capital @${age} > ${fmt$(release)} and spending funded`,
+      release===null?"Manual":canRelease?"Active":"Watch",release===null?"The strong reference must exceed both the minimum and profile target.":
+      canRelease?"Review additional spending or portfolio risk.":"Keep normal bands and check funding first."],
     ["Return sensitivity","Likely real return < 5%",STATE.likely<.05?"Active":"Clear",STATE.likely<.05?"Compare the plan with the lower-return references.":"The return assumption is at least 5%."],
     ["TBC/legal review","TBC or PSS rules change","Manual","Update dated assumptions and rerun the Decision Brief."],
     ["Estate review",`Pool C @${age} > ${fmt$(250000)}`,target.poolC>250000?"Active":"Watch",target.poolC>250000?"Review CGT, DBT and beneficiary strategy.":"Monitor annually."]
@@ -5051,7 +5158,7 @@ function triggerStatusRows(profile,target,assessment,age){
 function renderTriggers(){
   const p=getProfile();const tc=getThemeColors();const ta=STATE.targetAge;const idx=tIdx();
   const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,gapBands:STATE.gapBands});
-  const target=sim.rows[idx],floor=p.floor*1000,strong=p.strong*1000;
+  const target=sim.rows[idx],{minimum:floor,strong}=investmentLevels(p);
   const floorMargin=target.total-floor;
   const rows=triggerStatusRows(p,target,checkPlanFunding(sim.rows,ta,p),ta);
   const active=rows.filter(r=>r[2]==="Active").length;
@@ -5064,7 +5171,7 @@ function renderTriggers(){
   makeChart("trigger_chart",{type:"line",data:{labels:sim.rows.map(r=>r.age),datasets:[
     {label:"Capital",data:sim.rows.map(r=>r.total),borderColor:tc.acc,tension:.2,borderWidth:3},
     {label:"Floor defence trigger",data:sim.rows.map(()=>floor+100000),borderColor:tc.warn,borderDash:[4,4],pointRadius:0},
-    {label:"Lifestyle release trigger",data:sim.rows.map(()=>strong+250000),borderColor:tc.good,borderDash:[4,4],pointRadius:0}
+    ...(strong===null?[]:[{label:"Lifestyle release trigger",data:sim.rows.map(()=>strong+250000),borderColor:tc.good,borderDash:[4,4],pointRadius:0}])
   ]},options:{maintainAspectRatio:false,responsive:true,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtFull(c.parsed.y)}}},scales:{y:{ticks:{callback:moneyTick}}}}});
 }
 
@@ -5098,7 +5205,7 @@ function applyScenarioState(s){
   if(!s)return;
   STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
   if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
-  else customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;
+  else{customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;STATE.pssElection=null;}
   restoreCustomInputs(s.customProfileInputs);
   ["profile","totalSpendTarget","targetAge","likely","vol","runs","gapGrowth","spendMode","spendReturnPct","poolCPolicy","incomeTableMode","reinvestTableMode","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag","theme"].forEach(k=>{if(s[k]!==undefined)STATE[k]=s[k];});
   if(Number.isSafeInteger(s.simulationSeed)&&s.simulationSeed>0)STATE.simulationSeed=s.simulationSeed;
@@ -5158,12 +5265,13 @@ function flatHandoffComparison(scenario,state=captureScenarioState()){
   return {age,realReturn,budget,floor,flatFloor,detailed,flat,detailedPass:passes(detailed),flatPass:passes(flat)};
 }
 function guardrailForRow(row,p){
-  const floor=p.floor*1000,target=p.target*1000,strong=p.strong*1000;
-  if(row.total<floor+100000)return{zone:"Protect floor",cls:"bad",mult:.70,action:"Cut discretionary gap by 30%; defer one-offs; review allocation."};
-  if(row.total<target)return{zone:"Caution",cls:"warn",mult:.90,action:"Trim discretionary gap by 10%; hold Pool C risk stable."};
-  if(row.total<strong)return{zone:"Core plan",cls:"good",mult:1.00,action:"Maintain current spending bands and annual review cycle."};
-  if(row.total<strong+250000)return{zone:"Upside",cls:"good",mult:1.20,action:"Allow 20% higher discretionary gap or planned gifting/travel."};
-  return{zone:"Legacy surplus",cls:"good",mult:1.35,action:"Consider legacy gifts, extra travel, or Pool C risk reduction."};
+  return [
+    {zone:"Protect floor",cls:"bad",mult:.70,action:"Consider cutting discretionary spending by 30% and deferring one-offs."},
+    {zone:"Caution",cls:"warn",mult:.90,action:"Consider trimming discretionary spending by 10%."},
+    {zone:"Core plan",cls:"good",mult:1.00,action:"Maintain current spending bands and review annually."},
+    {zone:"Upside",cls:"good",mult:1.20,action:"Allow a 20% higher discretionary gap or planned gifting and travel."},
+    {zone:"Legacy surplus",cls:"good",mult:1.35,action:"Consider legacy gifts, extra travel or lower investment risk."}
+  ][guardrailIndex(row.total,p)];
 }
 function applyScenarioPreset(id){
   const ra=getProfile().retireAge;
@@ -5192,9 +5300,10 @@ function applyNotesToTextareas(){
 function navBadgeFor(page,ctx){
   const {p,row,floorProb,jointProb,assessment,active}=ctx;
   if(page==="decisionbrief"||page==="executive"){
-    if(assessment.firstEssentialMiss)return "bad";
+    const minimum=targetStatus(row.total,p);
+    if(minimum.cls==="bad"||assessment.firstEssentialMiss)return "bad";
     if(assessment.firstBudgetMiss)return "warn";
-    return targetStatus(row.total,p).cls;
+    return minimum.cls;
   }
   if(page==="guardrails")return guardrailForRow(row,p).cls;
   if(page==="triggers")return active?"warn":"good";
@@ -5229,6 +5338,10 @@ function updateNavBadges(){
     b.className=`nav-badge ${cls}`;
     b.textContent=a.dataset.page==="triggers"&&active?String(active):cls==="good"?"OK":cls==="warn"?"!":"!!";
     if(a.dataset.page==="triggers")b.setAttribute("aria-label",active?`${active} active triggers`:"No active triggers");
+    if(["executive","decisionbrief","guardrails"].includes(a.dataset.page)){
+      const minimum=targetStatus(row.total,p);
+      b.title=`Age ${row.age} · ${minimum.detail}`;
+    }
     a.appendChild(b);
   });
 }
@@ -5265,35 +5378,187 @@ function wireSettingsExport(){
     URL.revokeObjectURL(url);
   });
 }
-function importSettingsJSON(file){
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      const payload=JSON.parse(reader.result);
-      if(payload.plan?.workspace==="command-centre"||payload.current&&!payload.state)throw Error("Open this Command Centre review file in Command Centre.");
-      if(payload.state)applyScenarioState(payload.exportScope==="plan-only"?{
-        ...payload.state,incomeTableMode:STATE.incomeTableMode,reinvestTableMode:STATE.reinvestTableMode,
-        customProfileInputs:payload.state.profile==="michael"?STATE.customProfileInputs:payload.state.customProfileInputs,
-        lastFlatSpendTarget:STATE.lastFlatSpendTarget,
-        savedAgeBands:STATE.totalSpendTarget===null&&payload.state.totalSpendTarget!==null?STATE.gapBands:STATE.savedAgeBands,
-      }:payload.state);
-      if(payload.slotNames)STATE.slotNames=payload.slotNames;
-      if(payload.notes)STATE.notes=payload.notes;
-      if(payload.slots)Object.entries(payload.slots).forEach(([slot,val])=>{if(val)localStorage.setItem(slotKey(slot),JSON.stringify(val));});
-      if(payload.checklist&&typeof payload.checklist==="object")localStorage.setItem(CHECKLIST_KEY,JSON.stringify(normaliseChecklist(payload.checklist)));
-      applyNotesToTextareas();saveState();updateLabels();renderBandRows();rerenderAll();updateNavBadges();
-      const active=detailedPlanReceipt(),status=document.getElementById("v23-import-result");
-      if(status){
-        const imported=payload.plan;
-        status.textContent=!imported?.planId?`Older settings loaded. Current plan ID ${active.planId}.`
-          :imported.planId!==active.planId?`Settings loaded. The recalculated plan ID ${active.planId} differs from the saved ID. Review the source and inputs before comparing results.`
-          :imported.modelRevision!==active.modelRevision?`Plan ${active.planId} restored using calculation version ${active.modelRevision}. The file was saved using ${imported.modelRevision}.`
-          :`Plan ${active.planId} restored with matching inputs and calculation version.`;
-      }
-    }catch(error){alert(error.message.startsWith("Open this Command Centre")?error.message:"Could not import settings JSON.");}
+const isV23SettingsObject=value=>value!==null&&typeof value==="object"&&!Array.isArray(value);
+let pendingV23Import=null,v23ImportUndo=null,v23ImportRequest=0;
+
+function prepareV23ImportState(source,local,planOnly=false){
+  if(!isV23SettingsObject(source)||!Object.keys(local).some(key=>Object.hasOwn(source,key)))throw Error("Choose a V23 settings file.");
+  const next={...local};
+  for(const key of Object.keys(local))if(Object.hasOwn(source,key))next[key]=source[key];
+  next.pssProjectionBasis=normaliseProjectionBasis(source.pssProjectionBasis);
+  next.pssElection=Object.hasOwn(PSS_ELECTIONS,source.pssElection)?normaliseElectionForBasis(next.pssProjectionBasis,source.pssElection):null;
+  next.profile=source.profile??(next.pssElection?"custom":local.profile);
+  if(next.profile!=="michael"&&next.profile!=="custom")throw Error("The file contains an unknown pension profile.");
+  if(next.pssElection){
+    const opening=railBProfileForElection(next.pssElection,next.pssProjectionBasis);
+    if(source.totalSpendTarget===undefined)next.totalSpendTarget=local.totalSpendTarget??110000;
+    if(source.spendMode===undefined)next.spendMode="fixed";
+    if(!source.gapBands?.length)next.gapBands=[{age:60,amount:Math.max(0,(next.totalSpendTarget??110000)-opening.netPension),unit:"dollar"}];
+    next.wash={...local.wash,enabled:opening.washSourceGross>0,maxWashes:opening.washMax,schedule:{}};
+  }
+  next.customProfileInputs=validateCustomProfileInputs(planOnly&&next.profile==="michael"?local.customProfileInputs:source.customProfileInputs);
+  if(isV23SettingsObject(source.wash))next.wash={...next.wash,...source.wash,schedule:{...source.wash.schedule}};
+  if(!Number.isSafeInteger(next.simulationSeed)||next.simulationSeed<=0)next.simulationSeed=local.simulationSeed;
+  if(!Number.isInteger(next.liquidityMonths)||next.liquidityMonths<0||next.liquidityMonths>24)next.liquidityMonths=local.liquidityMonths;
+  next.essentialSpending=validEssentialSpending(next.essentialSpending);
+  next.salaryTaxYear=next.salaryTaxYear==="2027-28"?"2027-28":"2026-27";
+  next.investmentFloor=validEssentialSpending(source.investmentFloor);
+  next.laterCheckAge=RETIREMENT_ENGINE.laterInvestmentCheckAge(source.laterCheckAge,next.targetAge);
+  next.poolCPolicy=normaliseV23PoolCPolicy(source.poolCPolicy);
+  next.poolCReserve=validEssentialSpending(source.poolCReserve);
+  next.useReserveForOneOffs=source.useReserveForOneOffs===true;
+  next.theme=planOnly?local.theme:normaliseRetirementTheme(next.theme)??local.theme;
+  next.incomeTableMode=planOnly?local.incomeTableMode:(source.incomeTableMode==="full"?"full":"essential");
+  next.reinvestTableMode=planOnly?local.reinvestTableMode:(source.reinvestTableMode==="all"?"all":"key");
+  next.lastFlatSpendTarget=planOnly?local.lastFlatSpendTarget:(validEssentialSpending(source.lastFlatSpendTarget));
+  const savedBands=planOnly?(local.totalSpendTarget===null&&next.totalSpendTarget!==null?local.gapBands:local.savedAgeBands):source.savedAgeBands;
+  const isBand=band=>isV23SettingsObject(band)&&Number.isFinite(band.age)&&Number.isFinite(band.amount)&&band.amount>=0
+    && [undefined,"dollar","totalDollar","returnPct","drawPct"].includes(band.unit)
+    && (band.startOnBirthday===undefined||typeof band.startOnBirthday==="boolean");
+  if(!Array.isArray(next.gapBands)||!next.gapBands.length||!next.gapBands.every(isBand)||
+    (savedBands!=null&&(!Array.isArray(savedBands)||!savedBands.every(isBand))))throw Error("Check the spending bands in the file.");
+  const clean=normaliseGapBands(next.gapBands);
+  next.gapBands=clean.bands;
+  next.savedAgeBands=savedBands?.length?normaliseGapBands(savedBands).bands:null;
+  const profile=profileForScenario(next);
+  const finite=["likely","vol","runs","gapGrowth","spendReturnPct","oneOff","poolCDrag","cpi","cpiDur","cpiAge","cpiDrag"];
+  if(!finite.every(key=>Number.isFinite(next[key]))||!Number.isInteger(next.targetAge)||next.targetAge<profile.retireAge||next.targetAge>95||
+    !["fixed","returnPct","drawPct"].includes(next.spendMode)||!Number.isInteger(next.runs)||next.runs<1||next.runs>5000||next.vol<0||
+    (next.totalSpendTarget!==null&&validEssentialSpending(next.totalSpendTarget)===null)){
+    throw Error("Check the spending, age and return settings in the file.");
+  }
+  if(next.totalSpendTarget!==null){
+    next.totalSpendTarget=Number(next.totalSpendTarget);
+    next.gapBands=makeBandsFromGap(Math.max(0,next.totalSpendTarget-profile.netPension),profile.retireAge);
+    next.spendMode="fixed";
+  }
+  return {state:next,duplicateAges:clean.duplicateAges};
+}
+function v23ImportFields(state){
+  const {profile,sim}=scenarioStateResult(state);
+  const checkpoint=age=>{
+    const check=checkPlanFunding(sim.rows,age,profile,state.essentialSpending);
+    const balance=check.capital===null?"Unavailable":fmtFull(check.capital);
+    return `Age ${age} · ${fmtFull(check.funded)} funded · ${fmtFull(Math.max(0,check.planned-check.funded))} unfunded · ${balance} invested`;
   };
-  reader.readAsText(file);
+  return [
+    ["Pension and source",`${fmtCents(profile.netPension)}/yr net · ${openingSourceLabel(profile)}`],
+    ["Opening investments",fmtCents(sim.rows[0].total)],
+    ["Spending rule",draftBudgetRule(state)],
+    ["First year planned / funded",`${fmtCents(sim.rows[1].targetSpend)} / ${fmtCents(sim.rows[1].fundedTotalSpend)}`],
+    ["Essentials",state.essentialSpending===null?"Unset":`${fmtFull(state.essentialSpending)}/yr`],
+    ["Real return / volatility / Pool C drag",`${fmtPctClean(state.likely)} / ${fmtPctClean(state.vol)} / ${fmtPctClean(state.poolCDrag,2)}`],
+    ["One-off at retirement",`${fmtFull(state.oneOff)} requested · ${fmtFull(sim.rows[0].oneOffShortfall)} unfunded`],
+    ["Pool C",modelledPoolCLabel(state.poolCPolicy,state.poolCReserve)+(state.poolCPolicy==="above-reserve"?(state.useReserveForOneOffs?" · can use above reserve for one-offs":" · preserve for one-offs"):"")],
+    ["Minimum investment goal",fmtFull(profile.floor*1000)],
+    ["Target check",checkpoint(state.targetAge)],
+    ["Later check",state.laterCheckAge===null?"Off":checkpoint(state.laterCheckAge)],
+    ["Risk sample",`${state.runs} runs · seed ${state.simulationSeed}`]
+  ];
+}
+function setV23ImportStatus(message){
+  const visible=document.getElementById("v23-import-result");
+  visible.textContent=message;visible.hidden=!message;
+}
+function v23LocalRecords(){
+  return {
+    notes:STATE.notes,slotNames:STATE.slotNames,checklist:readChecklist(),
+    slots:Object.fromEntries(["A","B","C"].map(slot=>[slot,localStorage.getItem(slotKey(slot))]))
+  };
+}
+async function importSettingsJSON(file){
+  if(!file)return;
+  const request=++v23ImportRequest;
+  try{
+    const payload=JSON.parse(await file.text());
+    if(request!==v23ImportRequest)return;
+    if(!isV23SettingsObject(payload))throw Error("Choose a V23 settings file.");
+    if(payload.plan?.workspace==="command-centre"||payload.current&&!payload.state)throw Error("Open this Command Centre review file in Command Centre.");
+    const local=captureScenarioState(),planOnly=payload.exportScope==="plan-only";
+    const hasLegacyRecords=!planOnly&&["notes","slotNames","slots","checklist"].some(key=>isV23SettingsObject(payload[key]));
+    const {state,duplicateAges}=payload.state===undefined&&hasLegacyRecords?
+      {state:local,duplicateAges:[]}:prepareV23ImportState(payload.state,local,planOnly);
+    const active=v23ImportFields(local),incoming=v23ImportFields(state);
+    const table=document.getElementById("v23-import-preview");
+    table.replaceChildren();
+    const head=table.createTHead().insertRow();
+    for(const text of ["Input or result","Current plan","Incoming plan"]){
+      const cell=document.createElement("th");cell.scope="col";cell.textContent=text;head.append(cell);
+    }
+    const body=table.createTBody();
+    active.forEach(([label,value],index)=>{
+      const row=body.insertRow();
+      row.classList.toggle("settings-change",value!==incoming[index][1]);
+      const key=document.createElement("th");key.scope="row";key.textContent=label;row.append(key);
+      row.insertCell().textContent=value;
+      row.insertCell().textContent=incoming[index][1];
+    });
+    const records=planOnly?{}:{
+      ...(isV23SettingsObject(payload.notes)?{notes:Object.fromEntries(Object.entries(payload.notes).filter(([,value])=>typeof value==="string"))}:{}),
+      ...(isV23SettingsObject(payload.slotNames)?{slotNames:Object.fromEntries(["A","B","C"].filter(key=>typeof payload.slotNames[key]==="string").map(key=>[key,payload.slotNames[key]]))}:{}),
+      ...(isV23SettingsObject(payload.checklist)?{checklist:normaliseChecklist(payload.checklist)}:{}),
+      ...(isV23SettingsObject(payload.slots)?{slots:Object.fromEntries(["A","B","C"].filter(key=>payload.slots[key]?.state).map(key=>{
+        const entry=payload.slots[key];
+        return [key,JSON.stringify({...entry,state:prepareV23ImportState(entry.state,state).state})];
+      }))}:{}),
+    };
+    pendingV23Import={state,records,receipt:payload.plan};
+    document.getElementById("v23-import-scope").textContent=(Object.keys(records).length
+      ?"Full backup. Saved records included in this file will be restored when you apply it."
+      :"This file applies plan settings. Your browser’s saved notes, scenarios and checklist stay in place.")
+      +(duplicateAges.length?` Duplicate age bands at ${duplicateAges.join(", ")} keep the later entry.`:"");
+    const dialog=document.getElementById("v23-import-dialog");
+    dialog.returnValue="cancel";dialog.showModal();
+  }catch(error){
+    if(request===v23ImportRequest)setV23ImportStatus(error instanceof SyntaxError?"Could not read this settings JSON.":error.message);
+  }
+}
+function wireV23ImportReview(){
+  const undo=document.getElementById("btn-undo-import");
+  const applyRecords=records=>{
+    if(records.notes)STATE.notes=records.notes;
+    if(records.slotNames)STATE.slotNames=records.slotNames;
+    if(records.checklist)localStorage.setItem(CHECKLIST_KEY,JSON.stringify(records.checklist));
+    Object.entries(records.slots??{}).forEach(([slot,value])=>{
+      if(value===null)localStorage.removeItem(slotKey(slot));
+      else localStorage.setItem(slotKey(slot),value);
+    });
+    applyNotesToTextareas();
+  };
+  const dialog=document.getElementById("v23-import-dialog");
+  dialog.addEventListener("close",()=>{if(!dialog.open)pendingV23Import=null;});
+  dialog.querySelector("form").addEventListener("submit",event=>{
+    event.preventDefault();
+    const pending=pendingV23Import;pendingV23Import=null;
+    dialog.close();
+    if(!pending||event.submitter?.value!=="apply")return;
+    const {state,records,receipt}=pending;
+    const previous=captureScenarioState(),before=v23LocalRecords();
+    try{
+      applyRecords(records);
+      applyScenarioState(state);
+      v23ImportUndo={state:previous,before,after:v23LocalRecords(),keys:Object.keys(records)};
+      undo.hidden=false;
+      const active=detailedPlanReceipt();
+      setV23ImportStatus(!receipt?.planId?`Older settings loaded. Current plan ID ${active.planId}.`
+        :receipt.planId!==active.planId?`Settings loaded. The recalculated plan ID ${active.planId} differs from the saved ID. Review the source and inputs before comparing results.`
+        :receipt.modelRevision!==active.modelRevision?`Plan ${active.planId} restored using calculation version ${active.modelRevision}. The file was saved using ${receipt.modelRevision}.`
+        :`Plan ${active.planId} restored with matching inputs and calculation version.`);
+    }catch(error){
+      applyRecords(before);applyScenarioState(previous);
+      setV23ImportStatus("Could not apply the import. The previous plan has been restored.");
+    }
+  });
+  undo.addEventListener("click",()=>{
+    if(!v23ImportUndo)return;
+    const {state,before,after,keys}=v23ImportUndo;
+    const now=v23LocalRecords();
+    applyRecords(Object.fromEntries(keys.map(key=>[key,RETIREMENT_ENGINE.undoImportedEntries(now[key],before[key],after[key])])));
+    applyScenarioState(state);
+    v23ImportUndo=null;undo.hidden=true;
+    document.getElementById("btn-import-settings").focus();
+    setV23ImportStatus(`Import undone. Restored plan ${detailedPlanReceipt().planId}. Later edits to saved records were kept.`);
+  });
 }
 function printPackPages(kind){
   const packs={
@@ -5983,6 +6248,7 @@ function wireTheme(){
   const importInput=document.getElementById("inp-import-settings");
   if(importBtn&&importInput)importBtn.addEventListener("click",()=>importInput.click());
   if(importInput)importInput.addEventListener("change",()=>{importSettingsJSON(importInput.files?.[0]);importInput.value="";});
+  wireV23ImportReview();
   const close=document.getElementById("btn-chart-focus-close");
   if(close)close.addEventListener("click",closeChartFocus);
   const focus=document.getElementById("chart-focus");
@@ -6184,7 +6450,7 @@ function loadState(){
     const ap=(k,v)=>{if(v!==undefined&&v!==null)STATE[k]=v;};
     STATE.pssProjectionBasis=normaliseProjectionBasis(s.pssProjectionBasis);
     if(s.pssElection&&PSS_ELECTIONS[s.pssElection])selectPssElection(normaliseElectionForBasis(STATE.pssProjectionBasis,s.pssElection),{spendTarget:s.totalSpendTarget});
-    else customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;
+    else{customProfileBase=V23_DEFAULT_CUSTOM_PROFILE;STATE.pssElection=null;}
     restoreCustomInputs(s.customProfileInputs);
     ap("profile",s.profile);ap("totalSpendTarget",s.totalSpendTarget);ap("targetAge",s.targetAge);
     ap("likely",s.likely);ap("vol",s.vol);ap("runs",s.runs);ap("simulationSeed",s.simulationSeed);ap("liquidityMonths",s.liquidityMonths);
@@ -6270,16 +6536,17 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["TBC planning anchor","The $2.1M transfer balance cap used for Day-1 allocation (real dollars)."],
 ["Pool A / B / C start","Day-1 opening balances after the cap-kiss allocation."],
 ["Average usable income","Pension and investment withdrawals used for spending, averaged over the likely path to 95. This includes any Pool C amount spent under the active rule. Savings and recycled surplus stay invested."],
-["Presentation answer","One-sentence verdict suitable for reading out: does the plan clear the bands, and with how much margin."],
-["Executive scenario table","Conservative 4%, reference 5%, and active-return rows with capital, margins and status at the target age."],
+["Minimum investment goal","The badge compares investments with the minimum you set in Plan controls. Reaching the minimum exactly counts as meeting it."],
+["Executive scenario table","The active return and the 4% and 5% comparisons show the balance and dollar margin at the selected age. Profile target and strong references have their own columns. A lower reference cannot pass the minimum check."],
 ["Active capital @target / reference range","The active card follows the selected likely-return control. The separate 4–5% range is a labelled comparison reference."],
 ["Day 1 values note","Opening balances follow Rail A or the selected source-backed Rail B election and provider basis. The prudent 100% election uses the 9 September source."],
 ["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
 ["NCC blocked","A planning warning only. It cannot determine real non-concessional contribution eligibility because the model does not hold the actual prior-30-June TSB or provider timing evidence."]]},
-decisionbrief:{t:"Decision brief",w:"See how much of your budget the plan can pay through your target age and how much stays invested.",h:["Set the target age and investment floor in Plan controls. Add a later check if you want to see what happens beyond the first age.","Enter a net essentials budget to test your essential costs on their own.","Use Compare alternatives to test the plans at both ages on the same 200 market paths. Open a draft to check its settings before applying it.","Select the first shortfall to see the pension, withdrawals and closing balances for that year.","Use Print → Brief pack for the investment goal, cash flow and plan ID. Export settings offers a plan-only file with a preview and a full backup with your notes."],f:[
+decisionbrief:{t:"Decision brief",w:"See how much of your budget the plan can pay through your target age and how much stays invested.",h:["Set the target age and minimum investment goal in Plan controls. Add a later check to compare both ages.","Enter an after-tax essentials budget to check essential costs separately.","Run Compare alternatives to test the plans on the same 200 market paths. Under When spending first falls short, choose a plan and the full budget or essentials.","Select Inspect one path to see a simulated year's pension, withdrawals and closing balances. The first-shortfall button on the main brief opens the steady-return year.","Use Print → Brief pack for a readable copy. Export settings offers a plan-only file or a full backup with your notes."],f:[
 ["Active PSS election","Shows the current election and source basis, including any custom opening figures. Rail A is the historical benchmark."],
 ["Spending through the selected age","Shows how much of the plan the likely path funds and when the first shortfall starts. See Income & draws for the annual detail and the separate average through age 95."],
 ["Essentials","Checks the amount you need in each spending year through the selected age. It leaves the spending rule as entered."],
+["When spending first falls short","Each history counts once for the selected spending check. The cumulative count includes all first misses by that birthday. The typical gap is the median unpaid amount in the first year among histories that first missed in that year."],
 ["Investments at your checkpoints","Shows what remains across Pools A, B and C on each selected birthday. The figures exclude your home."],
 ["Capital at the target age","All three bars use the same election and spending policy. The steady returns are 4%, 5%, and the likely return you selected."],
 ["Investment floor","This is the minimum you want across all investments on the selected date. Your investments may clear the goal and still leave a spending gap if Pool C is protected."],
@@ -6343,7 +6610,7 @@ income:{t:"Income & draws",w:"Set your planned spending and see what the pension
 ["AGES row","The final row averages annual dollar amounts over the whole retirement period. Retained (phase) and Cumulative show full-period totals. The percentages use totals, weighted by the actual dollars in each year."],
 ["Exact dollars","Use the full-dollar table values when reconciling funded spending, mandatory draws and surplus; rounded chart labels are for orientation."]]},
 guardrails:{t:"Guardrail spending",w:"Advisory zone instructions remain the default. The opt-in Policy Comparator runs the same plan with closed-loop adaptive spending on identical economic assumptions and paired return paths.",h:["First enter annual essential total spending: the amount the rule must not cut. This is a spending budget, not automatically the PSS pension. Then choose comparison basis, optional second PSS election and any age-75/85 checks; press Compare advisory and adaptive.","Read funded spending, cut years and investment capital together. A higher balance may reflect spending less. Running the comparison never changes your saved plan."],f:[
-["Current target-age zone","Which band (below floor / floor–target / target–strong / above strong) the projection currently lands in."],
+["Spending zone at your target age","Your minimum takes priority. The Protect floor zone starts $100,000 above it as an early warning. A profile strong reference must sit above both the minimum and profile target to enable the higher spending zones."],
 ["Before guardrail multiplier","The spend level before any rail adjustment is applied."],
 ["Tighten / expand years","Years where the unchanged projection falls into a tighten or expand zone. The active plan is not automatically changed."],
 ["Comparison inputs used","The completed result records the budget, essentials, age checks and economic assumptions it used. When these inputs change, rerun the comparison."],
@@ -6578,14 +6845,14 @@ const CONTROLS = [
 ["Requested one-off at retirement","A lump sum you want to withdraw at retirement. The funding note shows what the selected Pool C policy can actually fund."],
 ["Pool C ETF drag","The main model's 0.35% annual Pool C distribution-drag assumption. It is not a measured upper bound or a complete personal tax calculation."],
 ["MC runs","How many market histories Monte Carlo uses. More runs can smooth the sample, and take longer to calculate."],
-["Export settings and Import","Plan only previews and downloads the inputs for your active calculation. Full backup also includes notes, saved slots and checklist. Import into V23 on either host and check the plan ID under Decision Brief."],
+["Export settings and Import","Plan only shares the active calculation inputs. Full backup also includes notes, saved slots and checklist. Import compares the file with your current plan before you apply. Undo import restores the previous plan in this tab and keeps later edits to saved records. Check the plan ID under Decision Brief."],
 ["Print and CSV","Choose Brief pack for the goal, trace and plan ID. CSV downloads the modelled annual ledger. Use Export settings to reopen an editable plan later."]];
 
 /* ---------- glossary ---------- */
 const _PRESET_NOTE=1;
 const GLOSSARY = [
 ["Real dollars","Today's purchasing power. Every figure in this dashboard is real unless explicitly labelled nominal — a 2045 number is directly comparable to a 2026 one."],
-["Floor / Target / Strong bands","Investment-capital thresholds at the selected target age. Floor is the lower planning band; a result above it at that age does not prove it stayed above it in every year."],
+["Minimum investment goal and profile references","The minimum is the amount you want invested on the selected birthday. The profile target and strong figures provide extra reference points. This checkpoint is a balance on one date."],
 ["Budget, funded and unfunded","The budget is what you plan to spend. Funded is the amount the pension and allowed withdrawals pay. Unfunded is the part of the budget they cannot pay."],
 ["Gap","The part of the annual budget above your net PSS pension that investments need to fund."],
 ["Pool C reserve","A withdrawal limit for one pool. The minimum investment goal measures all pools together at the selected birthday. Investment losses can take the Pool C balance below its reserve."],
@@ -6826,6 +7093,7 @@ function buildWelcome(){
 function buildChrome(){
   $("#v23-handoff-dialog")?.addEventListener("keydown",cycleModalTab);
   $("#v23-settings-dialog")?.addEventListener("keydown",cycleModalTab);
+  $("#v23-import-dialog")?.addEventListener("keydown",cycleModalTab);
   $("#decision-draft-preview")?.addEventListener("keydown",cycleModalTab);
   const g=el("button",{class:"v23-fab",id:"v23-fab-guide",title:"Guide (press ?)","aria-label":"Open guide"},"？");
   g.addEventListener("click",openGuide);document.body.appendChild(g);

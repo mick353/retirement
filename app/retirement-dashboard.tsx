@@ -29,6 +29,7 @@ import {
   commandCentreSpend,
   countFundingPath,
   firstPensionFinancialYear,
+  fundingMissTimeline,
   fundingPathCounts,
   laterInvestmentCheckAge,
   normaliseElectionForBasis as normaliseCanonicalElectionForBasis,
@@ -38,6 +39,9 @@ import {
   pssEstimateDate,
   projectHostplusAt60,
   railBOpeningPosition as calculateCanonicalRailBOpeningPosition,
+  undoImportedEntries,
+  type FundingMissKind,
+  type PathFundingMisses,
 } from "./retirement-core";
 
 type RailKey = "A" | "B";
@@ -107,6 +111,25 @@ type ActualReviewCheckpoint = {
   pension: number | null;
   note: string;
   baseline?: ReviewForecast & { capturedAt: string; origin: "snapshot" | "first-entry" };
+};
+
+type CommandImportInputs = {
+  current: ScenarioState;
+  riskEssentials: number | null;
+  calendar: CalendarSettings | null;
+  washCycles: number;
+};
+type CommandReviewRecords = {
+  saved: Record<string, SavedCommandPlan>;
+  reviewSnapshot: ReviewSnapshot | null;
+  reviewChecks: Record<string, boolean>;
+  actualCheckpoints: Record<number, ActualReviewCheckpoint>;
+};
+type ImportedCommandReceipt = { planId?: string; modelRevision?: string } | null;
+type CommandImport = {
+  inputs: CommandImportInputs;
+  records: Partial<CommandReviewRecords>;
+  receipt: ImportedCommandReceipt;
 };
 
 const EMPTY_CHECKPOINT: ActualReviewCheckpoint = { reviewedAt: "", capital: null, spending: null, pension: null, note: "" };
@@ -379,12 +402,12 @@ const SECTION_GUIDES: Partial<Record<SectionKey, GuideCopy>> = {
   evidence: { use: "Check the source register and the EXACT, ESTIMATED, MODELLED and SPECULATIVE labels.", read: "Trace an important figure to its active rail, election, provider basis and dated source.", limit: "The site publishes derived figures, not the private source PDFs; revisit source and rule changes before acting." },
 };
 const SCENARIO_GUIDES: Record<ScenarioTool, GuideCopy> = {
-  lab: { use: "Set one annual after-tax budget and inspect the annual ledger. In Solve and spend, choose a question and enter the Pool A balance and age you want to test.", read: "Read the amounts paid and unpaid alongside investments left. Solve and spend previews a spend or return change. Select Apply only when you want to use it in the active plan.", limit: "Pool A is one part of your investments. Set a goal for all investments in Active comparison plan and check it in Risk." },
+  lab: { use: "Set an annual after-tax budget and read the ledger. Use Solve and spend to preview a spending or return change. Open First retirement year and fund payment dates to enter starting bank cash, dated deposits and extra bills.", read: "Compare spending paid and unpaid with investments left. The cash calendar shows the lowest bank balance and its date. Apply a Solve and spend result when you want to use it in the active plan.", limit: "The cash estimate depends on the dates and amounts you enter. Check your investment goal separately in Risk." },
   explore: { use: "Choose an illustration or Income by year. Tap the chart or move the age control to inspect a year.", read: "Use Income by year to see what funded spending. Open the exact table for individual figures. Changing the age you inspect keeps the plan's investment checkpoint in Active comparison plan.", limit: "Explore uses Command Centre's flat budget and keeps Pool C invested. Set spending by age and other Pool C rules in V23." },
   compare: { use: "Read the preset cards with the current investment return and target age. Select Use spend & rail to adopt a card's budget and rail.", read: "Read spending, investments and gross estate together. The sampled frequency shows how often the selected investment goal is reached. Add a later age in Active comparison plan to see that balance too.", limit: "A higher investment balance can come from spending less. Use Risk to check whether the budget is paid in every year." },
   frontier: { use: "Select a spending point or move the annual spending control. Use Active comparison plan to change the target age.", read: "Read the cost of extra spending in investment capital. The estate figure adds the selected home value.", limit: "Red marks a balance below your investment goal on the selected birthday. Review budget shortfalls separately in Risk." },
   surface: { use: "Tap a point or select it with the arrow keys to preview an annual budget and assumed real return. The preview stays visible after selection.", read: "Compare keeping Pool C invested with drawing it after Pools A and B. Read the amount unfunded alongside investments left at your target age.", limit: "Apply updates the budget and return in Command Centre, where Pool C stays invested. Open the V23 draft to test Pool C withdrawals." },
-  risk: { use: "Select Edit investment goal and ages. Set a target birthday, minimum total investments and an optional later birthday. Enter an essentials budget in Risk if you want a separate check.", read: "Full budget and investment floor counts the paths that pay every year through the selected birthday and reach the goal on that birthday. Both ages use the same histories. Select the first shortfall to open the year's cash flow.", limit: "The funding checks use 600 histories with 12% volatility and keep Pool C invested. The 3D volume controls explore a separate sample within that chart." },
+  risk: { use: "Open Edit investment goal and ages to set your minimum and the birthdays to check. Enter an essentials budget to check it separately.", read: "The joint check counts histories that pay the budget every year and reach the investment minimum at the chosen age. When spending first falls short counts each history once. The typical gap is the median unpaid amount in that first year. Select Inspect one path to see how it was funded.", limit: "The funding and investment checks use the same 600 histories with 12% volatility and keep Pool C invested. The 3D volume uses a separate sample." },
 };
 
 const FRONTIER_SPENDS = [90_000, 100_000, 110_000, 120_000, 130_000];
@@ -491,6 +514,7 @@ const fmt = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD",
 const fmt1 = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 1 });
 const pct = (n: number, d = 0) => `${(n * 100).toFixed(d)}%`;
 const money = (n: number) => fmt.format(Number.isFinite(n) ? n : 0);
+const cashDollars = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", minimumFractionDigits: 2 }).format;
 const compactMoney = (n: number) => n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}m` : `$${Math.round(n / 1_000)}k`;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -515,6 +539,37 @@ function normaliseCommandPlan(candidate: Partial<ScenarioState>): ScenarioState 
     liquidityMonths: Math.round(clamp(finite(candidate.liquidityMonths, 12), 0, 24)),
     simulationSeed: Math.round(clamp(finite(candidate.simulationSeed, 20260814), 1, 2_147_483_647)),
   };
+}
+
+function commandImportFields({ current, calendar, riskEssentials, washCycles }: CommandImportInputs) {
+  const { rail: railKey, pssElection, pssProjectionBasis, spend, realReturn, taxYear, investmentFloor, targetAge, laterCheckAge } = current;
+  const rail = railFor(railKey, pssElection, pssProjectionBasis);
+  const rows = calculateCanonicalFlatRetirementLedger({
+    poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension, spend, realReturn, poolCDrag: POOL_C_DRAG,
+  });
+  const years = rows.map(row => ({ age: row.age, capital: row.ending, planned: row.spend, funded: row.fundedSpend }));
+  const checkpoint = (age: number) => {
+    const balance = assessSpending(years, age, investmentFloor, riskEssentials);
+    return `Age ${age} · ${money(balance.funded)} funded · ${money(Math.max(0, balance.planned - balance.funded))} unfunded · ${money(balance.capital ?? 0)} invested`;
+  };
+  return [
+    ["Pension and source", `${cashDollars(rail.netPension)}/yr net · ${rail.electionLabel} · ${railKey === "A" ? "March control" : PSS_PROJECTION_BASES[pssProjectionBasis].label}`],
+    ["Opening investments", cashDollars(rail.capital)],
+    ["Annual spending", `${money(spend)}/yr flat budget`],
+    ["Essentials", riskEssentials === null ? "Unset" : `${money(riskEssentials)}/yr`],
+    ["Real return / volatility / Pool C drag", `${pct(realReturn, 1)} / 12% / ${pct(POOL_C_DRAG, 2)}`],
+    ["Pool C", "Keep invested"],
+    ["Minimum investment goal", money(investmentFloor)],
+    ["Target check", checkpoint(targetAge)],
+    ["Later check", laterCheckAge === null ? "Off" : checkpoint(laterCheckAge)],
+    ["Home value / tax year", `${money(current.homeValue)} / ${taxYear}`],
+    ["Reserve policy / wash cycles", `${current.liquidityMonths} months / ${washCycles}`],
+    ["Risk sample", `600 paths · seed ${current.simulationSeed}`],
+    ["Payment calendar", calendar && !calendar.useModelledCalendar ? `Entered dates from ${calendar.retirementDate}` : "Modelled dates"],
+    ["Starting bank cash and dated payments", calendar?.cashBridge
+      ? `${cashDollars(calendar.cashBridge.startingCash)} starting cash · ${calendar.cashBridge.days} days · ${calendar.cashBridge.events.length} dated movements`
+      : "Cash estimate unset"],
+  ];
 }
 const THEME_STORAGE_KEY = "robinson-retirement-theme";
 const NAV_DRAWER_MEDIA = "(max-width: 1180px)";
@@ -593,26 +648,26 @@ function quantile(values: number[], q: number) {
   return ordered[index] ?? 0;
 }
 
+function commandMarketPath(rail: Rail, mean: number, volatility: number, seed: number, run: number) {
+  const random = seededGenerator(seed + run * 7_919 + Math.round(rail.capital));
+  return Array.from({ length: 35 }, () => clamp(mean + volatility * normalSample(random), -0.55, 0.45));
+}
+
 function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear, volatility = 0.12, runs = 600, seed = 20260814, essentials: number | null = null, floor = COMMAND_CENTRE_DEFAULT_FLOOR) {
   const ages = Array.from({ length: 36 }, (_, index) => 60 + index);
   const paths = Array.from({ length: ages.length }, () => [] as number[]);
   const funding = fundingPathCounts(ages.length);
+  const misses: PathFundingMisses[] = [];
   for (let run = 0; run < runs; run += 1) {
-    const random = seededGenerator(seed + run * 7_919 + Math.round(rail.capital));
-    const annualReturns: number[] = [];
-    for (let year = 1; year < ages.length; year += 1) {
-      const sampledReturn = clamp(mean + volatility * normalSample(random), -0.55, 0.45);
-      annualReturns.push(sampledReturn);
-    }
-    // Risk paths need balances, not the table's salary-equivalent formatting.
+    const annualReturns = commandMarketPath(rail, mean, volatility, seed, run);
     const path = calculateCanonicalFlatRetirementLedger({
       poolA: rail.poolA, poolC: rail.poolC, netPension: rail.netPension,
       spend, realReturn: mean, poolCDrag: POOL_C_DRAG, annualReturns,
     });
     path.forEach((row, year) => paths[year].push(row.ending));
-    countFundingPath(funding, path.map(row => ({
+    misses.push(countFundingPath(funding, path.map(row => ({
       age: row.age, capital: row.ending, planned: row.spend, funded: row.fundedSpend,
-    })), floor, essentials);
+    })), floor, essentials));
   }
   return {
     ages,
@@ -623,6 +678,7 @@ function monteCarloFan(rail: Rail, spend: number, mean: number, taxYear: TaxYear
     p90: paths.map((values) => quantile(values, 0.90)),
     paths,
     funding,
+    misses: { budget: fundingMissTimeline(misses, "budget"), essentials: fundingMissTimeline(misses, "essentials") },
   };
 }
 
@@ -2346,7 +2402,7 @@ export default function RetirementDashboard() {
   const [spend, setSpend] = useState(110_000);
   const [riskEssentials, setRiskEssentials] = useState<number | null>(null);
   const [calendar, setCalendar] = useState<CalendarSettings | null>(null);
-  const [importedPlan, setImportedPlan] = useState<{ planId?: string; modelRevision?: string } | null>(null);
+  const [importedPlan, setImportedPlan] = useState<ImportedCommandReceipt>(null);
   const [realReturn, setRealReturn] = useState(0.05);
   const [targetAge, setTargetAge] = useState(75);
   const [investmentFloor, setInvestmentFloor] = useState(COMMAND_CENTRE_DEFAULT_FLOOR);
@@ -2425,10 +2481,18 @@ export default function RetirementDashboard() {
   const [actualReviewAge, setActualReviewAge] = useState(75);
   const [actualCheckpoints, setActualCheckpoints] = useState<Record<number, ActualReviewCheckpoint>>({});
   const importRef = useRef<HTMLInputElement>(null);
+  const importDialog = useRef<HTMLDialogElement>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
+  const importRequest = useRef(0);
+  const [pendingImport, setPendingImport] = useState<CommandImport | null>(null);
+  const [importMessage, setImportMessage] = useState("");
+  const [importUndo, setImportUndo] = useState<{ inputs: CommandImportInputs; records: CommandReviewRecords; after: Partial<CommandReviewRecords>; receipt: ImportedCommandReceipt } | null>(null);
   const exportDialog = useRef<HTMLDialogElement>(null);
   const [preparedSettings, setPreparedSettings] = useState<{ name: string; plan: string; backup: string } | null>(null);
   const planControlsRef = useRef<HTMLDetailsElement>(null);
   const riskTraceRef = useRef<HTMLElement>(null);
+  const [riskMissKind, setRiskMissKind] = useState<FundingMissKind>("budget");
+  const [riskExample, setRiskExample] = useState<{ fan: ReturnType<typeof monteCarloFan>; pathIndex: number } | null>(null);
 
   const projectionBasis = PSS_PROJECTION_BASES[pssProjectionBasis];
   const activePssElections = electionsForBasis(pssProjectionBasis);
@@ -2456,6 +2520,7 @@ export default function RetirementDashboard() {
   const liquidityTarget = portfolioDraw * liquidityMonths / 12;
   const liquidityGap = Math.max(0, liquidityTarget - rail.poolC);
   const currentScenario = useMemo<ScenarioState>(() => ({ rail: railKey, pssElection: effectivePssElection, pssProjectionBasis, spend, realReturn, targetAge, homeValue, taxYear, liquidityMonths, simulationSeed, investmentFloor, laterCheckAge }), [railKey, effectivePssElection, pssProjectionBasis, spend, realReturn, targetAge, homeValue, taxYear, liquidityMonths, simulationSeed, investmentFloor, laterCheckAge]);
+  const activeCalendar = useMemo(() => calendar?.useModelledCalendar ? { ...calendar, abpOpening: rail.poolA } : calendar, [calendar, rail.poolA]);
   const commandPlan = useMemo(() => planReceipt({
     workspace: "command-centre", modelRevision: RETIREMENT_ENGINE_VERSION, source: rail.source,
     sourceDate: pssEstimateDate(currentScenario.rail, currentScenario.pssProjectionBasis, currentScenario.pssElection),
@@ -2465,9 +2530,9 @@ export default function RetirementDashboard() {
       ...currentScenario,
       investmentFloor: currentScenario.investmentFloor === COMMAND_CENTRE_DEFAULT_FLOOR ? undefined : currentScenario.investmentFloor,
       laterCheckAge: currentScenario.laterCheckAge ?? undefined,
-      netPension: rail.netPension, openingA: rail.poolA, openingC: rail.poolC, riskEssentials, washCycles, calendar,
+      netPension: rail.netPension, openingA: rail.poolA, openingC: rail.poolC, riskEssentials, washCycles, calendar: activeCalendar,
     },
-  }), [currentScenario, rail, riskEssentials, washCycles, calendar]);
+  }), [currentScenario, rail, riskEssentials, washCycles, activeCalendar]);
   const applyCommandPlan = (candidate: Partial<ScenarioState>) => {
     const s = normaliseCommandPlan(candidate);
     setRailKey(s.rail); setPssElection(s.pssElection); setPssProjectionBasis(s.pssProjectionBasis);
@@ -2693,7 +2758,7 @@ export default function RetirementDashboard() {
   };
 
   const saveSlot = (slot: string) => {
-    const next = { ...saved, [slot]: { ...currentScenario, plan: commandPlan, calendar, riskEssentials, washCycles } };
+    const next = { ...saved, [slot]: { ...currentScenario, plan: commandPlan, calendar: activeCalendar, riskEssentials, washCycles } };
     setSaved(next);
     localStorage.setItem("robinson-retirement-scenarios", JSON.stringify(next));
   };
@@ -2775,7 +2840,7 @@ export default function RetirementDashboard() {
   };
 
   const exportSettings = () => {
-    const payload = { version: "2026-11-26.review.10", exportedAt: new Date().toISOString(), current: currentScenario, plan: commandPlan, riskEssentials, calendar, washCycles };
+    const payload = { version: RETIREMENT_ENGINE_VERSION, exportedAt: new Date().toISOString(), current: currentScenario, plan: commandPlan, riskEssentials, calendar: activeCalendar, washCycles };
     setPreparedSettings({
       name: commandPlan.planId,
       plan: JSON.stringify({ ...payload, exportScope: "plan-only" }, null, 2),
@@ -2793,33 +2858,114 @@ export default function RetirementDashboard() {
     exportDialog.current?.close();
   };
 
+  const localImportInputs = { current: currentScenario, calendar: activeCalendar, riskEssentials, washCycles };
+  const localReviewRecords = { saved, reviewSnapshot, reviewChecks, actualCheckpoints };
+  const incomingFields = pendingImport ? commandImportFields(pendingImport.inputs) : [];
+  const applyImportInputs = (inputs: CommandImportInputs) => {
+    applyCommandPlan(inputs.current);
+    applyRiskEssentials(inputs.riskEssentials);
+    applyCalendar(inputs.calendar);
+    setWashCycles(inputs.washCycles);
+  };
+  const applyReviewRecords = (records: Partial<CommandReviewRecords>) => {
+    if (records.saved !== undefined) {
+      localStorage.setItem("robinson-retirement-scenarios", JSON.stringify(records.saved));
+      setSaved(records.saved);
+    }
+    if (records.reviewSnapshot !== undefined) {
+      if (records.reviewSnapshot === null) localStorage.removeItem("robinson-retirement-review-snapshot");
+      else localStorage.setItem("robinson-retirement-review-snapshot", JSON.stringify(records.reviewSnapshot));
+      setReviewSnapshot(records.reviewSnapshot);
+    }
+    if (records.reviewChecks !== undefined) {
+      localStorage.setItem("robinson-retirement-review-checks", JSON.stringify(records.reviewChecks));
+      setReviewChecks(records.reviewChecks);
+    }
+    if (records.actualCheckpoints !== undefined) {
+      localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(records.actualCheckpoints));
+      setActualCheckpoints(records.actualCheckpoints);
+    }
+  };
   const importSettings = async (file?: File) => {
     if (!file) return;
+    const request = ++importRequest.current;
     try {
       const parsed = JSON.parse(await file.text());
-      if (parsed.plan?.workspace === "v23" || parsed.state && !parsed.current) {
-        alert("Open this detailed plan export in V23.");
-        return;
+      if (request !== importRequest.current) return;
+      const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+      if (!isRecord(parsed)) throw new Error("Choose a Command Centre settings file.");
+      const receipt = isRecord(parsed.plan) ? parsed.plan : {};
+      if (receipt.workspace === "v23" || parsed.state && !parsed.current) throw new Error("Open this detailed plan export in V23.");
+      const candidate = parsed.current;
+      if (candidate !== undefined && (!isRecord(candidate) || !Object.keys(currentScenario).some(key => Object.hasOwn(candidate, key)))) {
+        throw new Error("Choose a file with Command Centre plan settings.");
       }
-      if (parsed.current) applyCommandPlan(parsed.current);
-      if (parsed.saved && typeof parsed.saved === "object") {
-        setSaved(parsed.saved); localStorage.setItem("robinson-retirement-scenarios", JSON.stringify(parsed.saved));
+      const incomingCalendar = parsed.calendar == null ? null : readCalendarSettings(parsed.calendar);
+      if (parsed.calendar != null && !incomingCalendar) throw new Error("Check the calendar dates and amounts in the file.");
+      const incomingEssentials = optionalNonNegative(parsed.riskEssentials);
+      if (parsed.riskEssentials != null && incomingEssentials === null) throw new Error("Check the essentials budget in the file.");
+      const records: Partial<CommandReviewRecords> = {};
+      if (parsed.exportScope !== "plan-only") {
+        if (isRecord(parsed.saved)) records.saved = Object.fromEntries(Object.entries(parsed.saved)
+          .filter(([key, value]) => ["A", "B", "C"].includes(key) && isRecord(value))) as CommandReviewRecords["saved"];
+        const snapshot = parsed.reviewSnapshot;
+        if (isRecord(snapshot) && typeof snapshot.capturedAt === "string" && Number.isFinite(snapshot.endCapital)) records.reviewSnapshot = snapshot as ReviewSnapshot;
+        if (isRecord(parsed.reviewChecks)) records.reviewChecks = Object.fromEntries(Object.entries(parsed.reviewChecks)
+          .filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"));
+        if (isRecord(parsed.actualCheckpoints)) records.actualCheckpoints = Object.fromEntries(Object.entries(parsed.actualCheckpoints)
+          .filter(([age, value]) => Number.isInteger(Number(age)) && isRecord(value))) as CommandReviewRecords["actualCheckpoints"];
       }
-      if (parsed.reviewSnapshot) {
-        setReviewSnapshot(parsed.reviewSnapshot); localStorage.setItem("robinson-retirement-review-snapshot", JSON.stringify(parsed.reviewSnapshot));
-      }
-      if (parsed.reviewChecks && typeof parsed.reviewChecks === "object") {
-        setReviewChecks(parsed.reviewChecks); localStorage.setItem("robinson-retirement-review-checks", JSON.stringify(parsed.reviewChecks));
-      }
-      if (parsed.actualCheckpoints && typeof parsed.actualCheckpoints === "object") {
-        setActualCheckpoints(parsed.actualCheckpoints); localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(parsed.actualCheckpoints));
-      }
-      if (parsed.riskEssentials === null || (Number.isFinite(parsed.riskEssentials) && parsed.riskEssentials >= 0)) applyRiskEssentials(parsed.riskEssentials);
-      if (parsed.calendar === null) applyCalendar(null);
-      else if (parsed.calendar) applyCalendar(readCalendarSettings(parsed.calendar));
-      if (Number.isInteger(parsed.washCycles) && parsed.washCycles >= 0) setWashCycles(parsed.washCycles);
-      setImportedPlan(parsed.plan ?? {});
-    } catch { alert("That file is not a valid retirement scenario export."); }
+      if (candidate === undefined && !Object.keys(records).length && parsed.calendar === undefined
+        && parsed.riskEssentials === undefined && parsed.washCycles === undefined) throw new Error("Choose a Command Centre settings file.");
+      setPendingImport({
+        inputs: {
+          current: candidate === undefined ? currentScenario : normaliseCommandPlan(candidate as Partial<ScenarioState>),
+          riskEssentials: parsed.riskEssentials === undefined ? riskEssentials : incomingEssentials,
+          calendar: parsed.calendar === undefined ? activeCalendar : incomingCalendar,
+          washCycles: typeof parsed.washCycles === "number" && Number.isInteger(parsed.washCycles) && parsed.washCycles >= 0 ? parsed.washCycles : washCycles,
+        },
+        records,
+        receipt: {
+          planId: typeof receipt.planId === "string" ? receipt.planId : undefined,
+          modelRevision: typeof receipt.modelRevision === "string" ? receipt.modelRevision : undefined,
+        },
+      });
+      setImportMessage("");
+      importDialog.current?.showModal();
+    } catch (error) {
+      if (request === importRequest.current) setImportMessage(error instanceof Error && !(error instanceof SyntaxError) ? error.message : "Could not read this settings JSON.");
+    }
+  };
+  const confirmImport = () => {
+    if (!pendingImport) return;
+    try {
+      applyReviewRecords(pendingImport.records);
+      applyImportInputs(pendingImport.inputs);
+      setImportUndo({ inputs: localImportInputs, records: localReviewRecords, after: pendingImport.records, receipt: importedPlan });
+      setImportedPlan(pendingImport.receipt);
+      setImportMessage("Import applied. Use Undo import to restore your previous plan in this tab.");
+    } catch {
+      applyReviewRecords(localReviewRecords);
+      applyImportInputs(localImportInputs);
+      setImportMessage("Could not apply the import. The previous plan has been restored.");
+    } finally {
+      importDialog.current?.close();
+    }
+  };
+  const undoImport = () => {
+    if (!importUndo) return;
+    const { inputs, records, after, receipt } = importUndo;
+    applyReviewRecords({
+      ...(after.saved && { saved: undoImportedEntries(saved, records.saved, after.saved) }),
+      ...(after.reviewChecks && { reviewChecks: undoImportedEntries(reviewChecks, records.reviewChecks, after.reviewChecks) }),
+      ...(after.actualCheckpoints && { actualCheckpoints: undoImportedEntries(actualCheckpoints, records.actualCheckpoints, after.actualCheckpoints) }),
+      ...(after.reviewSnapshot && JSON.stringify(reviewSnapshot) === JSON.stringify(after.reviewSnapshot) && { reviewSnapshot: records.reviewSnapshot }),
+    });
+    applyImportInputs(inputs);
+    setImportedPlan(receipt);
+    setImportUndo(null);
+    setImportMessage("Import undone. Your previous plan is active. Later edits to saved records were kept.");
+    importButton.current?.focus();
   };
 
   const renderOverview = () => (
@@ -2927,10 +3073,15 @@ export default function RetirementDashboard() {
           <div className="scenario-actions">
             {["A", "B", "C"].map((slot) => <div key={slot}><button className="secondary" onClick={() => saveSlot(slot)}>Save {slot}</button><button className="text-button" disabled={!saved[slot]} onClick={() => loadSlot(slot)}>Load</button></div>)}
             <button className="secondary" onClick={exportSettings}>Export settings</button>
-            <button className="secondary" onClick={() => importRef.current?.click()}>Import</button>
+            <button className="secondary" ref={importButton} onClick={() => importRef.current?.click()}>Import</button>
+            {importUndo && <button className="secondary" onClick={undoImport}>Undo import</button>}
             <a className="primary" href={v23SpendPlanUrl} target="_blank" rel="noreferrer">Continue to V23 spending plan ↗</a>
-            <input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => importSettings(e.target.files?.[0])} />
+            <input ref={importRef} hidden type="file" accept="application/json" onChange={event => {
+              void importSettings(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }} />
           </div>
+          {importMessage && <p className="note" role="status">{importMessage}</p>}
         </div>
       </section>
 
@@ -3117,9 +3268,12 @@ export default function RetirementDashboard() {
   };
 
   const renderRisk = () => {
-    const row = ledger.find((item) => item.age === cashflowAge && !item.isOpening) ?? ledger[1];
-    const rowIndex = ledger.findIndex((item) => item.age === row.age && !item.isOpening);
-    const priorRow = ledger[Math.max(0, rowIndex - 1)] ?? ledger[0];
+    const example = riskExample?.fan === fan ? riskExample : null;
+    const returns = example && commandMarketPath(rail, realReturn, .12, simulationSeed, example.pathIndex);
+    const trace = returns ? operationalLedger(rail, spend, realReturn, taxYear, returns) : ledger;
+    const row = trace.find((item) => item.age === cashflowAge && !item.isOpening) ?? trace[1];
+    const rowIndex = trace.findIndex((item) => item.age === row.age && !item.isOpening);
+    const priorRow = trace[rowIndex - 1];
     const openingPoolC = priorRow.poolC;
     const openingPoolA = Math.max(0, row.opening - openingPoolC);
     const p10 = fan.p10[targetIndex];
@@ -3131,7 +3285,10 @@ export default function RetirementDashboard() {
     const frequency = (value: number) => `${value} of ${paths} paths`;
     const annual = ledger.map(item => ({ age: item.age, capital: item.ending, planned: item.spend, funded: item.fundedSpend }));
     const checkpoints = [targetAge, ...(laterCheckAge === null ? [] : [laterCheckAge])];
-    const inspectYear = (age: number) => {
+    const missKind = riskEssentials === null ? "budget" : riskMissKind;
+    const shortfalls = fan.misses[missKind].filter(group => group.age <= (laterCheckAge ?? targetAge));
+    const inspectYear = (age: number, pathIndex?: number) => {
+      setRiskExample(pathIndex === undefined ? null : { fan, pathIndex });
       setCashflowAge(age);
       riskTraceRef.current?.focus({ preventScroll: true });
       riskTraceRef.current?.scrollIntoView({ block: "start" });
@@ -3171,6 +3328,21 @@ export default function RetirementDashboard() {
           </section>;
         })}
       </section>
+      <section className="panel risk-shortfalls" aria-labelledby="cc-first-miss-heading">
+        <div className="panel-head">
+          <div><h3 id="cc-first-miss-heading">When spending first falls short</h3><p>Each history is counted once per spending check. The typical gap is the median unpaid amount in the first missed year. The investment check is shown above.</p></div>
+          <label>Spending to check<select value={missKind} onChange={event => setRiskMissKind(event.target.value as FundingMissKind)}><option value="budget">Full budget</option><option value="essentials" disabled={riskEssentials === null}>Essentials</option></select></label>
+        </div>
+        <p role="status">{checkpoints.map(age => `${shortfalls.findLast(group => group.age <= age)?.cumulative ?? 0} of ${paths} histories first fall short by age ${age}`).join(" · ")}</p>
+        {shortfalls.length > 0 && <div className="table-wrap" role="region" aria-label="First spending shortfalls by year" tabIndex={0}>
+          <table><thead><tr><th scope="col">Spending year</th><th scope="col">First miss</th><th scope="col">Missed by then</th><th scope="col">Typical first-year gap</th><th scope="col">Example</th></tr></thead>
+            <tbody>{shortfalls.map(group => <tr key={group.age}>
+              <th scope="row">{group.age - 1}–{group.age}</th><td>{group.count}</td><td>{group.cumulative}</td><td>{cashDollars(group.median)}</td>
+              <td><button type="button" className="secondary" aria-label={`Inspect one path for age ${group.age}`} onClick={() => inspectYear(group.age, group.example.pathIndex)}>Inspect one path</button></td>
+            </tr>)}</tbody>
+          </table>
+        </div>}
+      </section>
       <div className="metrics three">
         <Metric label={`P10 capital @${targetAge}`} value={money(p10)} sub="Nine in ten paths finish above this level" tone="amber" />
         <Metric label={`Median capital @${targetAge}`} value={money(p50)} sub="Middle stochastic outcome" />
@@ -3195,7 +3367,10 @@ export default function RetirementDashboard() {
         </div>
       </section>
       <section className="panel" ref={riskTraceRef} tabIndex={-1} aria-labelledby="cc-risk-trace">
-        <div className="panel-head"><div><h3 id="cc-risk-trace">Selected-year three-pool money flow</h3><p>Choose a planning year to see PSSDB income, Pool A draw, lifestyle spending, Pool C routing and the resulting investment position. The retirement-day opening snapshot is capital only.</p></div><label className="age-select">Year<select value={cashflowAge} onChange={(event) => setCashflowAge(Number(event.target.value))}>{ledger.filter((item) => !item.isOpening).map((item) => <option key={item.age} value={item.age}>{item.year} · age {item.ageLabel}</option>)}</select></label></div>
+        <div className="panel-head"><div><h3 id="cc-risk-trace">Selected-year three-pool money flow</h3><p>{example ? `Simulated market path ${example.pathIndex + 1}` : "Steady return path"} · age {row.ageLabel}.</p>
+          {example && <button className="secondary" type="button" onClick={() => setRiskExample(null)}>Return to steady path</button>}
+        </div><label className="age-select">Year<select value={cashflowAge} onChange={(event) => setCashflowAge(Number(event.target.value))}>{ledger.filter((item) => !item.isOpening).map((item) => <option key={item.age} value={item.age}>{item.year} · age {item.ageLabel}</option>)}</select></label></div>
+        {example && <p className="note">Annual budget {cashDollars(row.spend)} · budget unpaid {cashDollars(row.shortfall)}{riskEssentials !== null && ` · essentials unpaid ${cashDollars(Math.max(0, riskEssentials - row.fundedSpend))}`}. Pool C stays invested.</p>}
         <div className="cashflow-map">
           <div className="flow-source pension"><span>Indexed PSS pension</span><strong>{money(row.pension)}</strong><small>Lifetime income floor</small></div>
           <div className="flow-source draw"><span>Planning portfolio draw</span><strong>{money(row.draw)}</strong><small>{pct(drawRate(row.age), 0)} current-law rate band · provider calculates FY minimum</small></div>
@@ -3207,7 +3382,7 @@ export default function RetirementDashboard() {
         <div className="cashflow-capital-grid" aria-label={`Capital movement in ${row.year}`}>
           <article><span>Opening Pool A</span><b>{money(openingPoolA)}</b><small>Hostplus pension capital before the year&apos;s draw</small></article>
           <article><span>Opening Pool C</span><b>{money(openingPoolC)}</b><small>External ETF reserve before growth and drag</small></article>
-          <article><span>Net investment growth</span><b>{money(row.investmentGrowth)}</b><small>{pct(realReturn, 1)} real return less Pool C drag</small></article>
+          <article><span>Net investment growth</span><b>{money(row.investmentGrowth)}</b><small>{pct(returns?.[rowIndex - 1] ?? realReturn, 1)} real return less Pool C drag</small></article>
           <article><span>Ending investment capital</span><b>{money(row.ending)}</b><small>Pool A {money(row.abp)} + Pool C {money(row.poolC)}</small></article>
         </div>
       </section>
@@ -3534,7 +3709,7 @@ export default function RetirementDashboard() {
               <p>Use Hide menu at the top left to give the page more room. On narrower screens, Show menu opens it over the page.</p>
               <p>Command Centre compares one annual after-tax budget in today's dollars. Its six Scenario tabs share the active comparison plan. The CSC basis sets the retirement-day pension and lump sum. The real return applies after retirement.</p>
               <p>Use V23 Income &amp; draws for spending that changes by age. Use the Decision Brief to check funding, investment balances and shortfall years. Select Use these investment goals when opening V23 to carry your goal and later check.</p>
-              <p>In Lab or Review, select Export settings. Download plan only to share the calculation inputs. Download full backup to include saved plans, checklist and recorded actuals. Import into the same workspace on either site.</p>
+              <p>In Lab or Review, select Export settings. Download plan only to share the calculation inputs, or full backup to include saved plans, checklist and recorded actuals. In Lab, select Import and check the preview before you apply. Undo import restores the prior plan in this tab.</p>
             </details>
             <div className="workspace-guide-links"><a href={v23SpendPlanUrl}>Open V23 Income &amp; draws</a><a href={v23DecisionUrl}>Open V23 Decision Brief</a><a href={v23PolicyUrl}>Open V23 Policy Comparator</a><a href="./model-reference.html#using-the-planner">Open the guide and model reference</a></div>
           </details>
@@ -3544,13 +3719,32 @@ export default function RetirementDashboard() {
       <nav className="mobile-dock" aria-label="Primary mobile navigation">{[["overview", "Home"], ["scenario", "Scenario"], ["pss", "PSS"], ["estate", "Estate"], ["review", "Review"]].map(([key, label]) => <button key={key} aria-current={section === key ? "page" : undefined} className={section === key ? "active" : ""} onClick={() => go(key as SectionKey)}>{label}</button>)}</nav>
       <dialog className="settings-export-dialog" ref={exportDialog} aria-labelledby="cc-settings-heading" onClose={() => setPreparedSettings(null)}>
         <h2 id="cc-settings-heading">Export your Command Centre plan</h2>
-        <p>A plan-only file includes your active assumptions, investment goals, calculation ID and any payment calendar inputs. Saved comparisons, review checklists and recorded results stay in this browser.</p>
+        <p>A plan-only file includes your active assumptions, investment goals, calculation ID and any entered payment dates, cash and bills. Saved comparisons, review checklists and recorded results stay in this browser.</p>
         <details><summary>Preview the plan-only file</summary><pre tabIndex={0}>{preparedSettings?.plan}</pre></details>
         <p>Use the full backup to include saved comparisons and review records.</p>
         <div className="panel-actions">
           <button className="primary" onClick={() => downloadSettings("plan-only")}>Download plan only</button>
           <button className="secondary" onClick={() => downloadSettings("backup")}>Download full backup</button>
           <button className="secondary" autoFocus onClick={() => exportDialog.current?.close()}>Close</button>
+        </div>
+      </dialog>
+      <dialog className="settings-export-dialog settings-import-dialog" ref={importDialog} aria-labelledby="cc-import-heading" onClose={() => setPendingImport(null)}>
+        <h2 id="cc-import-heading">Review Command Centre settings import</h2>
+        {pendingImport && <>
+          <p>{Object.keys(pendingImport.records).length
+            ? "Full backup. Saved comparisons and review records included in this file will be restored when you apply it."
+            : "This file applies plan settings. Your browser’s saved comparisons and review records stay in place."}</p>
+          <p>Spending and balances use each plan’s own steady return and check ages. Amounts are in today’s dollars.</p>
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Current and incoming Command Centre plan">
+            <table><thead><tr><th scope="col">Input or result</th><th scope="col">Current plan</th><th scope="col">Incoming plan</th></tr></thead>
+              <tbody>{commandImportFields(localImportInputs).map(([label, before], index) =>
+                <tr key={label} className={before !== incomingFields[index][1] ? "settings-change" : undefined}><th scope="row">{label}</th><td>{before}</td><td>{incomingFields[index][1]}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </>}
+        <div className="panel-actions">
+          <button className="secondary" autoFocus onClick={() => importDialog.current?.close()}>Cancel</button>
+          <button className="primary" disabled={!pendingImport} onClick={confirmImport}>Apply import</button>
         </div>
       </dialog>
       <RetirementAi context={aiContext} />
