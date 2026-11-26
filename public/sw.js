@@ -1,18 +1,38 @@
 const CACHE_PREFIX = "robinson-retirement-pages-";
-const CACHE = `${CACHE_PREFIX}v31`;
+const CACHE = `${CACHE_PREFIX}v32`;
 const SCOPE = new URL(self.registration.scope);
 const scopedUrl = (path = "") => new URL(path, SCOPE).toString();
 const REPORT_PAGES = ["deep-model", "atlas", "atlas-prototype", "model-reference"];
 const APP_SHELL = [
-  scopedUrl(), ...REPORT_PAGES.map(page => scopedUrl(`${page}.html?v=31`)),
+  ...REPORT_PAGES.map(page => scopedUrl(`${page}.html?v=32`)),
   scopedUrl("atlas.css?v=28"), scopedUrl("atlas.js?v=28"), scopedUrl("atlas-entry.js?v=28"),
-  scopedUrl("retirement-engine.js?v=3"), scopedUrl("model-reference.txt?v=31"),
+  scopedUrl("retirement-engine.js?v=4"), scopedUrl("model-reference.txt?v=32"),
   scopedUrl("vendor/chart.umd.js"), scopedUrl("manifest.webmanifest"), scopedUrl("favicon.svg"),
 ];
 
+function launchAssets(html) {
+  const addresses = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)=["']([^"']+)["']/gi)];
+  return [...new Set(addresses.map(match => new URL(match[1], SCOPE))
+    .filter(url => url.origin === SCOPE.origin && url.pathname.startsWith(SCOPE.pathname) && /\.(?:js|css)$/.test(url.pathname))
+    .map(url => url.href))];
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL))
-    .catch(() => undefined).then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    try {
+      const home = await fetch(scopedUrl(), { cache: "reload" });
+      if (!home.ok) throw new Error("Retirement launch page unavailable");
+      const assets = launchAssets(await home.clone().text());
+      await cache.addAll([...new Set([...APP_SHELL, ...assets])].map(url => new Request(url, { cache: "reload" })));
+      await cache.put(scopedUrl(), home);
+      await self.skipWaiting();
+    } catch (error) {
+      // Keep the currently installed version if its replacement cannot open offline.
+      await caches.delete(CACHE);
+      throw error;
+    }
+  })());
 });
 
 self.addEventListener("activate", (event) => {

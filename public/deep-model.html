@@ -7,7 +7,7 @@
 <link rel="manifest" href="./manifest.webmanifest" />
 <title>Robinson Retirement Dashboard V23 — Guardrails · Decision Brief · Three-Pool</title>
 <script src="./vendor/chart.umd.js"></script>
-<script src="./retirement-engine.js?v=3"></script>
+<script src="./retirement-engine.js?v=4"></script>
 <style>
 /* ROBINSON RETIREMENT — DRAMATIC VISUAL REDESIGN v21 */
 
@@ -316,6 +316,37 @@ body.print-pack section.page.print-pack-include{display:flex}
 .decision-at-a-glance .card .sub{font-size:13px;line-height:1.4}
 .decision-summary-actions{display:flex;flex-wrap:wrap;gap:8px}
 .decision-summary-actions .btn{min-height:38px}
+.decision-workbench{padding:18px 20px;scroll-margin-top:85px}
+.decision-workbench summary{cursor:pointer;font-size:16px;font-weight:750}
+.decision-workbench>p,.decision-workbench>form,.decision-workbench>div{margin-top:10px}
+.decision-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:10px;align-items:end}
+.decision-form label{display:grid;gap:4px;min-width:0;color:var(--muted);font-size:13px}
+.decision-form :is(input,select,button){min-width:0;width:100%;min-height:40px}
+.decision-alternatives{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(236px,100%),1fr));gap:10px}
+.decision-alternatives[hidden]{display:none}
+.decision-alternative{display:grid;gap:10px;align-content:start;border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--panel2);min-width:0}
+.decision-at-a-glance .card .btn{margin-top:8px;min-height:34px}
+.decision-alternative h3{font-size:15px;color:var(--text)}
+.decision-alternative p{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.decision-alternative dl,.decision-receipt dl,.cash-trace dl{margin:0;font-size:13px}
+.decision-alternative dl div,.decision-receipt dl div,.cash-trace dl div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.decision-alternative dt,.decision-receipt dt,.cash-trace dt{color:var(--muted);min-width:0}
+.decision-alternative dd,.decision-receipt dd,.cash-trace dd{margin:0;color:var(--text);text-align:right;font-variant-numeric:tabular-nums;font-weight:650;overflow-wrap:anywhere}
+.decision-alternative .btn{justify-self:start;white-space:normal}
+.cash-trace{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:14px}
+.cash-trace h3{margin-bottom:5px;font-size:14px}
+.decision-trace-period{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.decision-trace-period select{min-height:40px}
+.decision-receipt{overflow-wrap:anywhere}
+.decision-receipt dl div{flex-wrap:wrap}
+.decision-proof-note{color:var(--muted);font-size:13px}
+.decision-proof-note[hidden]{display:none}
+.decision-receipt #v23-import-result{margin:8px 0 0}
+@media print{
+  .decision-workbench{padding:10px;break-inside:avoid}
+  .decision-workbench .decision-form,.decision-trace-period select,.decision-trace-period label{display:none!important}
+  .decision-workbench:not([open]):not(#decision-cash-trace):not(#decision-plan-receipt){display:none}
+}
 .funding-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr));gap:9px;margin-block:10px}
 .funding-checks .card{min-width:0;margin:0}
 .funding-checks .value{font-size:22px}
@@ -971,6 +1002,7 @@ main{min-width:0;}
     <p id="v23-handoff-values"></p>
     <p id="v23-handoff-limits"></p>
     <p>Command Centre preserves Pool C and uses its own flat-spending ledger and source opening figures. Your detailed V23 plan stays available here.</p>
+    <div class="decision-receipt" id="v23-handoff-comparison"></div>
     <form method="dialog" class="decision-summary-actions">
       <a class="btn" id="v23-handoff-open" href="./">Open flat comparison</a>
       <button class="btn" type="submit" autofocus>Stay in V23</button>
@@ -981,7 +1013,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.11.2 · 26 Nov 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.12 · 26 Nov 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1062,7 +1094,9 @@ main{min-width:0;}
       <h2 id="decision-summary-title">Can this plan fund your retirement?</h2>
       <p class="muted" id="v23-decision-basis"></p>
       <div class="cards" id="v23-decision-outcomes"></div>
+      <p class="decision-proof-note" id="v23-funding-explanation" hidden></p>
       <div class="decision-summary-actions">
+        <button type="button" class="btn" data-decision-destination="decision-draft-tools">Compare alternatives</button>
         <a href="#income" class="btn" data-page="income">Review spending by year</a>
         <button type="button" class="btn" id="v23-set-essentials">Set essential spending</button>
         <a href="#triggers" class="btn" data-page="triggers">Review action triggers</a>
@@ -1284,12 +1318,45 @@ main{min-width:0;}
           <div class="chart-wrap"><canvas id="brief_chart"></canvas></div>
         </div>
       </div>
+      <details class="panel decision-workbench" id="decision-draft-tools">
+        <summary>Compare alternatives on the same market paths</summary>
+        <p class="muted">Compare your current plan, a lower flat budget, another pension election and a different Pool C rule. Your plan changes when you confirm a draft.</p>
+        <form class="decision-form" id="decision-draft-form">
+          <label>Alternative annual budget ($)<input id="decision-draft-budget" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Suggest a lower budget"></label>
+          <label>Alternative PSS election<select id="decision-draft-election"><option value="auto">Suggest an election</option><option value="60-40">60 / 40</option><option value="65-35">65 / 35</option><option value="70-30">70 / 30</option><option value="100">100% pension</option></select></label>
+          <label>Across elections<select id="decision-draft-semantics"><option value="rule">Keep the spending rule</option><option value="total">Keep the full dollar budget</option><option value="gap">Keep the extra dollar amount above PSS</option></select></label>
+          <button type="submit" class="btn v23-primary">Run plan comparison</button>
+        </form>
+        <p id="decision-draft-status" class="decision-proof-note" role="status">Run the comparison when the inputs are ready.</p>
+        <div id="decision-draft-results" class="decision-alternatives" hidden></div>
+      </details>
+      <details class="panel decision-workbench" id="decision-cash-trace">
+        <summary>Trace spending and investments by year</summary>
+        <div class="decision-trace-period"><label for="decision-trace-age">Period to inspect</label><select id="decision-trace-age"></select></div>
+        <p class="decision-proof-note" id="decision-trace-label"></p>
+        <div class="cash-trace" id="decision-trace-results"></div>
+      </details>
+      <details class="panel decision-workbench decision-receipt" id="decision-plan-receipt">
+        <summary>Plan ID and calculation basis</summary>
+        <div id="decision-plan-record"></div>
+        <p class="decision-proof-note" id="v23-import-result" role="status"></p>
+      </details>
       <div class="grid-2">
         <div class="panel"><h2>Active assumptions</h2><table id="brief_assumptions"></table></div>
         <div class="panel"><h2>Next actions</h2><table id="brief_actions"></table></div>
       </div>
       <div class="panel adviser-notes"><h2>Adviser notes</h2><textarea data-note-key="decisionbrief" placeholder="Add adviser/family notes for the decision brief..."></textarea><div class="note-meta">Saved locally and included in settings export.</div></div>
     </section>
+    <dialog class="v23-overlay" id="decision-draft-preview" aria-labelledby="decision-draft-heading">
+      <div class="v23-modal">
+        <h3 id="decision-draft-heading">Review the draft settings</h3>
+        <div class="decision-receipt" id="decision-draft-confirmation"></div>
+        <form method="dialog" class="decision-summary-actions">
+          <button class="btn" value="cancel" autofocus>Keep current plan</button>
+          <button class="btn v23-primary" id="decision-draft-apply" value="apply">Apply draft to V23</button>
+        </form>
+      </div>
+    </dialog>
 
     <section class="page" id="page-overview">
       <div class="note">All figures in <b>today's dollars</b> (real). Pool A is tax-free ABP; Pool B has 15% earnings tax drag; Pool C is an external ETF funded by mandatory draw surplus (TSB-saturated — cannot re-enter super). PSS pension is CPI-indexed and treated as flat in real terms.</div>
@@ -1865,7 +1932,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.11.2";
+const APP_VERSION = "v23.12";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -4376,6 +4443,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.12","Nov 2026","The Decision Brief can compare and apply drafts, trace annual cash flows, and identify plans in settings exports and print."],
     ["v23.11.2","Nov 2026","The Decision Brief heading and small result details are easier to read in both themes."],
     ["v23.11.1","Nov 2026","Offline navigation opens the saved Decision Brief on both hosts."],
     ["v23.11","Nov 2026","Decision Brief combines essential spending, planned spending and investment balances. Risk tests spending on the same paths, old policy results are hidden after edits, and trigger statuses agree across views."],
@@ -4407,23 +4475,284 @@ function renderDecisionSummary(rows,profile,source){
   if(!summary)return;
   const result=checkPlanFunding(rows,STATE.targetAge,profile);
   const essential=STATE.essentialSpending;
-  const card=(label,value,note,tone="")=>`<div class="card ${tone}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${note}</div></div>`;
+  const card=(label,value,note,tone="",traceAge=null)=>`<div class="card ${tone}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${note}</div>${traceAge===null?"":`<button class="btn" type="button" data-decision-trace-age="${traceAge}">Inspect age ${traceAge}</button>`}</div>`;
   const firstMiss=result.firstBudgetMiss;
   const capitalAt=age=>{
     const check=checkPlanFunding(rows,age,profile);
     return check.capital===null?card(`Investments at ${age}`,"Outside forecast","Check the retirement age."):
-      card(`Investments at ${age}`,fmtFull(check.capital),`${fmtFull(Math.abs(check.floorMargin))} ${check.floorMargin>=0?"above":"below"} the ${fmtFull(profile.floor*1000)} floor`,check.floorMargin>=0?"good":"warn");
+      card(`Investments at ${age}`,fmtFull(check.capital),`${fmtFull(Math.abs(check.floorMargin))} ${check.floorMargin>=0?"above":"below"} the ${fmtFull(profile.floor*1000)} floor`,check.floorMargin>=0?"good":"warn",age);
   };
   const essentialsCard=essential===null
     ?card("Essentials","Set your minimum","Enter the annual amount you need in today's dollars.")
     :result.years===0?card("Essentials","Opening snapshot","Choose a later age to check spending."):
       card(`Essentials through ${result.age}`,result.firstEssentialMiss?"Shortfall":"Covered",
-        `${fmtFull(essential)}/yr · ${result.firstEssentialMiss?`first missed in year ending at ${result.firstEssentialMiss.age}`:"funded every year"}`,result.firstEssentialMiss?"warn":"good");
+        `${fmtFull(essential)}/yr · ${result.firstEssentialMiss?`first missed in year ending at ${result.firstEssentialMiss.age} (${agePeriodLabel(result.firstEssentialMiss.age)})`:"funded every year"}`,result.firstEssentialMiss?"warn":"good",result.firstEssentialMiss?.age??result.age);
   const budgetCard=result.years===0?card("Full budget","Opening snapshot","No spending years at this checkpoint."):
     card(`Full budget through ${result.age}`,firstMiss?`${fmtFull(result.planned-result.funded)} unfunded`:"Funded",
-      firstMiss?`First shortfall in year ending at age ${firstMiss.age}`:`${fmtFull(result.funded)} funded over ${result.years} years`,firstMiss?"warn":"good");
+      firstMiss?`First shortfall in year ending at age ${firstMiss.age} (${agePeriodLabel(firstMiss.age)})`:`${fmtFull(result.funded)} funded over ${result.years} years`,firstMiss?"warn":"good",firstMiss?.age??result.age);
   document.getElementById("v23-decision-basis").textContent=`${source} · ${fmtFull(profile.netPension)}/yr net PSS · ${fmtPctClean(STATE.likely)} real return · Pool C ${STATE.poolCPolicy==="after-abp"?"available after A/B":"preserved"} · ${APP_VERSION}`;
   document.getElementById("v23-decision-outcomes").innerHTML=essentialsCard+budgetCard+capitalAt(75)+capitalAt(85);
+  const explanation=document.getElementById("v23-funding-explanation");
+  if(explanation){
+    explanation.hidden=!firstMiss;
+    explanation.textContent=!firstMiss?"":STATE.poolCPolicy==="preserve"
+      ?"Unfunded spending is the part of the budget the plan could not pay. Pool C counts toward your investments and stays in reserve. Only your pension and Pools A and B cover routine spending under this rule."
+      :"Unfunded spending is the part of the budget the plan could not pay even after drawing from Pool C under your current rule.";
+  }
+}
+
+function agePeriodLabel(age){return `age ${age-1} to ${age}`;}
+function modelledPoolCLabel(policy){return policy==="after-abp"?"Use after Pools A and B":"Keep as reserve";}
+const V23_PERIOD_CONVENTION="Birthday to birthday · opening balance at retirement";
+
+function detailedPlanReceipt(state=captureScenarioState(),profile=profileForScenario(state)){
+  const {retireAge,grossPension,netPension,lumpSum,hostplus,tbc,floor,target,strong,poolA_day1,poolB_day1,poolC_day1}=profile;
+  const namedPss=isRailBProfile(profile);
+  const pensionChanged=state.profile!=="michael"&&V23_CUSTOM_PSS_FIELDS.some(field=>Object.hasOwn(state.customProfileInputs||{},field));
+  return RETIREMENT_ENGINE.planReceipt({
+    workspace:"v23",modelRevision:`${APP_VERSION} / ${RETIREMENT_ENGINE.RETIREMENT_ENGINE_VERSION}`,source:openingSourceLabel(profile),
+    sourceDate:pensionChanged||!namedPss&&state.profile!=="michael"?null:RETIREMENT_ENGINE.pssEstimateDate(namedPss?"B":"A",profile.pssProjectionBasis,profile.pssElection??null),
+    poolCPolicy:state.poolCPolicy,periodConvention:V23_PERIOD_CONVENTION,simulationSeed:state.simulationSeed,
+    assumptions:{
+      retirementOpening:{retireAge,grossPension,netPension,lumpSum,hostplus,tbc,poolA_day1,poolB_day1,poolC_day1},
+      election:profile.pssElection,projectionBasis:profile.pssProjectionBasis,floor,target,strong,
+      age:state.targetAge,return:state.likely,volatility:state.vol,runs:state.runs,oneOff:state.oneOff,drag:state.poolCDrag,
+      essentialSpending:state.essentialSpending,spendingGrowth:state.gapGrowth,salaryTaxYear:state.salaryTaxYear,liquidityMonths:state.liquidityMonths,
+      budget:Number.isFinite(state.totalSpendTarget)?state.totalSpendTarget:state.spendMode==="fixed"
+        ?normaliseGapBands(state.gapBands).bands.map(({age,amount,unit,startOnBirthday})=>({age,amount,unit,startOnBirthday}))
+        :{mode:state.spendMode,rate:state.spendReturnPct},
+      wash:state.wash,cpi:[state.cpi,state.cpiDur,state.cpiAge,state.cpiDrag],
+    }
+  });
+}
+function receiptFields(receipt){
+  return [["Plan ID",receipt.planId],["Calculation version",receipt.modelRevision],["Pension source",receipt.source],
+    ["Source date",receipt.sourceDate??"Manual figures · date unrecorded"],["Pool C",modelledPoolCLabel(receipt.poolCPolicy)],
+    ["Year convention",receipt.periodConvention],["Simulation seed",receipt.simulationSeed]];
+}
+function reportFields(fields){
+  const dl=document.createElement("dl");
+  for(const [label,value] of fields){
+    const entry=document.createElement("div");
+    const term=document.createElement("dt"),definition=document.createElement("dd");
+    term.textContent=label;definition.textContent=value??"—";
+    entry.append(term,definition);dl.appendChild(entry);
+  }
+  return dl;
+}
+
+function cashTrace(rows,index){
+  const row=rows[index],previous=rows[index-1];
+  const oneOff=row.oneOffFunded??0;
+  const health=row.healthCostFunded??0;
+  const opening=previous?.total??row.total+oneOff+health;
+  const change=previous?previous.poolA*row.rA+previous.poolB*row.rB+previous.poolC*row.rC:0;
+  const abUsed=row.realExit+row.extraDraw;
+  const cUsed=row.poolCDraw;
+  const equation=opening+change+row.pensionSurplus-abUsed-cUsed-oneOff-health;
+  return {row,opening,change,abUsed,cUsed,oneOff,health,balanceResidual:row.total-equation};
+}
+let decisionTraceRows=[];
+function renderDecisionTrace(){
+  const control=document.getElementById("decision-trace-age");
+  const results=document.getElementById("decision-trace-results");
+  if(!control||!results||!decisionTraceRows.length)return;
+  const index=decisionTraceRows.findIndex(row=>String(row.age)===control.value);
+  if(index<0)return;
+  const {row,opening,change,abUsed,cUsed,oneOff,health,balanceResidual}=cashTrace(decisionTraceRows,index);
+  const money=value=>value<-.005?`−${fmtCents(-value)}`:fmtCents(Math.abs(value)<.005?0:value);
+  const title=document.getElementById("decision-trace-label");
+  title.textContent=row.launchSnapshot?`Opening at age ${row.age} · before the first spending year`:`${agePeriodLabel(row.age)} · likely return path · today's dollars`;
+  const spending=row.launchSnapshot?
+    [["One-off requested",money(row.oneOffRequested)],["One-off paid from Pools A/B",money(row.oneOffDrawn)],["One-off paid from Pool C",money(row.oneOffPoolCDrawn)],["One-off unfunded",money(row.oneOffShortfall)]]:
+    [["Annual budget",money(row.targetSpend)],["Net pension spent",money(row.pensionSpent)],["Pools A/B spent",money(abUsed)],["Pool C spent",money(cUsed)],["Spending paid",money(row.fundedTotalSpend)],["Spending unfunded",money(row.spendingShortfall)],["Pension saved in Pool C",money(row.pensionSurplus)],["Unused mandatory draw kept in Pool A",money(row.toABP)],["Unused mandatory draw moved to Pool C",money(row.toPoolC-row.pensionToPoolC)]];
+  const capital=[["Opening investments",money(opening)],["Investment growth after drag",money(change)],["Pension saved in Pool C",money(row.pensionSurplus)],
+    ["Portfolio spending",money(-(abUsed+cUsed))],["One-off paid",money(-oneOff)],
+    ...(health?[["Health cost paid",money(-health)]]:[]),["Closing Pool A",money(row.poolA)],["Closing Pool B",money(row.poolB)],["Closing Pool C",money(row.poolC)],["Closing investments",money(row.total)],["Cash flow reconciliation difference",money(balanceResidual)]];
+  results.replaceChildren(...[["Spending and saving",spending],["Investment movement",capital]].map(([heading,fields])=>{
+    const box=document.createElement("div"),label=document.createElement("h3");
+    label.textContent=heading;box.append(label,reportFields(fields));return box;
+  }));
+}
+function syncDecisionTrace(rows){
+  const select=document.getElementById("decision-trace-age");
+  if(!select)return;
+  const selected=select.value||String(STATE.targetAge);
+  decisionTraceRows=rows;
+  select.replaceChildren(...rows.map(row=>{
+    const option=document.createElement("option");
+    option.value=row.age;option.textContent=row.launchSnapshot?`Opening at age ${row.age}`:agePeriodLabel(row.age);
+    return option;
+  }));
+  select.value=rows.some(row=>String(row.age)===selected)?selected:String(rows[0].age);
+  renderDecisionTrace();
+}
+
+function draftBudgetRule(state){
+  const rule=spendingRuleLabel(state);
+  return state.gapGrowth&&state.spendMode==="fixed"?`${rule} · ${fmtPctClean(state.gapGrowth)} real annual growth on the dollar amount`:rule;
+}
+function decisionDraftPlans(state,{budget=null,election="auto",semantics="rule"}={}){
+  const activeProfile=profileForScenario(state);
+  const firstYear=scenarioStateResult(state,state.targetAge,undefined,activeProfile.retireAge+1).sim.rows[1].targetSpend;
+  const suggested=state.essentialSpending!==null&&state.essentialSpending<firstYear?state.essentialSpending:Math.floor(firstYear*.9/1000)*1000;
+  const lower=budget??suggested;
+  if(!Number.isFinite(lower)||lower<0)throw Error("The alternative budget must be a non-negative dollar amount.");
+  const proposal=(id,title,changes,note="")=>({id,title,state:{...state,...changes},changes,note});
+  const flatChanges=amount=>({totalSpendTarget:amount,lastFlatSpendTarget:amount,spendMode:"fixed",gapGrowth:0,
+    savedAgeBands:state.totalSpendTarget===null?state.gapBands:state.savedAgeBands});
+  const plans=[
+    proposal("current","Current V23 plan",{}),
+    proposal("budget",lower<firstYear?"Lower flat budget":"Alternative flat budget",flatChanges(lower),"Uses this total after-tax budget every year. The first-year amount is shown for the current plan; later bands can differ."),
+  ];
+  const selected=election==="auto"?(activeProfile.pssElection==="100"?"70-30":"100"):election;
+  const alternate=()=>{
+    const title=`PSS ${PSS_ELECTIONS[selected]?.label??"alternate"}`;
+    if(!isRailBProfile(activeProfile)||activeProfile.retireAge!==60)return {id:"election",title,note:"Select a Rail B age-60 CSC estimate to compare another election."};
+    if(selected===activeProfile.pssElection)return {id:"election",title,note:"Choose an election different from the active one."};
+    const changes={pssElection:selected,customProfileInputs:planningInputsOnly(state.customProfileInputs)};
+    const other=profileForScenario({...state,...changes});
+    changes.wash={...state.wash,enabled:state.wash.enabled&&other.washSourceGross>0,maxWashes:Math.min(state.wash.maxWashes,other.washMax),schedule:{}};
+    const flat=state.totalSpendTarget!==null;
+    const dollarBands=state.spendMode==="fixed"&&state.gapBands.every(b=>["dollar","totalDollar"].includes(b.unit));
+    if(semantics==="total"&&!flat&&(!dollarBands||(state.gapGrowth!==0&&state.gapBands.some(b=>b.unit==="dollar")))){
+      return {id:"election",title,note:"Holding the full budget each year needs a flat target, total-dollar bands, or dollar bands with zero real growth. Choose Keep the spending rule for percentage bands or a growing top-up."};
+    }
+    if(semantics==="total"&&!flat){
+      changes.gapBands=normaliseGapBands(state.gapBands).bands.map(b=>b.unit==="dollar"
+        ?{...b,unit:"totalDollar",amount:activeProfile.netPension+b.amount}:b);
+    }
+    if(semantics==="gap"){
+      if((!flat&&!dollarBands)||(state.gapGrowth!==0&&(flat||hasTotalSpendingBands(state.gapBands)))){
+        return {id:"election",title,note:"Holding the dollar top-up requires dollar amounts and zero real growth on any total-dollar budget. Choose Keep the spending rule for percentage bands."};
+      }
+      const bands=flat?[{age:activeProfile.retireAge,amount:state.totalSpendTarget,unit:"totalDollar",startOnBirthday:true}]:normaliseGapBands(state.gapBands).bands;
+      Object.assign(changes,{totalSpendTarget:null,spendMode:"fixed",gapBands:bands.map(b=>b.unit==="totalDollar"
+        ?{...b,unit:"dollar",amount:Math.max(0,b.amount-activeProfile.netPension)}:b)});
+    }
+    const rule=semantics==="total"?"Same total after-tax budget each year.":semantics==="gap"
+      ?"Same non-negative dollar top-up. Your new net pension changes the total budget."
+      :"Same spending rule. A top-up follows the new pension and percentage bands use that election's balances.";
+    return proposal("election",title,changes,`${rule} Uses the other CSC estimate with your carried planning inputs.`);
+  };
+  plans.push(alternate());
+  const reserve=state.poolCPolicy==="after-abp";
+  plans.push(proposal("reserve",reserve?"Preserve Pool C":"Use Pool C after A/B",{poolCPolicy:reserve?"preserve":"after-abp"}));
+  return plans;
+}
+function compareDecisionDrafts(state,options,runs=200){
+  const plans=decisionDraftPlans(state,options);
+  const age=state.targetAge;
+  const start=profileForScenario(state).retireAge;
+  const years=Math.max(1,age-start);
+  const paths=policyReturnPaths({runs,years,mean:state.likely,sd:state.vol,seed:state.simulationSeed});
+  return plans.map(plan=>{
+    if(!plan.state)return plan;
+    const {profile,sim}=scenarioStateResult(plan.state,age);
+    const floor=profile.floor*1000;
+    const annualRows=spendingYears(sim.rows);
+    const check=RETIREMENT_ENGINE.assessSpending(annualRows,age,floor,state.essentialSpending);
+    const funding=RETIREMENT_ENGINE.fundingPathCounts(years+1);
+    for(const market of paths){
+      const {sim:path}=scenarioStateResult(plan.state,age,market,start+years,profile);
+      RETIREMENT_ENGINE.countFundingPath(funding,spendingYears(path.rows),floor,state.essentialSpending);
+    }
+    return {...plan,profile,check,runs,firstYearBudget:sim.rows[1].targetSpend,launch:sim.rows[0],funding:age>start?funding[age-start]:null,
+      age75:sim.rows.find(row=>row.age===75)?.total??null,
+      age85:sim.rows.find(row=>row.age===85)?.total??null};
+  });
+}
+const DECISION_DRAFT_CONTROLS=["decision-draft-budget","decision-draft-election","decision-draft-semantics"];
+let decisionComparison=null,draftInPreview=null;
+function activeDraftKey(){
+  return JSON.stringify([detailedPlanReceipt().planId,...DECISION_DRAFT_CONTROLS.map(id=>document.getElementById(id)?.value)]);
+}
+function invalidateDecisionDrafts(){
+  if(!decisionComparison||activeDraftKey()===decisionComparison.key)return;
+  decisionComparison=null;
+  const results=document.getElementById("decision-draft-results");
+  results.hidden=true;results.replaceChildren();
+  document.getElementById("decision-draft-status").textContent="Settings changed. Run the comparison again to see current results.";
+}
+function draftOutcomeFields(plan){
+  const {check,state,funding,runs}=plan;
+  const frequency=count=>`${count} of ${runs} (${fmtPctClean(count/runs)})`;
+  const capital=amount=>amount===null?"Outside forecast":fmtFull(amount);
+  const firstMiss=row=>!check.years?"Opening only":row?agePeriodLabel(row.age):"Funded every year";
+  return [["Net PSS per year",fmtCents(plan.profile.netPension)],["First-year budget",fmtCents(plan.firstYearBudget)],
+    ["First essential shortfall",state.essentialSpending===null?"Set essential spending":firstMiss(check.firstEssentialMiss)],
+    ["First full-budget shortfall",firstMiss(check.firstBudgetMiss)],
+    [`Budget unfunded through ${check.age}`,fmtFull(Math.max(0,check.planned-check.funded))],
+    ...(plan.launch.oneOffRequested>0?[["Retirement one-off",`${fmtFull(plan.launch.oneOffFunded)} paid · ${fmtFull(plan.launch.oneOffShortfall)} unpaid`]]:[]),
+    ["Investments at 75",capital(plan.age75)],["Investments at 85",capital(plan.age85)],
+    [`Full budget + floor through ${check.age}`,funding?frequency(funding.lifestyleAndCapital):"Opening only"],
+    ...(state.essentialSpending===null?[]:[[`Essentials + floor through ${check.age}`,funding?frequency(funding.essentialsAndCapital):"Opening only"]])];
+}
+function renderPlanDrafts(event){
+  event.preventDefault();
+  const status=document.getElementById("decision-draft-status"),results=document.getElementById("decision-draft-results");
+  const [budget,election,semantics]=DECISION_DRAFT_CONTROLS.map(id=>document.getElementById(id).value);
+  const state=captureScenarioState();
+  try{
+    const plans=compareDecisionDrafts(state,{budget:budget===""?null:Number(budget),election,semantics});
+    decisionComparison={key:activeDraftKey(),plans};
+    results.replaceChildren(...plans.map(plan=>{
+      const article=document.createElement("article"),heading=document.createElement("h3"),note=document.createElement("p");
+      article.className="decision-alternative";article.dataset.draftId=plan.id;heading.textContent=plan.title;
+      note.textContent=plan.state?`${draftBudgetRule(plan.state)} · ${modelledPoolCLabel(plan.state.poolCPolicy)}`:plan.note;
+      article.append(heading,note);
+      if(!plan.state)return article;
+      article.append(reportFields(draftOutcomeFields(plan)));
+      if(plan.id!=="current"){
+        const preview=document.createElement("button");
+        preview.className="btn";preview.type="button";preview.dataset.previewDraft=plan.id;
+        preview.textContent=`Preview ${plan.title.toLowerCase()}`;article.appendChild(preview);
+      }
+      return article;
+    }));
+    results.hidden=false;
+    status.textContent=`200 identical market paths · age ${state.targetAge} · ${fmtFull(profileForScenario(state).floor*1000)} investment floor · ${state.essentialSpending===null?"essentials budget unset":fmtFull(state.essentialSpending)+"/yr essentials"} · advisory rules.`;
+  }catch(error){
+    decisionComparison=null;results.hidden=true;results.replaceChildren();status.textContent=error.message;
+  }
+}
+function previewDecisionDraft(id){
+  invalidateDecisionDrafts();
+  const plan=decisionComparison?.plans.find(item=>item.id===id);
+  if(!plan?.state)return;
+  draftInPreview=plan;
+  const dialog=document.getElementById("decision-draft-preview"),body=document.getElementById("decision-draft-confirmation");
+  const note=document.createElement("p");note.textContent=plan.note;
+  body.replaceChildren(reportFields([["Pension source",openingSourceLabel(plan.profile)],["Net PSS per year",fmtCents(plan.profile.netPension)],
+    ["Budget rule",draftBudgetRule(plan.state)],["Pool C rule",modelledPoolCLabel(plan.state.poolCPolicy)],
+    ["Target age",plan.state.targetAge],["Real return",fmtPctClean(plan.state.likely)],["One-off at retirement",fmtFull(plan.state.oneOff)],
+    ["Draft plan ID",detailedPlanReceipt(plan.state,plan.profile).planId]]),note);
+  dialog.returnValue="";dialog.showModal();
+}
+function wireDecisionTools(){
+  document.getElementById("decision-draft-form")?.addEventListener("submit",renderPlanDrafts);
+  document.getElementById("decision-draft-form")?.addEventListener("input",invalidateDecisionDrafts);
+  document.getElementById("decision-trace-age")?.addEventListener("change",renderDecisionTrace);
+  document.getElementById("decision-draft-preview")?.addEventListener("close",event=>{
+    const plan=draftInPreview;draftInPreview=null;
+    invalidateDecisionDrafts();
+    if(event.currentTarget.returnValue!=="apply"||!plan||!decisionComparison)return;
+    applyScenarioState({...captureScenarioState(),...plan.changes});
+    document.getElementById("decision-draft-status").textContent=`${plan.title} applied in V23. Run the comparison again to check this plan.`;
+  });
+  document.addEventListener("click",event=>{
+    const button=event.target.closest?.("button[data-decision-destination],button[data-decision-trace-age],button[data-preview-draft]");
+    if(!button)return;
+    if(button.dataset.previewDraft){previewDecisionDraft(button.dataset.previewDraft);return;}
+    if(button.dataset.decisionTraceAge){
+      document.getElementById("decision-trace-age").value=button.dataset.decisionTraceAge;
+      renderDecisionTrace();
+    }
+    const panel=document.getElementById(button.dataset.decisionDestination||"decision-cash-trace");
+    panel.open=true;
+    panel.querySelector("summary").focus();
+    panel.scrollIntoView({block:"start"});
+  });
 }
 
 function renderDecisionBrief(){
@@ -4436,6 +4765,8 @@ function renderDecisionBrief(){
   const source=openingSourceLabel(p);
   const floor=p.floor*1000;
   renderDecisionSummary(likely.rows,p,source);
+  syncDecisionTrace(likely.rows);
+  document.getElementById("decision-plan-record")?.replaceChildren(reportFields(receiptFields(detailedPlanReceipt())));
   const spending=fundedSpendingSummary(likely.rows.slice(0,idx+1));
   const outcome=checkPlanFunding(likely.rows,ta,p);
   const unfunded=spending.operating.reduce((sum,row)=>sum+row.spendingShortfall,0);
@@ -4451,7 +4782,7 @@ function renderDecisionBrief(){
   document.getElementById("brief_reco").innerHTML=[
     ["Spending rule",spendingRuleLabel(STATE)],
     [`Spending through age ${ta}`,firstShortfall
-      ?`${fmtFull(spending.funded)} funded and ${fmtFull(unfunded)} unfunded on the likely path. First shortfall in the year ending at age ${firstShortfall.age}.`
+      ?`${fmtFull(spending.funded)} funded and ${fmtFull(unfunded)} unfunded on the likely path. First shortfall in the year ending at age ${firstShortfall.age} (${agePeriodLabel(firstShortfall.age)}).`
       :spending.years?`The likely path funds the full ${fmtFull(spending.planned)} planned over ${spending.years} spending years.`:"This checkpoint is the opening balance at retirement, before the first spending year."],
     ["Essential spending",STATE.essentialSpending===null?"Set an annual essentials budget to test it separately."
       :!outcome.years?"The checkpoint is the opening balance before the first spending year."
@@ -4664,18 +4995,37 @@ function applyScenarioState(s){
 function slotKey(slot){return `v23_slot_${slot}`;}
 function legacySlotKey(slot){return `v21c1_slot_${slot}`;}
 function getSlot(slot){try{return JSON.parse(localStorage.getItem(slotKey(slot))||localStorage.getItem(legacySlotKey(slot))||"null");}catch(e){return null;}}
-function setSlot(slot){localStorage.setItem(slotKey(slot),JSON.stringify({savedAt:new Date().toISOString(),state:captureScenarioState()}));renderSaveSlots();}
+function setSlot(slot){
+  const state=captureScenarioState();
+  localStorage.setItem(slotKey(slot),JSON.stringify({savedAt:new Date().toISOString(),state,plan:detailedPlanReceipt(state)}));
+  renderSaveSlots();
+}
 function loadSlot(slot){const s=getSlot(slot);if(s?.state)applyScenarioState(s.state);}
 function clearSlot(slot){localStorage.removeItem(slotKey(slot));renderSaveSlots();}
 function renameSlot(slot,name){
   STATE.slotNames={...STATE.slotNames,[slot]:(name||`Scenario ${slot}`).trim()||`Scenario ${slot}`};
   saveState();renderSaveSlots();
 }
-function scenarioStateResult(s,targetAge=s?.targetAge??STATE.targetAge){
-  const p=!s?getProfile():s.profile==="michael"?PROFILES.michael:
+function profileForScenario(s){
+  return !s?getProfile():s.profile==="michael"?PROFILES.michael:
     profileWithCustomInputs(customSourceProfile(s.pssElection,s.pssProjectionBasis||STATE.pssProjectionBasis),s.customProfileInputs);
-  const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,poolCPolicy:s?.poolCPolicy??STATE.poolCPolicy,totalSpendTarget:s?.totalSpendTarget??null,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag});
+}
+function scenarioStateResult(s,targetAge=s?.targetAge??STATE.targetAge,annualReturns,endAge=95,p=profileForScenario(s)){
+  const sim=runModel({profile:p,abpReturn:s?.likely??STATE.likely,accumReturn:(s?.likely??STATE.likely)*0.85,gapBands:s?.gapBands??STATE.gapBands,gapGrowth:s?.gapGrowth??STATE.gapGrowth,spendMode:s?.spendMode??STATE.spendMode,spendReturnPct:s?.spendReturnPct??STATE.spendReturnPct,poolCPolicy:s?.poolCPolicy??STATE.poolCPolicy,totalSpendTarget:s?.totalSpendTarget??null,oneOff:s?.oneOff??STATE.oneOff,poolCDrag:s?.poolCDrag??STATE.poolCDrag,annualReturns,endAge});
   return {profile:p,sim,row:sim.rows.find(row=>row.age===targetAge)??null};
+}
+function flatHandoffComparison(scenario,state=captureScenarioState()){
+  const age=Math.min(95,Math.max(70,Math.round(scenario.targetAge)));
+  const realReturn=Math.min(.075,Math.max(.02,Number(scenario.realReturn.toFixed(4))));
+  const budget=RETIREMENT_ENGINE.commandCentreSpend(scenario.spend);
+  const {profile,sim}=scenarioStateResult(state,age);
+  const floor=profile.floor*1000;
+  const detailed=RETIREMENT_ENGINE.assessSpending(spendingYears(sim.rows),age,floor,null);
+  const opening=scenario.rail==="B"?RETIREMENT_ENGINE.railBOpeningPosition(scenario.pssElection,scenario.pssProjectionBasis):RETIREMENT_ENGINE.RAIL_A_SOURCE;
+  const flatRows=RETIREMENT_ENGINE.calculateFlatRetirementLedger({poolA:opening.poolA,poolC:opening.poolC,netPension:opening.netPension,spend:budget,realReturn,endAge:age});
+  const flat=RETIREMENT_ENGINE.assessSpending(flatRows.map(row=>({age:row.age,capital:row.ending,planned:row.spend,funded:row.fundedSpend})),age,floor,null);
+  const passes=check=>check.years>0&&check.floorMargin!==null&&check.floorMargin>=0&&!check.firstBudgetMiss;
+  return {age,realReturn,budget,floor,detailed,flat,detailedPass:passes(detailed),flatPass:passes(flat)};
 }
 function guardrailForRow(row,p){
   const floor=p.floor*1000,target=p.target*1000,strong=p.strong*1000;
@@ -4754,11 +5104,12 @@ function updateNavBadges(){
 }
 function exportSettingsJSON(){
   const slots={A:getSlot("A"),B:getSlot("B"),C:getSlot("C")};
-  const payload={version:APP_VERSION,exportedAt:new Date().toISOString(),state:captureScenarioState(),slotNames:STATE.slotNames,notes:STATE.notes,slots,checklist:readChecklist()};
+  const state=captureScenarioState();
+  const payload={version:APP_VERSION,exportedAt:new Date().toISOString(),state,plan:detailedPlanReceipt(state),slotNames:STATE.slotNames,notes:STATE.notes,slots,checklist:readChecklist()};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
-  a.href=url;a.download=`robinson_retirement_${APP_VERSION}_settings.json`;a.click();
+  a.href=url;a.download=`robinson_retirement_${payload.plan.planId}_settings.json`;a.click();
   URL.revokeObjectURL(url);
 }
 function importSettingsJSON(file){
@@ -4767,13 +5118,22 @@ function importSettingsJSON(file){
   reader.onload=()=>{
     try{
       const payload=JSON.parse(reader.result);
+      if(payload.plan?.workspace==="command-centre"||payload.current&&!payload.state)throw Error("Open this Command Centre review file in Command Centre.");
       if(payload.state)applyScenarioState(payload.state);
       if(payload.slotNames)STATE.slotNames=payload.slotNames;
       if(payload.notes)STATE.notes=payload.notes;
       if(payload.slots)Object.entries(payload.slots).forEach(([slot,val])=>{if(val)localStorage.setItem(slotKey(slot),JSON.stringify(val));});
       if(payload.checklist&&typeof payload.checklist==="object")localStorage.setItem(CHECKLIST_KEY,JSON.stringify(normaliseChecklist(payload.checklist)));
       applyNotesToTextareas();saveState();updateLabels();renderBandRows();rerenderAll();updateNavBadges();
-    }catch(e){alert("Could not import settings JSON.");}
+      const active=detailedPlanReceipt(),status=document.getElementById("v23-import-result");
+      if(status){
+        const imported=payload.plan;
+        status.textContent=!imported?.planId?`Older settings loaded. Current plan ID ${active.planId}.`
+          :imported.planId!==active.planId?`Settings loaded. The recalculated plan ID ${active.planId} differs from the saved ID. Review the source and inputs before comparing results.`
+          :imported.modelRevision!==active.modelRevision?`Plan ${active.planId} restored using calculation version ${active.modelRevision}. The file was saved using ${imported.modelRevision}.`
+          :`Plan ${active.planId} restored with matching inputs and calculation version.`;
+      }
+    }catch(error){alert(error.message.startsWith("Open this Command Centre")?error.message:"Could not import settings JSON.");}
   };
   reader.readAsText(file);
 }
@@ -4794,6 +5154,9 @@ function printSelectedPack(){
   document.querySelectorAll("section.page").forEach(p=>p.classList.toggle("print-pack-include",pages.includes(p.id)));
   const packMode=kind!=="current";
   document.body.classList.toggle("print-pack",packMode);
+  const openedForPrint=pages.includes("page-decisionbrief")?["decision-cash-trace","decision-plan-receipt"]
+    .map(id=>document.getElementById(id)).filter(details=>details&&!details.open):[];
+  openedForPrint.forEach(details=>{details.open=true;});
   // render every included page so its DOM + charts exist while it is visible
   if(packMode)pages.forEach(id=>{if(PAGE_RENDERERS[id]){try{PAGE_RENDERERS[id]();}catch(e){}}});
   // force every chart to redraw at its now-visible size, animation off, before the print snapshot
@@ -4803,6 +5166,7 @@ function printSelectedPack(){
   const cleanup=()=>{if(done)return;done=true;
     window.removeEventListener("afterprint",cleanup);
     document.body.classList.remove("print-pack");
+    openedForPrint.forEach(details=>{details.open=false;});
     document.querySelectorAll(".print-pack-include").forEach(p=>p.classList.remove("print-pack-include"));
     requestAnimationFrame(settle); // re-fit on-screen charts after returning
   };
@@ -4910,6 +5274,7 @@ function showPage(id){
   const summary=document.getElementById("v23-decision-summary");
   if(summary)summary.hidden=id!=="page-decisionbrief";
   invalidatePolicyResult();
+  invalidateDecisionDrafts();
   if(PAGE_RENDERERS[id])PAGE_RENDERERS[id]();
   applyNotesToTextareas();
   updateNavBadges();
@@ -4918,6 +5283,7 @@ function showPage(id){
 
 function rerenderAll(){
   invalidatePolicyResult();
+  invalidateDecisionDrafts();
   updateBandResults();
   if(PAGE_RENDERERS[currentPage])PAGE_RENDERERS[currentPage]();
   applyNotesToTextareas();
@@ -5441,13 +5807,16 @@ function wireTheme(){
 function exportCSV(){
   const p=getProfile();
   const sim=runModel({profile:p,abpReturn:STATE.likely,accumReturn:STATE.likely*0.85,gapBands:STATE.gapBands});
+  const receipt=detailedPlanReceipt();
   const cols=["age","total","poolA","poolB","poolC","investmentReturn","mandDraw","realExit","extraDraw","poolCDraw","surplus","pensionSurplus","toPoolC","gap","targetSpend","pension","pensionSpent"];
-  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A or B Extra Draw","Pool C Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income","One-off Requested","One-off Funded","One-off Unfunded"].join(",");
-  const rows=sim.rows.map(r=>{
+  const header=["Age","Total","Pool A","Pool B","Pool C","Investment Earnings","Mandatory Draw","Spent from mandatory draw","Pool A or B Extra Draw","Pool C Draw","Mandatory Draw Surplus","PSS Pension Surplus","Total To Pool C","Portfolio Gap","Target Total Spend","PSS Pension Available","PSS Pension Consumed","Funded Total Spend","Retained Cashflow","Usable Income","One-off Requested","One-off Funded","One-off Unfunded","Plan ID","Calculation version","Opening investments exact ($)","Investment growth after drag exact ($)","Planned spending exact ($)","Pension spent exact ($)","Pools A/B spent exact ($)","Pool C spent exact ($)","Funded spending exact ($)","Unfunded spending exact ($)","Pension saved exact ($)","One-off paid exact ($)","Closing Pool A exact ($)","Closing Pool B exact ($)","Closing Pool C exact ($)","Closing investments exact ($)","Cash flow reconciliation difference ($)"].join(",");
+  const rows=sim.rows.map((r,index)=>{
     const base=cols.map(c=>Math.round(r[c]||0));
     const spend=(r.realExit||0)+(r.extraDraw||0)+(r.poolCDraw||0);
     base.push(Math.round((r.pensionSpent??r.pension??0)+spend),Math.round((r.investmentReturn||0)+(r.pensionSurplus||0)-spend),Math.round((r.pensionSpent??r.pension??0)+spend));
     base.push(r.oneOffRequested,r.oneOffFunded,r.oneOffShortfall);
+    const trace=cashTrace(sim.rows,index);
+    base.push(receipt.planId,receipt.modelRevision,...[trace.opening,trace.change,r.targetSpend,r.pensionSpent,trace.abUsed,trace.cUsed,r.fundedTotalSpend,r.spendingShortfall,r.pensionSurplus,trace.oneOff,r.poolA,r.poolB,r.poolC,r.total,trace.balanceResidual].map(value=>(Math.abs(value)<.005?0:value).toFixed(2)));
     return base.join(",");
   });
   const csv=[header,...rows].join("\n");
@@ -5652,6 +6021,7 @@ function init(){
   wireProfileControls();
   wirePlanControls();
   wireSliders();
+  wireDecisionTools();
   wireIncomeTableMode();
   wireReinvestTableMode();
   const mcSeed=document.getElementById("btn-mc-new-seed");
@@ -5708,7 +6078,7 @@ executive:{t:"Executive summary",w:"Board-level snapshot: capital at the target 
 ["Day 1 values note","Opening balances follow Rail A or the selected source-backed Rail B election and provider basis. The prudent 100% election uses the 9 September source."],
 ["Capital @target — active / 4–5% reference","The active result uses your selected likely return. The conservative 4% and reference 5% paths remain visible only as comparison rails."],
 ["NCC blocked","A planning warning only. It cannot determine real non-concessional contribution eligibility because the model does not hold the actual prior-30-June TSB or provider timing evidence."]]},
-decisionbrief:{t:"Decision brief",w:"Start here for the active PSS election, the first missed spending year, and investments at ages 75 and 85.",h:["Enter your net essentials budget in Plan controls to test needs separately from your full budget.","See Income & draws for individual years. Use Print → Brief pack to keep a copy."],f:[
+decisionbrief:{t:"Decision brief",w:"Start here for the active PSS election, the first missed spending year, and investments at ages 75 and 85.",h:["Enter your net essentials budget in Plan controls to test needs separately from your full budget.","Use Compare alternatives to see four plans on 200 identical market paths. Open a draft to check the exact settings before applying it.","Use Inspect age for the shortfall or closing balance you want to understand. The trace shows each spending source and the movement in investments.","Use Print → Brief pack for the selected trace and plan ID. Export settings to move the plan to either host."],f:[
 ["Active PSS election","Shows the current election and source basis, including any custom opening figures. Rail A is the historical benchmark."],
 ["Spending through the selected age","Shows how much of the plan the likely path funds and when the first shortfall starts. See Income & draws for the annual detail and the separate average through age 95."],
 ["Essentials","Checks the amount you need in each spending year through the selected age. It leaves the spending rule as entered."],
@@ -6235,6 +6605,7 @@ function buildWelcome(){
 /* ---------- FABs, topbar button, keys ---------- */
 function buildChrome(){
   $("#v23-handoff-dialog")?.addEventListener("keydown",cycleModalTab);
+  $("#decision-draft-preview")?.addEventListener("keydown",cycleModalTab);
   const g=el("button",{class:"v23-fab",id:"v23-fab-guide",title:"Guide (press ?)","aria-label":"Open guide"},"？");
   g.addEventListener("click",openGuide);document.body.appendChild(g);
   const up=el("button",{class:"v23-fab",id:"v23-fab-top",title:"Back to top","aria-label":"Back to top"},"↑");
@@ -6438,9 +6809,14 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       if(!link||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
       event.preventDefault();
       const plan=navigationScenario();
-      const budget=RETIREMENT_ENGINE.commandCentreSpend(plan.spend);
-      document.getElementById("v23-handoff-values").textContent=`${fmtFull(budget)} per year flat · ${fmtPctClean(plan.realReturn)} real return · age ${plan.targetAge} · ${salaryYearLabel()} salary comparison.`;
+      const comparison=flatHandoffComparison(plan);
+      const {budget,realReturn,age,detailed,flat,floor,detailedPass,flatPass}=comparison;
+      document.getElementById("v23-handoff-values").textContent=`${fmtFull(budget)} per year flat · ${fmtPctClean(realReturn)} real return · age ${age} · ${salaryYearLabel()} salary comparison.`;
       document.getElementById("v23-handoff-limits").textContent=`V23 sends its first-year planned budget as a flat amount. ${budget!==plan.spend?`The first year is ${fmtFull(plan.spend)}, outside the flat comparison range. The destination uses ${fmtFull(budget)}.`:"Later-year bands, one-offs and the V23 essentials check stay in V23."}`;
+      const summary=check=>check.capital===null?"Outside forecast":`${fmtFull(check.capital)} invested · ${fmtFull(Math.max(0,check.planned-check.funded))} spending unfunded`;
+      const why=document.createElement("p");
+      why.textContent=`Both figures above use your ${fmtFull(floor)} V23 floor for this preview. ${detailed.capital===null?"The detailed projection has no balance at this age.":detailedPass!==flatPass?`The combined verdict changes. ${detailedPass?"V23":"The flat comparison"} pays the full budget every year and reaches the floor.`:"The two views agree on whether the budget and floor are both met."} Opening figures and the timing of withdrawals and transfers can move the numbers.`;
+      document.getElementById("v23-handoff-comparison").replaceChildren(reportFields([[`V23 at ${age}`,summary(detailed)],[`Flat comparison at ${age}`,summary(flat)]]),why);
       const open=document.getElementById("v23-handoff-open");
       open.href=link.href;
       open.textContent=link.id==="v23-atlas-link"?"Open visual explorer":"Open flat comparison";
@@ -6497,7 +6873,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 /* ---------- contextual V23 AI adviser ---------- */
 .v23-ai-backdrop{position:fixed;inset:0;z-index:88;border:0;background:rgba(2,8,16,.7);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:opacity .2s}
 .v23-ai-backdrop.open{opacity:1;pointer-events:auto}
-.v23-ai-panel{position:fixed;z-index:90;right:14px;bottom:14px;width:min(560px,calc(100vw - 28px));height:min(820px,calc(100vh - 28px));display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto auto;background:var(--panel);color:var(--text);border:1px solid color-mix(in srgb,var(--acc) 52%,var(--border));border-radius:20px;box-shadow:0 34px 110px rgba(0,0,0,.72);overflow:hidden;transform:translateX(calc(100% + 40px));opacity:0;pointer-events:none;transition:transform .22s ease,opacity .2s ease}
+.v23-ai-panel{position:fixed;z-index:90;right:14px;bottom:14px;width:min(560px,calc(100vw - 28px));height:min(820px,calc(100dvh - 28px));display:grid;grid-template-rows:auto auto auto auto minmax(0,1fr) auto auto auto;background:var(--panel);color:var(--text);border:1px solid color-mix(in srgb,var(--acc) 52%,var(--border));border-radius:20px;box-shadow:0 34px 110px rgba(0,0,0,.72);overflow:hidden;transform:translateX(calc(100% + 40px));opacity:0;pointer-events:none;transition:transform .22s ease,opacity .2s ease}
 .v23-ai-panel.open{transform:translateX(0);opacity:1;pointer-events:auto}
 .v23-ai-head{display:flex;align-items:center;gap:11px;padding:15px 16px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 14%,var(--panel)),color-mix(in srgb,var(--acc2) 7%,var(--panel)))}
 .v23-ai-orb{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font:800 11px 'DM Mono',monospace;box-shadow:0 8px 22px color-mix(in srgb,var(--acc) 25%,transparent)}
@@ -6508,6 +6884,12 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 .v23-ai-error{margin:0 12px 8px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--bad) 55%,var(--border));border-radius:9px;background:color-mix(in srgb,var(--bad) 8%,var(--panel));color:var(--bad);font-size:11px}
 .v23-ai-compose{padding:11px 12px 10px;border-top:1px solid var(--border);background:var(--panel)}.v23-ai-compose label{display:block;margin-bottom:6px;color:var(--muted);font:700 10px 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.65px}.v23-ai-compose textarea{box-sizing:border-box;width:100%;min-height:76px;max-height:160px;resize:vertical;border:1px solid var(--border);border-radius:11px;padding:10px 11px;background:var(--panel2);color:var(--text);font:13px/1.45 inherit}.v23-ai-compose textarea:focus{border-color:var(--acc);outline:2px solid color-mix(in srgb,var(--acc) 20%,transparent)}.v23-ai-actions{display:flex;align-items:center;gap:8px;margin-top:8px}.v23-ai-actions small{margin-right:auto;color:var(--soft);font-size:9.5px}.v23-ai-actions button{border:1px solid var(--border);border-radius:9px;padding:8px 11px;background:var(--panel2);color:var(--muted);cursor:pointer;font:700 10.5px inherit}.v23-ai-actions .send{border:0;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff}.v23-ai-actions .stop{border-color:var(--bad);color:var(--bad);background:transparent}.v23-ai-actions button:disabled{opacity:.45;cursor:not-allowed}
 .v23-ai-foot{padding:7px 12px;border-top:1px solid var(--border);color:var(--soft);font:9.5px/1.4 'DM Mono',monospace;text-align:center}
+.v23-ai-disclosure{padding:7px 12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.v23-ai-disclosure summary{cursor:pointer;font-weight:750;color:var(--text)}
+.v23-ai-disclosure[open]{max-height:min(36dvh,255px);overflow:auto}
+.v23-ai-disclosure p{margin-block:5px}
+.v23-ai-disclosure label{display:flex;align-items:center;gap:7px;margin-block:3px}
+.v23-ai-disclosure pre{max-height:120px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel2);border:1px solid var(--border);padding:6px;font-size:10px}
 .v23-ai-launcher{position:fixed;z-index:76;right:76px;bottom:max(18px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:9px;border:1px solid color-mix(in srgb,var(--acc) 55%,var(--border));border-radius:15px;padding:7px 12px 7px 8px;background:color-mix(in srgb,var(--panel) 94%,transparent);color:var(--text);box-shadow:0 10px 34px rgba(0,0,0,.52);backdrop-filter:blur(14px);cursor:pointer}.v23-ai-launcher:hover{border-color:var(--acc);transform:translateY(-2px)}.v23-ai-launcher .v23-ai-orb{flex-basis:34px;height:34px;border-radius:11px}.v23-ai-launcher b,.v23-ai-launcher small{display:block;text-align:left}.v23-ai-launcher b{font-size:11.5px}.v23-ai-launcher small{max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:9.5px}
 @media(max-width:700px){.v23-ai-panel{inset:7px;width:auto;height:auto;max-height:none;border-radius:16px}.v23-ai-launcher{right:10px;bottom:calc(max(9px,env(safe-area-inset-bottom)) + 60px);padding-right:10px}.v23-ai-launcher small{display:none}.v23-ai-messages{padding:11px}.v23-ai-message{max-width:95%}.v23-ai-actions small{display:none}.v23-ai-context,.v23-ai-prompts{padding-left:9px;padding-right:9px}}
 @media(prefers-reduced-motion:reduce){.v23-ai-panel,.v23-ai-backdrop,.v23-ai-launcher{transition:none!important}}
@@ -6536,7 +6918,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   function sharedScenario(){try{return JSON.parse(localStorage.getItem("robinson-retirement-shared-scenario")||"null");}catch(e){return null;}}
   function controlSnapshot(root,limit){
     if(!root)return[];
-    return Array.from(root.querySelectorAll("input,select,textarea")).slice(0,limit||100).map((el,index)=>{
+    return Array.from(root.querySelectorAll('input:not([type="hidden"]):not([type="file"]),select')).slice(0,limit||100).map((el,index)=>{
       const label=el.labels?.[0]?.innerText||el.closest("label")?.innerText||el.getAttribute("aria-label")||el.id||("control "+(index+1));
       const value=(el.type==="checkbox"||el.type==="radio")?el.checked:el.value;
       const selected=el.tagName==="SELECT"?el.options[el.selectedIndex]?.textContent:null;
@@ -6566,15 +6948,40 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       return{scenarios,likelyTarget:target,likelyStart:start,likelyFirstYear:likely.rows.find(row=>!row.launchSnapshot)};
     }catch(e){return{error:"The live calculation snapshot could not be serialised."};}
   }
-  function buildContext(){
+  const PRIVATE_REVIEW_PAGES=new Set(["page-reviewdelta","page-saveslots","page-recalibrate","page-checklist","page-decisions"]);
+  function selectedAttachments(){
+    return{
+      reviews:document.getElementById("v23-ai-include-reviews")?.checked===true,
+      notes:document.getElementById("v23-ai-include-notes")?.checked===true,
+      history:document.getElementById("v23-ai-include-history")?.checked===true
+    };
+  }
+  function selectedHistory(preferences){
+    return preferences.history?messages.filter(message=>message.id!=="welcome").slice(-15):[];
+  }
+  function savedReviewInputs(){
+    const slots=Object.fromEntries(["A","B","C"].flatMap(key=>{
+      const slot=getSlot(key);
+      if(!slot)return[];
+      const {notes,slotNames,...state}=slot.state||{};
+      return [[key,{savedAt:slot.savedAt,plan:slot.plan,state}]];
+    }));
+    return {slots,checklist:readChecklist()};
+  }
+  function buildContext(preferences){
     const page=activePage();let state={},profile={};
-    try{state=JSON.parse(JSON.stringify(STATE,(key,value)=>key==="charts"?undefined:value));}catch(e){}
+    try{state=captureScenarioState();}catch(e){}
     try{profile={...getProfile()};}catch(e){}
-    const outputs=deterministicOutputs(profile);const shared=state.sharedImport?.scenario||sharedScenario();
+    const outputs=deterministicOutputs(profile);const shared=STATE.sharedImport?.scenario||sharedScenario();
     const firstYear=outputs.likelyFirstYear;
     const rail=state.profile==="michael"?"A":(isRailBProfile(profile)?"B":"Custom");
-    const pageText=cleanText(page?.innerText,35000);
-    const pageTables=Array.from(page?.querySelectorAll("table")||[]).filter(table=>!table.closest("[hidden]")).slice(0,12).map((table,index)=>({index,text:cleanText(table.innerText,12000)}));
+    const pageDetails=preferences.reviews||!PRIVATE_REVIEW_PAGES.has(activePageId());
+    const pageText=pageDetails?cleanText(Array.from(page?.children||[])
+      .filter(element=>!element.matches(".adviser-notes,[hidden]")&&element.getClientRects().length)
+      .map(element=>element.innerText).join(" "),35000):"";
+    const pageTables=pageDetails?Array.from(page?.querySelectorAll("table")||[])
+      .filter(table=>!table.closest("[hidden],.adviser-notes")&&table.getClientRects().length)
+      .slice(0,12).map((table,index)=>({index,text:cleanText(table.innerText,12000)})):[];
     const globalRoot=document.querySelector(".control-bar");
     return{
       metadata:{modelVersion:APP_VERSION,baselineDate:"2026-09-01",currency:"AUD",valueBasis:"Real dollars unless labelled otherwise",surface:"V23 detailed workbench",activePageId:activePageId(),activePageTitle:activeTitle(),capturedAt:now()},
@@ -6590,9 +6997,12 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
         sharedCommandCentreScenario:shared
       },
       v23State:state,
+      plan:detailedPlanReceipt(state,profile),
       activeProfile:profile,
-      activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:controlSnapshot(page,100),charts:chartSnapshots(page)},
+      activePage:{id:activePageId(),title:activeTitle(),renderedText:pageText,tables:pageTables,controls:pageDetails?controlSnapshot(page,100):[],charts:pageDetails?chartSnapshots(page):[]},
       globalControls:controlSnapshot(globalRoot,40),
+      ...(preferences.reviews?{savedReviews:savedReviewInputs()}:{}),
+      ...(preferences.notes?{adviserNotes:STATE.notes}:{}),
       deterministicOutputs:outputs,
       interpretationRules:["Use the active page, current control values and rendered outputs as the immediate review target.","Use firstOperatingPeriod for the annual cashflow summary. The opening snapshot contains balances and any one-off at retirement.","Explain changes; do not claim to modify controls or execute retirement actions.","When stochastic results are visible, report them as simulations and distinguish them from deterministic paths.","Rail/input source differences do not arise from the spending choice itself.","Keep the pre-retirement CSC provider basis separate from the post-retirement V23 real-return control. The 6% / 5% / 3% basis has four direct elections; its 100% pension estimate uses the later 9 September snapshot and $162,485.36 FAS."],
       links:{commandCentre:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./"):"./",document.baseURI).toString(),atlas:new URL(window.v23NavigationUrl?window.v23NavigationUrl("./atlas.html"):"atlas.html",document.baseURI).toString(),modelReference:new URL("model-reference.html",document.baseURI).toString()}
@@ -6612,10 +7022,17 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   function makeUI(){
     if(document.getElementById("v23-ai-panel"))return;
     const backdrop=document.createElement("button");backdrop.type="button";backdrop.className="v23-ai-backdrop";backdrop.setAttribute("aria-label","Close V23 AI adviser");backdrop.addEventListener("click",closePanel);
-    const panel=document.createElement("section");panel.id="v23-ai-panel";panel.className="v23-ai-panel";panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");panel.setAttribute("aria-labelledby","v23-ai-title");panel.innerHTML=`
+    const panel=document.createElement("section");panel.id="v23-ai-panel";panel.className="v23-ai-panel";panel.inert=true;panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");panel.setAttribute("aria-labelledby","v23-ai-title");panel.innerHTML=`
       <header class="v23-ai-head"><div class="v23-ai-orb">AI</div><div><small>Gemini · current V23 page attached</small><h2 id="v23-ai-title">V23 AI review</h2></div><button class="v23-ai-close" id="v23-ai-close" type="button">Close</button></header>
       <div class="v23-ai-context" id="v23-ai-context" aria-label="V23 context sent with each message"></div>
-      <details class="v23-ai-foot"><summary>What this message includes</summary><p>The message, recent chat, current V23 profile and controls, adviser notes, model calculations, and the active page's tables and charts go to Google Gemini through the retirement site's service.</p></details>
+      <details class="v23-ai-disclosure" id="v23-ai-disclosure">
+        <summary>Preview data before sending</summary>
+        <p>Your message, active model and the public model reference go to Google Gemini through this site. Choose which saved information to add.</p>
+        <label><input type="checkbox" id="v23-ai-include-reviews"> Include saved reviews and scenarios</label>
+        <label><input type="checkbox" id="v23-ai-include-notes"> Include personal adviser notes</label>
+        <label><input type="checkbox" id="v23-ai-include-history"> Include recent chat</label>
+        <pre id="v23-ai-context-preview" tabindex="0"></pre>
+      </details>
       <div class="v23-ai-prompts" id="v23-ai-prompts" aria-label="Page-aware suggested questions"></div>
       <div class="v23-ai-messages" id="v23-ai-messages" role="log" aria-live="polite"></div>
       <div class="v23-ai-error" id="v23-ai-error" role="alert" hidden></div>
@@ -6623,14 +7040,30 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       <footer class="v23-ai-foot">Current controls and rendered page outputs are captured when you send · interpretation only</footer>`;
     const launcher=document.createElement("button");launcher.type="button";launcher.className="v23-ai-launcher";launcher.id="v23-ai-launcher";launcher.setAttribute("aria-controls","v23-ai-panel");launcher.innerHTML='<span class="v23-ai-orb">AI</span><span><b>AI review</b><small id="v23-ai-launcher-page">Current V23 page</small></span>';
     launcher.addEventListener("click",openPanel);panel.querySelector("#v23-ai-close").addEventListener("click",closePanel);panel.querySelector("#v23-ai-clear").addEventListener("click",resetChat);panel.querySelector("#v23-ai-stop").addEventListener("click",()=>abortController?.abort());panel.querySelector("#v23-ai-form").addEventListener("submit",event=>{event.preventDefault();send();});panel.querySelector("#v23-ai-input").addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();send();}});
+    panel.querySelector("#v23-ai-disclosure").addEventListener("toggle",refreshAttachmentPreview);
+    panel.querySelector("#v23-ai-disclosure").addEventListener("change",refreshAttachmentPreview);
     document.body.append(backdrop,panel,launcher);renderAll();
     document.addEventListener("click",event=>{if(event.target.closest?.("nav.side a[data-page],button[data-v23-page]"))setTimeout(refreshPageContext,0);});
     document.addEventListener("keydown",event=>{if(event.key==="Escape"&&open)closePanel();});
   }
+  function refreshAttachmentPreview(){
+    const disclosure=document.getElementById("v23-ai-disclosure");
+    if(!open||!disclosure?.open)return;
+    const preferences=selectedAttachments();
+    const message=document.getElementById("v23-ai-input").value.trim().slice(0,6000);
+    const context=buildContext(preferences);
+    delete context.metadata.capturedAt;
+    const preview=document.getElementById("v23-ai-context-preview");
+    const content=JSON.stringify({message,recentChat:selectedHistory(preferences),context},null,2);
+    if(preview.textContent!==content)preview.textContent=content;
+  }
   function refreshPageContext(){
     const title=activeTitle();const context=document.getElementById("v23-ai-context");if(context){context.textContent="";[title,(STATE?.profile==="michael"?"Michael":"Custom"),"Target "+STATE?.targetAge,"Likely "+((Number(STATE?.likely)||0)*100).toFixed(1)+"%"].forEach(text=>{const span=document.createElement("span");span.textContent=text;context.appendChild(span);});}
     const launcherPage=document.getElementById("v23-ai-launcher-page");if(launcherPage)launcherPage.textContent=title;
-    const prompts=document.getElementById("v23-ai-prompts");if(prompts){prompts.textContent="";promptSet().forEach(([label,prompt])=>{const button=document.createElement("button");button.type="button";button.textContent=label;button.disabled=streaming;button.addEventListener("click",()=>send(prompt));prompts.appendChild(button);});}
+    const prompts=document.getElementById("v23-ai-prompts");if(prompts){prompts.textContent="";promptSet().forEach(([label,prompt])=>{const button=document.createElement("button");button.type="button";button.textContent=label;button.disabled=streaming;button.addEventListener("click",()=>{
+      const input=document.getElementById("v23-ai-input");input.value=prompt;input.focus();renderAll();
+    });prompts.appendChild(button);});}
+    refreshAttachmentPreview();
   }
   function renderMessages(){
     const root=document.getElementById("v23-ai-messages");if(!root)return;root.textContent="";
@@ -6638,16 +7071,18 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     root.scrollTop=root.scrollHeight;
   }
   function renderAll(){renderMessages();refreshPageContext();const sendButton=document.getElementById("v23-ai-send");const stopButton=document.getElementById("v23-ai-stop");const input=document.getElementById("v23-ai-input");if(sendButton)sendButton.disabled=streaming||!input?.value.trim();if(stopButton)stopButton.hidden=!streaming;if(input)input.disabled=streaming;}
-  function openPanel(){open=true;document.getElementById("v23-ai-panel")?.classList.add("open");document.querySelector(".v23-ai-backdrop")?.classList.add("open");document.getElementById("v23-ai-launcher")?.setAttribute("aria-expanded","true");renderAll();setTimeout(()=>document.getElementById("v23-ai-input")?.focus(),60);}
-  function closePanel(){open=false;document.getElementById("v23-ai-panel")?.classList.remove("open");document.querySelector(".v23-ai-backdrop")?.classList.remove("open");document.getElementById("v23-ai-launcher")?.setAttribute("aria-expanded","false");}
+  function openPanel(){open=true;const panel=document.getElementById("v23-ai-panel");panel.inert=false;panel.classList.add("open");document.querySelector(".v23-ai-backdrop")?.classList.add("open");document.getElementById("v23-ai-launcher")?.setAttribute("aria-expanded","true");renderAll();setTimeout(()=>document.getElementById("v23-ai-input")?.focus(),60);}
+  function closePanel(){open=false;const panel=document.getElementById("v23-ai-panel");panel.classList.remove("open");panel.inert=true;document.querySelector(".v23-ai-backdrop")?.classList.remove("open");const launcher=document.getElementById("v23-ai-launcher");launcher?.setAttribute("aria-expanded","false");launcher?.focus();}
   function resetChat(){abortController?.abort();messages=[welcome()];streaming=false;document.getElementById("v23-ai-error")?.setAttribute("hidden","");try{localStorage.removeItem(CHAT_KEY);}catch(e){}renderAll();}
   async function loadReference(){if(referenceText)return referenceText;try{const response=await fetch(referenceUrl(),{cache:"force-cache"});if(response.ok)referenceText=await response.text();}catch(e){}return referenceText;}
   function append(idValue,text){const message=messages.find(item=>item.id===idValue);if(message)message.content+=text;renderMessages();}
-  async function send(requested){
-    const input=document.getElementById("v23-ai-input");const content=String(requested??input?.value??"").trim();if(!content||streaming)return;
-    const user={id:id("user"),role:"user",createdAt:now(),content:content.slice(0,6000)};const assistant={id:id("model"),role:"model",createdAt:now(),content:""};const conversation=messages.filter(message=>message.id!=="welcome").concat(user).slice(-16);messages=messages.concat(user,assistant).slice(-MAX_HISTORY);if(input)input.value="";streaming=true;const error=document.getElementById("v23-ai-error");if(error){error.hidden=true;error.textContent="";}abortController=new AbortController();renderAll();
+  async function send(){
+    const input=document.getElementById("v23-ai-input");const content=String(input?.value??"").trim();if(!content||streaming)return;
+    const preferences=selectedAttachments();
+    const context=buildContext(preferences);
+    const user={id:id("user"),role:"user",createdAt:now(),content:content.slice(0,6000)};const assistant={id:id("model"),role:"model",createdAt:now(),content:""};const conversation=selectedHistory(preferences).concat(user);messages=messages.concat(user,assistant).slice(-MAX_HISTORY);if(input)input.value="";streaming=true;const error=document.getElementById("v23-ai-error");if(error){error.hidden=true;error.textContent="";}abortController=new AbortController();renderAll();
     try{
-      const modelReference=await loadReference();const context=buildContext();context.modelReference=modelReference;
+      const modelReference=await loadReference();context.modelReference=modelReference;
       const response=await fetch(endpoint(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:conversation,context}),signal:abortController.signal});
       if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.error||"The V23 adviser is temporarily unavailable.");}if(!response.body)throw new Error("The adviser returned an empty response.");
       const reader=response.body.getReader();const decoder=new TextDecoder();let buffer="",received=false;

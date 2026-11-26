@@ -61,6 +61,10 @@ export default function RetirementAi({ context }: RetirementAiProps) {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
   const [reference, setReference] = useState("");
+  const [includeReview, setIncludeReview] = useState(false);
+  const [includeNotes, setIncludeNotes] = useState(false);
+  const [includeHistory, setIncludeHistory] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -70,6 +74,21 @@ export default function RetirementAi({ context }: RetirementAiProps) {
   const spending = Number(scenario.annualNetSpending ?? 0);
   const realReturn = Number(scenario.realReturn ?? 0);
   const targetAge = Number(scenario.targetAge ?? 75);
+  const messageHistory = () => includeHistory ? messages.filter(message => message.id !== "welcome").slice(-15) : [];
+  const selectedContext = () => {
+    const { annualReview, savedScenarios, ...active } = context;
+    const review = (annualReview ?? {}) as { snapshot?: unknown; checks?: unknown; actualCheckpoints?: Record<string, { note?: string } & Record<string, unknown>> };
+    const checkpoints = Object.entries(review.actualCheckpoints ?? {});
+    const publicCheckpoint = ({ reviewedAt, capital, spending, pension, baseline }: Record<string, unknown>) => ({ reviewedAt, capital, spending, pension, baseline });
+    return {
+      ...active,
+      ...(includeReview ? { savedScenarios, annualReview: {
+        snapshot: review.snapshot, checks: review.checks,
+        actualCheckpoints: Object.fromEntries(checkpoints.map(([age, checkpoint]) => [age, publicCheckpoint(checkpoint)])),
+      } } : {}),
+      ...(includeNotes ? { reviewNotes: Object.fromEntries(checkpoints.filter(([, checkpoint]) => checkpoint.note).map(([age, checkpoint]) => [age, checkpoint.note])) } : {}),
+    };
+  };
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -120,14 +139,15 @@ export default function RetirementAi({ context }: RetirementAiProps) {
     setMessages((current) => current.map((message) => message.id === id ? { ...message, content: message.content + text } : message));
   };
 
-  const sendMessage = async (requested?: string) => {
-    const content = (requested ?? draft).trim();
+  const sendMessage = async () => {
+    const content = draft.trim();
     if (!content || streaming) return;
 
     const userMessage: AdviserMessage = { id: messageId("user"), role: "user", content: content.slice(0, 6_000), createdAt: new Date().toISOString() };
     const assistantId = messageId("model");
     const assistantMessage: AdviserMessage = { id: assistantId, role: "model", content: "", createdAt: new Date().toISOString() };
-    const conversation = [...messages.filter((message) => message.id !== "welcome"), userMessage].slice(-16);
+    const conversation = [...messageHistory(), userMessage];
+    const requestContext = selectedContext();
     setMessages((current) => [...current, userMessage, assistantMessage].slice(-24));
     setDraft("");
     setError("");
@@ -141,7 +161,7 @@ export default function RetirementAi({ context }: RetirementAiProps) {
       const response = await fetch(adviserApiUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: conversation, context: { ...context, modelReference } }),
+        body: JSON.stringify({ messages: conversation, context: { ...requestContext, modelReference } }),
         signal: controller.signal,
       });
 
@@ -238,13 +258,19 @@ export default function RetirementAi({ context }: RetirementAiProps) {
           <span>to age {targetAge}</span>
         </div>
 
-        <details className="ai-disclosure">
-          <summary>What the adviser receives</summary>
-          <p>Your message, recent chat, the active scenario, model results, ledger, PSS and tax assumptions, saved review and actual checkpoints, and model reference go to Google Gemini through the retirement site. This site stores its copy of the chat in this browser.</p>
+        <details className="ai-disclosure" onToggle={(event) => setPreviewOpen(event.currentTarget.open)}>
+          <summary>Preview data before sending</summary>
+          <p>Your message, the active model and the public model reference go to Google Gemini through the retirement site. Choose which saved information to add.</p>
+          <div className="ai-context-choices">
+            <label><input type="checkbox" checked={includeReview} onChange={event => setIncludeReview(event.target.checked)} disabled={streaming} /> Include saved reviews and scenarios</label>
+            <label><input type="checkbox" checked={includeNotes} onChange={event => setIncludeNotes(event.target.checked)} disabled={streaming} /> Include personal review notes</label>
+            <label><input type="checkbox" checked={includeHistory} onChange={event => setIncludeHistory(event.target.checked)} disabled={streaming} /> Include recent chat</label>
+          </div>
+          {previewOpen && <pre id="cc-ai-context-preview" tabIndex={0}>{JSON.stringify({ message: draft.trim().slice(0, 6_000), recentChat: messageHistory(), context: selectedContext() }, null, 2)}</pre>}
         </details>
 
         <div className="ai-quick-prompts" aria-label="Suggested questions">
-          {QUICK_PROMPTS.map(([label, prompt]) => <button key={label} type="button" onClick={() => void sendMessage(prompt)} disabled={streaming}>{label}</button>)}
+          {QUICK_PROMPTS.map(([label, prompt]) => <button key={label} type="button" onClick={() => { setDraft(prompt); textareaRef.current?.focus(); }} disabled={streaming}>{label}</button>)}
         </div>
 
         <div className="ai-messages" ref={scrollRef} role="log" aria-live="polite" aria-relevant="additions text">

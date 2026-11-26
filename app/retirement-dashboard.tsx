@@ -10,21 +10,26 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import RetirementAi from "./retirement-ai";
+import RetirementPaymentCalendar, { readCalendarSettings, type CalendarSettings } from "./retirement-payment-calendar";
 import {
   HOSTPLUS_BASELINE_RETURN,
   HOSTPLUS_STARTING_BALANCE,
+  PLANNED_RETIREMENT_DATE,
   POOL_C_MODELLED_DRAG,
   TRANSFER_BALANCE_BUFFER,
   TRANSFER_BALANCE_CAP,
   abpMinimumRateAtAgeOn1July,
   calculateFlatRetirementLedger as calculateCanonicalFlatRetirementLedger,
   calculateWashOutcome as calculateCanonicalWashOutcome,
-  firstPensionFinancialYear,
+  RETIREMENT_ENGINE_VERSION,
   commandCentreSpend,
   countFundingPath,
+  firstPensionFinancialYear,
   fundingPathCounts,
   normaliseElectionForBasis as normaliseCanonicalElectionForBasis,
   normaliseProjectionBasis as normaliseCanonicalProjectionBasis,
+  planReceipt,
+  pssEstimateDate,
   projectHostplusAt60,
   railBOpeningPosition as calculateCanonicalRailBOpeningPosition,
 } from "./retirement-core";
@@ -75,6 +80,14 @@ type ReviewSnapshot = ScenarioState & {
   endCapital: number;
   estate: number;
   annualForecast?: Record<number, ReviewForecast>;
+  plan?: ReturnType<typeof planReceipt>;
+};
+
+type SavedCommandPlan = ScenarioState & {
+  plan?: ReturnType<typeof planReceipt>;
+  calendar?: CalendarSettings | null;
+  riskEssentials?: number | null;
+  washCycles?: number;
 };
 
 type ReviewForecast = { capital: number; spending: number; pension: number };
@@ -93,6 +106,8 @@ const forecastForReview = (row: { ending: number; spend: number; pension: number
   capital: row.ending, spending: row.spend, pension: row.pension,
 });
 const RISK_ESSENTIALS_KEY = "robinson-retirement-risk-essentials";
+const PAYMENT_CALENDAR_KEY = "robinson-retirement-payment-calendar";
+const WASH_CYCLES_KEY = "robinson-retirement-wash-cycles";
 
 type Rail = {
   key: RailKey;
@@ -470,6 +485,26 @@ const pct = (n: number, d = 0) => `${(n * 100).toFixed(d)}%`;
 const money = (n: number) => fmt.format(Number.isFinite(n) ? n : 0);
 const compactMoney = (n: number) => n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}m` : `$${Math.round(n / 1_000)}k`;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+function normaliseCommandPlan(candidate: Partial<ScenarioState>): ScenarioState {
+  const basis = normaliseProjectionBasis(candidate.pssProjectionBasis);
+  const finite = (value: unknown, fallback: number) => (
+    (typeof value === "number" || typeof value === "string" && value.trim() !== "") && Number.isFinite(Number(value))
+      ? Number(value) : fallback
+  );
+  return {
+    rail: candidate.rail === "A" ? "A" : "B",
+    pssElection: normaliseElectionForBasis(basis, candidate.pssElection),
+    pssProjectionBasis: basis,
+    spend: commandCentreSpend(finite(candidate.spend, 110_000)),
+    realReturn: clamp(finite(candidate.realReturn, .05), .02, .075),
+    targetAge: Math.round(clamp(finite(candidate.targetAge, 75), 70, 95)),
+    homeValue: clamp(finite(candidate.homeValue, HOME_BASELINE), 300_000, 1_000_000),
+    taxYear: candidate.taxYear === "2027-28" ? "2027-28" : "2026-27",
+    liquidityMonths: Math.round(clamp(finite(candidate.liquidityMonths, 12), 0, 24)),
+    simulationSeed: Math.round(clamp(finite(candidate.simulationSeed, 20260814), 1, 2_147_483_647)),
+  };
+}
 const THEME_STORAGE_KEY = "robinson-retirement-theme";
 
 function normaliseTheme(value: string | null | undefined): Theme | null {
@@ -2290,6 +2325,8 @@ export default function RetirementDashboard() {
   const [pssProjectionBasis, setPssProjectionBasis] = useState<PssProjectionBasisKey>("source-825");
   const [spend, setSpend] = useState(110_000);
   const [riskEssentials, setRiskEssentials] = useState<number | null>(null);
+  const [calendar, setCalendar] = useState<CalendarSettings | null>(null);
+  const [importedPlan, setImportedPlan] = useState<{ planId?: string; modelRevision?: string } | null>(null);
   const [realReturn, setRealReturn] = useState(0.05);
   const [targetAge, setTargetAge] = useState(75);
   const [homeValue, setHomeValue] = useState(HOME_BASELINE);
@@ -2341,7 +2378,7 @@ export default function RetirementDashboard() {
   const [phase3, setPhase3] = useState(1_200);
   const [nominalReturn, setNominalReturn] = useState(HOSTPLUS_BASELINE_RETURN);
   const [cashflowAge, setCashflowAge] = useState(65);
-  const [saved, setSaved] = useState<Record<string, ScenarioState>>({});
+  const [saved, setSaved] = useState<Record<string, SavedCommandPlan>>({});
   const [reviewSnapshot, setReviewSnapshot] = useState<ReviewSnapshot | null>(null);
   const [reviewChecks, setReviewChecks] = useState<Record<string, boolean>>({});
   const [actualReviewAge, setActualReviewAge] = useState(75);
@@ -2354,11 +2391,10 @@ export default function RetirementDashboard() {
   const effectivePssElection = normaliseElectionForBasis(pssProjectionBasis, pssElection);
   const rail = useMemo(() => railFor(railKey, effectivePssElection, pssProjectionBasis), [railKey, effectivePssElection, pssProjectionBasis]);
   const portfolioDraw = Math.max(0, spend - rail.netPension);
+  const firstYearStatutoryMinimum = firstPensionFinancialYear(rail.poolA, 60, PLANNED_RETIREMENT_DATE).minimum;
   const pssSurplus = Math.max(0, rail.netPension - spend);
   const ledger = useMemo(() => operationalLedger(rail, spend, realReturn, taxYear), [rail, spend, realReturn, taxYear]);
   const firstUnfundedYear = ledger.find((row) => !row.isOpening && row.shortfall > 0);
-  const firstPaymentYear = firstPensionFinancialYear(rail.poolA, 60, "2033-12-21");
-  const firstYearStatutoryMinimum = firstPaymentYear.minimum;
   const endCapital = ledger.find((row) => row.age === targetAge)?.ending ?? rail.capital;
   const estate = endCapital + homeValue;
   const grossEquivalent = grossForNet(spend, taxYear);
@@ -2375,6 +2411,19 @@ export default function RetirementDashboard() {
   const liquidityTarget = portfolioDraw * liquidityMonths / 12;
   const liquidityGap = Math.max(0, liquidityTarget - rail.poolC);
   const currentScenario = useMemo<ScenarioState>(() => ({ rail: railKey, pssElection: effectivePssElection, pssProjectionBasis, spend, realReturn, targetAge, homeValue, taxYear, liquidityMonths, simulationSeed }), [railKey, effectivePssElection, pssProjectionBasis, spend, realReturn, targetAge, homeValue, taxYear, liquidityMonths, simulationSeed]);
+  const commandPlan = useMemo(() => planReceipt({
+    workspace: "command-centre", modelRevision: RETIREMENT_ENGINE_VERSION, source: rail.source,
+    sourceDate: pssEstimateDate(currentScenario.rail, currentScenario.pssProjectionBasis, currentScenario.pssElection),
+    poolCPolicy: "preserve", periodConvention: "Birthday to birthday · opening balance at age 60",
+    simulationSeed: currentScenario.simulationSeed,
+    assumptions: { ...currentScenario, netPension: rail.netPension, openingA: rail.poolA, openingC: rail.poolC, riskEssentials, washCycles, calendar },
+  }), [currentScenario, rail, riskEssentials, washCycles, calendar]);
+  const applyCommandPlan = (candidate: Partial<ScenarioState>) => {
+    const s = normaliseCommandPlan(candidate);
+    setRailKey(s.rail); setPssElection(s.pssElection); setPssProjectionBasis(s.pssProjectionBasis);
+    setSpend(s.spend); setRealReturn(s.realReturn); setTargetAge(s.targetAge); setHomeValue(s.homeValue);
+    setTaxYear(s.taxYear); setLiquidityMonths(s.liquidityMonths); setSimulationSeed(s.simulationSeed);
+  };
   const vrBasis = railKey === "A" ? PSS_PROJECTION_BASES["source-825"] : projectionBasis;
   const vrImmediatePaths = VR_AGES.map((age) => vrScenarioPath(rail, vrBasis, realReturn, age, "immediate"));
   const vrPreservePaths = VR_AGES.map((age) => vrScenarioPath(rail, vrBasis, realReturn, age, "preserve"));
@@ -2517,31 +2566,25 @@ export default function RetirementDashboard() {
         const snapshot = localStorage.getItem("robinson-retirement-review-snapshot");
         const checks = localStorage.getItem("robinson-retirement-review-checks");
         const actuals = localStorage.getItem("robinson-retirement-actual-checkpoints");
+        const savedCalendar = localStorage.getItem(PAYMENT_CALENDAR_KEY);
+        if (savedCalendar) {
+          try { setCalendar(readCalendarSettings(JSON.parse(savedCalendar))); } catch { /* use the modelled calendar */ }
+        }
+        const storedWashCycles = localStorage.getItem(WASH_CYCLES_KEY);
+        if (storedWashCycles !== null && Number.isInteger(Number(storedWashCycles)) && Number(storedWashCycles) >= 0) setWashCycles(Number(storedWashCycles));
         const savedEssentials = localStorage.getItem(RISK_ESSENTIALS_KEY);
         if (savedEssentials !== null && Number.isFinite(Number(savedEssentials)) && Number(savedEssentials)>=0) {
           setRiskEssentials(Number(savedEssentials));
         }
-        const loadScenario = (candidate: Partial<ScenarioState>) => {
-          const basis = normaliseProjectionBasis(candidate.pssProjectionBasis);
-          setRailKey(candidate.rail === "A" ? "A" : "B");
-          setPssElection(normaliseElectionForBasis(basis, candidate.pssElection));
-          setPssProjectionBasis(basis);
-          setSpend(commandCentreSpend(candidate.spend ?? 110_000));
-          setRealReturn(clamp(Number(candidate.realReturn) || 0.05, 0.02, 0.075));
-          setTargetAge(clamp(Number(candidate.targetAge) || 75, 70, 95));
-          setHomeValue(clamp(Number(candidate.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
-          setTaxYear(candidate.taxYear === "2027-28" ? "2027-28" : "2026-27");
-          setLiquidityMonths(clamp(Number(candidate.liquidityMonths) || 12, 0, 24));
-          setSimulationSeed(Math.round(clamp(Number(candidate.simulationSeed) || 20260814, 1, 2_147_483_647)));
-        };
         if (params.get("shared") === "1") {
-          loadScenario({ rail: params.get("rail") === "A" ? "A" : "B", pssElection: (["60-40", "65-35", "70-30", "100"] as string[]).includes(String(params.get("pss"))) ? params.get("pss") as PssElectionKey : "70-30", pssProjectionBasis: normaliseProjectionBasis(params.get("basis")), spend: Number(params.get("spend")), realReturn: Number(params.get("return")), targetAge: Number(params.get("age")), homeValue: Number(params.get("home")), taxYear: params.get("taxYear") === "2027-28" ? "2027-28" : "2026-27", liquidityMonths: Number(params.get("reserveMonths")), simulationSeed: Number(params.get("seed")) });
+          const optionalNumber = (key: string) => params.has(key) && params.get(key) !== "" ? Number(params.get(key)) : undefined;
+          applyCommandPlan({ rail: params.get("rail") === "A" ? "A" : "B", pssElection: (["60-40", "65-35", "70-30", "100"] as string[]).includes(String(params.get("pss"))) ? params.get("pss") as PssElectionKey : "70-30", pssProjectionBasis: normaliseProjectionBasis(params.get("basis")), spend: optionalNumber("spend"), realReturn: optionalNumber("return"), targetAge: optionalNumber("age"), homeValue: optionalNumber("home"), taxYear: params.get("taxYear") === "2027-28" ? "2027-28" : "2026-27", liquidityMonths: optionalNumber("reserveMonths"), simulationSeed: optionalNumber("seed") });
         } else if (activeScenario) {
           const cached = JSON.parse(activeScenario) as Partial<ScenarioState> & { defaultsVersion?: number };
           // Default operating basis since 2026-10-03: Rail B 70/30. Caches written before defaultsVersion 2 that still
           // sit on the old defaults (Rail A, or Rail B 60/40 on the current source basis) migrate once; later choices are kept.
           const legacyDefault = Number(cached.defaultsVersion || 0) < SCENARIO_DEFAULTS_VERSION && (cached.rail === "A" || ((cached.pssElection ?? "60-40") === "60-40" && normaliseProjectionBasis(cached.pssProjectionBasis) === "source-825"));
-          loadScenario(legacyDefault ? { ...cached, rail: "B", pssElection: "70-30", pssProjectionBasis: "source-825" } : cached);
+          applyCommandPlan(legacyDefault ? { ...cached, rail: "B", pssElection: "70-30", pssProjectionBasis: "source-825" } : cached);
         }
         if (raw) setSaved(JSON.parse(raw));
         if (snapshot) setReviewSnapshot(JSON.parse(snapshot));
@@ -2558,6 +2601,7 @@ export default function RetirementDashboard() {
     if (!scenarioHydrated) return;
     try {
       localStorage.setItem("robinson-retirement-shared-scenario", JSON.stringify({ version: 7, defaultsVersion: SCENARIO_DEFAULTS_VERSION, updatedAt: new Date().toISOString(), ...currentScenario }));
+      localStorage.setItem(WASH_CYCLES_KEY, String(washCycles));
     } catch { /* local preference only */ }
     const query=new URLSearchParams(sharedScenarioParams(currentScenario,theme));
     query.set("section",section);
@@ -2566,7 +2610,7 @@ export default function RetirementDashboard() {
       if(scenarioTool==="explore"){query.set("panel",explorerPanel);query.set("view",visualView);}
     }
     window.history.replaceState(null,"",`${window.location.pathname}?${query}`);
-  }, [currentScenario, scenarioHydrated, theme, section, scenarioTool, explorerPanel, visualView]);
+  }, [currentScenario, scenarioHydrated, theme, section, scenarioTool, explorerPanel, visualView, washCycles]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); };
@@ -2590,7 +2634,7 @@ export default function RetirementDashboard() {
   };
 
   const saveSlot = (slot: string) => {
-    const next = { ...saved, [slot]: currentScenario };
+    const next = { ...saved, [slot]: { ...currentScenario, plan: commandPlan, calendar, riskEssentials, washCycles } };
     setSaved(next);
     localStorage.setItem("robinson-retirement-scenarios", JSON.stringify(next));
   };
@@ -2598,8 +2642,10 @@ export default function RetirementDashboard() {
   const loadSlot = (slot: string) => {
     const s = saved[slot];
     if (!s) return;
-    const basis = normaliseProjectionBasis(s.pssProjectionBasis);
-    setRailKey(s.rail); setPssElection(normaliseElectionForBasis(basis, s.pssElection)); setPssProjectionBasis(basis); setSpend(s.spend); setRealReturn(s.realReturn); setTargetAge(s.targetAge); setHomeValue(s.homeValue); setTaxYear(s.taxYear ?? "2026-27"); setLiquidityMonths(s.liquidityMonths ?? 12); setSimulationSeed(s.simulationSeed ?? 20260814);
+    applyCommandPlan(s);
+    if (s.calendar !== undefined) applyCalendar(s.calendar);
+    if (s.riskEssentials !== undefined) applyRiskEssentials(s.riskEssentials);
+    if (typeof s.washCycles === "number") setWashCycles(s.washCycles);
   };
 
   const applyComparisonPlan = (plan: ComparisonPlan) => {
@@ -2619,7 +2665,7 @@ export default function RetirementDashboard() {
 
   const captureReview = () => {
     const annualForecast = Object.fromEntries(ledger.filter(row=>!row.isOpening).map(row=>[row.age,forecastForReview(row)]));
-    const snapshot: ReviewSnapshot = { ...currentScenario, capturedAt: new Date().toISOString(), endCapital, estate, annualForecast };
+    const snapshot: ReviewSnapshot = { ...currentScenario, capturedAt: new Date().toISOString(), endCapital, estate, annualForecast, plan: commandPlan };
     setReviewSnapshot(snapshot);
     localStorage.setItem("robinson-retirement-review-snapshot", JSON.stringify(snapshot));
   };
@@ -2661,31 +2707,30 @@ export default function RetirementDashboard() {
     if (value === null) localStorage.removeItem(RISK_ESSENTIALS_KEY);
     else localStorage.setItem(RISK_ESSENTIALS_KEY, String(value));
   };
+  const applyCalendar = (value: CalendarSettings | null) => {
+    setCalendar(value);
+    try {
+      if (value === null) localStorage.removeItem(PAYMENT_CALENDAR_KEY);
+      else localStorage.setItem(PAYMENT_CALENDAR_KEY, JSON.stringify(value));
+    } catch { /* the calendar remains usable in this session */ }
+  };
 
   const exportSettings = () => {
-    const payload = { version: "2026-11-26.review.8", exportedAt: new Date().toISOString(), current: currentScenario, saved, reviewSnapshot, reviewChecks, actualCheckpoints, riskEssentials };
+    const payload = { version: "2026-11-26.review.9", exportedAt: new Date().toISOString(), current: currentScenario, plan: commandPlan, saved, reviewSnapshot, reviewChecks, actualCheckpoints, riskEssentials, calendar, washCycles };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "robinson-retirement-scenarios.json"; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url; a.download = `robinson-retirement-${commandPlan.planId}.json`; a.click(); URL.revokeObjectURL(url);
   };
 
   const importSettings = async (file?: File) => {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
-      if (parsed.current) {
-        const basis = normaliseProjectionBasis(parsed.current.pssProjectionBasis);
-        setRailKey(parsed.current.rail === "A" ? "A" : "B");
-        setPssElection(normaliseElectionForBasis(basis, parsed.current.pssElection));
-        setPssProjectionBasis(basis);
-        setSpend(commandCentreSpend(parsed.current.spend ?? 110_000));
-        setRealReturn(clamp(Number(parsed.current.realReturn) || 0.05, 0.02, 0.075));
-        setTargetAge(clamp(Number(parsed.current.targetAge) || 75, 70, 95));
-        setHomeValue(clamp(Number(parsed.current.homeValue) || HOME_BASELINE, 300_000, 1_000_000));
-        setTaxYear(parsed.current.taxYear === "2027-28" ? "2027-28" : "2026-27");
-        setLiquidityMonths(clamp(Number(parsed.current.liquidityMonths) || 12, 0, 24));
-        setSimulationSeed(Math.round(clamp(Number(parsed.current.simulationSeed) || 20260814, 1, 2_147_483_647)));
+      if (parsed.plan?.workspace === "v23" || parsed.state && !parsed.current) {
+        alert("Open this detailed plan export in V23.");
+        return;
       }
+      if (parsed.current) applyCommandPlan(parsed.current);
       if (parsed.saved && typeof parsed.saved === "object") {
         setSaved(parsed.saved); localStorage.setItem("robinson-retirement-scenarios", JSON.stringify(parsed.saved));
       }
@@ -2699,6 +2744,10 @@ export default function RetirementDashboard() {
         setActualCheckpoints(parsed.actualCheckpoints); localStorage.setItem("robinson-retirement-actual-checkpoints", JSON.stringify(parsed.actualCheckpoints));
       }
       if (parsed.riskEssentials === null || (Number.isFinite(parsed.riskEssentials) && parsed.riskEssentials >= 0)) applyRiskEssentials(parsed.riskEssentials);
+      if (parsed.calendar === null) applyCalendar(null);
+      else if (parsed.calendar) applyCalendar(readCalendarSettings(parsed.calendar));
+      if (Number.isInteger(parsed.washCycles) && parsed.washCycles >= 0) setWashCycles(parsed.washCycles);
+      setImportedPlan(parsed.plan ?? {});
     } catch { alert("That file is not a valid retirement scenario export."); }
   };
 
@@ -2817,14 +2866,7 @@ export default function RetirementDashboard() {
       <section className="panel">
         <div className="panel-head"><div><h3>Reconciled annual planning ledger</h3><p>The opening position is capital on retirement day before annual cashflow. Each following row is a birthday-to-birthday planning year, not a fund payment instruction.</p></div><button className="secondary" onClick={() => setShowLedger(!showLedger)}>{showLedger ? "Hide table" : "Show full retirement ledger"}</button></div>
         <div className="first-year-explainer"><Badge tone="exact">OPENING POSITION</Badge><span>{money(ledger[0].ending)} on 21 Dec 2033</span><b>→</b><Badge tone="modelled">FIRST PLANNING YEAR</Badge><span>{money(ledger[1].pension)} PSSDB + {money(ledger[1].draw)} planning portfolio draw funds {money(ledger[1].fundedSpend)} spending{ledger[1].reinvestment > 0 ? ` and reinvests ${money(ledger[1].reinvestment)} surplus` : ""}</span></div>
-        <details className="note dated-payment"><summary>First retirement year and fund payment dates</summary>
-          <div className="metrics two">
-            <Metric label="Partial financial-year minimum" value={money(firstYearStatutoryMinimum)} sub={`21 Dec 2033 to 30 Jun 2034 · ${firstPaymentYear.elapsedDays} of ${firstPaymentYear.financialYearDays} days · rounded to $10`} />
-            <Metric label="First full model-year minimum" value={money(rail.poolA * abpMinimumRateAtAgeOn1July(60))} sub="Age 60 to 61 · a full year from the opening balance" />
-          </div>
-          <p>Illustration using today&apos;s rules. Your fund confirms the actual commencement date, balance and payment schedule. The amount you choose to draw for spending may be higher than the minimum.</p>
-          <a href="https://www.ato.gov.au/tax-and-super-professionals/for-superannuation-professionals/apra-regulated-funds/paying-benefits/income-streams" target="_blank" rel="noreferrer">ATO pension payment rules</a>
-        </details>
+        <RetirementPaymentCalendar settings={calendar} openingPoolA={rail.poolA} annualBudget={spend} netPension={rail.netPension} planningMinimum={rail.poolA * abpMinimumRateAtAgeOn1July(60)} onChange={applyCalendar} />
         {firstUnfundedYear ? <div className="note warn"><b>Funding shortfall:</b> {firstUnfundedYear.year} has {money(firstUnfundedYear.shortfall)} of the selected spending target unfunded after PSSDB and Pool A draw. Pool C is deliberately not spent automatically—choose and model a separate draw policy before treating it as income.</div> : <div className="note"><b>Funding check:</b> all displayed planning years are funded by PSSDB plus Pool A at this setting. Pool C remains a reserve and is not silently counted as spending money.</div>}
         <div className="table-wrap desktop-ledger"><table><thead><tr><th>Period</th><th>Age span</th><th>Opening capital</th><th>PSSDB pension</th><th>Hostplus accumulation</th><th>Hostplus pension</th><th>Pool C</th><th>Planning portfolio draw</th><th>Target spend</th><th>Funded spend</th><th>Shortfall</th><th>Reinvestment</th><th>Net investment growth</th><th>Pool C drag</th><th>Net income</th><th>Gross equivalent of income</th><th>Capital at period end</th></tr></thead><tbody>{ledger.slice(0, showLedger ? ledger.length : 6).map((r) => <tr key={r.age} className={r.isOpening ? "opening-row" : ""}><td><b>{r.year}</b><small className="ledger-period">{r.period}</small></td><td>{r.ageLabel}</td><td>{money(r.opening)}</td><td>{r.isOpening ? "—" : money(r.pension)}</td><td>{money(r.accumulation)}</td><td>{money(r.abp)}</td><td>{money(r.poolC)}</td><td>{r.isOpening ? "—" : money(r.draw)}</td><td>{r.isOpening ? "—" : money(r.spend)}</td><td>{r.isOpening ? "—" : money(r.fundedSpend)}</td><td>{r.isOpening ? "—" : r.shortfall > 0 ? money(r.shortfall) : "—"}</td><td>{r.isOpening ? "—" : money(r.reinvestment)}</td><td>{r.isOpening ? "—" : money(r.investmentGrowth)}</td><td>{r.isOpening ? "—" : money(r.tax)}</td><td>{r.isOpening ? "—" : money(r.netIncome)}</td><td>{r.isOpening ? "—" : money(r.grossEquivalent)}</td><td><b>{money(r.ending)}</b></td></tr>)}</tbody></table></div>
         <div className="mobile-ledger">{ledger.slice(0, showLedger ? ledger.length : 6).map((row) => row.isOpening ? <article className="opening-position" key={row.age}><header><div><span>Opening position</span><b>Age 60 · 21 Dec 2033</b></div><strong>{money(row.ending)}<small>opening capital</small></strong></header><p>No annual income or spending belongs in this snapshot. Your first retirement-year cashflow starts in the next card.</p><dl><div><dt>Hostplus pension</dt><dd>{money(row.abp)}</dd></div><div><dt>Pool C</dt><dd>{money(row.poolC)}</dd></div></dl></article> : <article key={row.age}><header><div><span>{row.year} · {row.period}</span><b>Age {row.ageLabel}</b></div><strong>{money(row.ending)}<small>ending capital</small></strong></header><dl><div><dt>PSSDB pension received</dt><dd>{money(row.pension)}</dd></div><div><dt>Planning portfolio draw</dt><dd>{money(row.draw)}</dd></div><div><dt>Target annual spending</dt><dd>{money(row.spend)}</dd></div><div><dt>Funded spending</dt><dd>{money(row.fundedSpend)}</dd></div>{row.shortfall > 0 && <div><dt>Unfunded target</dt><dd>{money(row.shortfall)}</dd></div>}<div><dt>Reinvested surplus</dt><dd>{money(row.reinvestment)}</dd></div><div><dt>Net investment growth</dt><dd>{money(row.investmentGrowth)}</dd></div><div><dt>Net income received</dt><dd>{money(row.netIncome)}</dd></div><div><dt>Gross salary equivalent</dt><dd>{money(row.grossEquivalent)}</dd></div><div><dt>Pool C at year end</dt><dd>{money(row.poolC)}</dd></div></dl></article>)}</div>
@@ -3327,6 +3369,11 @@ export default function RetirementDashboard() {
       <label>Real home value<PlanNumberInput value={homeValue} min={300000} max={1000000} step={10000} onChange={setHomeValue}/></label>
     </div>
     <p>These outputs hold total spending flat in today’s dollars. For changing spending by age, <a href={v23SpendPlanUrl}>open Income &amp; draws in V23</a>. Your saved V23 age bands remain separate. The CSC basis is before retirement; the real-return control applies afterwards.</p>
+    <p className="command-plan-id"><b>Plan ID </b><code>{commandPlan.planId}</code> · engine {commandPlan.modelRevision} · {commandPlan.sourceDate} pension source · Pool C kept in reserve · seed {simulationSeed}. Each year runs from one birthday to the next.</p>
+    {importedPlan && <p role="status">{!importedPlan.planId ? "Older settings loaded. Use the current plan ID for future exports."
+      : importedPlan.planId !== commandPlan.planId ? `The current plan ID differs from the imported ID ${importedPlan.planId}.`
+      : importedPlan.modelRevision !== commandPlan.modelRevision ? `Plan ID matches. The file used calculation version ${importedPlan.modelRevision}.`
+      : "Imported plan ID and calculation version match."}</p>}
   </details>;
 
   if(!scenarioHydrated)return <div className={`retirement-app ${theme}`}><main className="panel" role="status"><h1>Robinson Retirement</h1><p>Loading your saved plan and shared assumptions…</p><noscript>Enable JavaScript for the interactive model, or <a href="./model-reference.html">read the model reference</a>.</noscript></main></div>;

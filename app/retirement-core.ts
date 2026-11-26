@@ -62,20 +62,106 @@ export function firstFinancialYearMinimum(
     * (daysRemainingInFinancialYear / daysInYear);
 }
 
+const CALENDAR_DAY = 86_400_000;
+export const PLANNED_RETIREMENT_DATE = "2033-12-21";
+const calendarStamp = (stamp: number) => new Date(stamp).toISOString().slice(0, 10);
+
+function calendarDate(value: string, label = "calendar date") {
+  const stamp = Date.parse(`${value}T00:00:00.000Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < "1900-01-01" || value > "9997-12-31"
+    || !Number.isFinite(stamp) || calendarStamp(stamp) !== value) {
+    throw new Error(`Enter a valid ${label}.`);
+  }
+  return stamp;
+}
+
+function financialYearEnd(stamp: number) {
+  const date = new Date(stamp);
+  return date.getUTCFullYear() + (date.getUTCMonth() >= 6 ? 1 : 0);
+}
+
 /** Schedule 7 illustration using a dated pension commencement and today's rates. */
 export function firstPensionFinancialYear(openingBalance: number, age: number, commencement: string) {
-  const start = new Date(`${commencement}T00:00:00.000Z`);
-  if (!Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== commencement) {
-    throw new Error("Enter a valid pension commencement date.");
-  }
-  const year = start.getUTCFullYear();
-  const month = start.getUTCMonth();
-  const endYear = month >= 6 ? year + 1 : year;
-  const day = 86_400_000;
-  const elapsedDays = (Date.UTC(endYear, 6, 1) - start.getTime()) / day;
-  const financialYearDays = (Date.UTC(endYear, 6, 1) - Date.UTC(endYear - 1, 6, 1)) / day;
+  const start = calendarDate(commencement, "pension commencement date");
+  const month = new Date(start).getUTCMonth();
+  const endYear = financialYearEnd(start);
+  const elapsedDays = (Date.UTC(endYear, 6, 1) - start) / CALENDAR_DAY;
+  const financialYearDays = (Date.UTC(endYear, 6, 1) - Date.UTC(endYear - 1, 6, 1)) / CALENDAR_DAY;
   const raw = month === 5 ? 0 : firstFinancialYearMinimum(openingBalance, age, elapsedDays, financialYearDays);
   return { commencement, endDate: `${endYear}-06-30`, elapsedDays, financialYearDays, minimum: Math.round(raw / 10) * 10 };
+}
+
+export type RetirementCalendarInputs = {
+  retirementDate: string;
+  abpStart: string;
+  abpOpening: number;
+  abpAge: number;
+  nextJulyBalance: number | null;
+  nextJulyAge: number;
+  firstPssPayday: string | null;
+  annualLivingCosts: number;
+  netPensionPerFortnight: number;
+};
+
+/** Two financial years, using current minimums and a user-supplied PSS schedule anchor. */
+export function retirementPaymentCalendar(input: RetirementCalendarInputs) {
+  const retire = calendarDate(input.retirementDate);
+  const abpStart = calendarDate(input.abpStart);
+  const firstPay = input.firstPssPayday ? calendarDate(input.firstPssPayday) : null;
+  if (abpStart < retire || (firstPay !== null && firstPay < retire)) throw new Error("A pension start or first payday must be on or after retirement.");
+  if ([input.abpOpening, input.annualLivingCosts, input.netPensionPerFortnight, input.nextJulyBalance ?? 0]
+    .some(amount => !Number.isFinite(amount) || amount < 0)) throw new Error("Enter non-negative dollar amounts.");
+  if ([input.abpAge, input.nextJulyAge].some(age => !Number.isInteger(age) || age < 0 || age > 120)) throw new Error("Enter whole ages between 0 and 120.");
+  const baseYear = financialYearEnd(retire);
+  return [baseYear, baseYear + 1].map(year => {
+    const july = Date.UTC(year - 1, 6, 1);
+    const end = Date.UTC(year, 6, 1);
+    const from = Math.max(retire, july);
+    const days = (end - from) / CALENDAR_DAY;
+    const yearDays = (end - july) / CALENDAR_DAY;
+    const interval = 14 * CALENDAR_DAY;
+    const dates: string[] = [];
+    if (firstPay !== null) {
+      const firstInYear = firstPay + Math.max(0, Math.ceil((from - firstPay) / interval)) * interval;
+      for (let stamp = firstInYear; stamp < end; stamp += interval) dates.push(calendarStamp(stamp));
+    }
+    const firstYear = abpStart >= from && abpStart < end;
+    const minimum = firstYear ? firstPensionFinancialYear(input.abpOpening, input.abpAge, input.abpStart).minimum
+      : abpStart < from && input.nextJulyBalance !== null
+        ? firstPensionFinancialYear(input.nextJulyBalance, input.nextJulyAge, calendarStamp(july)).minimum
+        : null;
+    return {
+      from: calendarStamp(from), to: calendarStamp(end - CALENDAR_DAY), days, yearDays,
+      livingCosts: input.annualLivingCosts * days / yearDays,
+      pssDates: firstPay === null ? null : dates,
+      estimatedPssPayments: firstPay === null ? null : dates.length * input.netPensionPerFortnight,
+      abpMinimum: minimum, abpBasis: firstYear ? "commencement" : abpStart >= end ? "starts-later" : "july-balance",
+    };
+  });
+}
+
+export type PlanReceiptInput = {
+  workspace: "v23" | "command-centre";
+  modelRevision: string;
+  source: string;
+  sourceDate: string | null;
+  poolCPolicy: "preserve" | "after-abp";
+  periodConvention: string;
+  simulationSeed: number;
+  assumptions: Record<string, unknown>;
+};
+
+export function planReceipt({ assumptions, ...about }: PlanReceiptInput) {
+  const canonical = JSON.stringify({ ...about, modelRevision: undefined, assumptions }, (_key, value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]]));
+  });
+  // A plan ID is a stable identifier for comparing saved inputs and exports.
+  let hash = 0xcbf29ce484222325n;
+  for (let i = 0; i < canonical.length; i += 1) {
+    hash = BigInt.asUintN(64, (hash ^ BigInt(canonical.charCodeAt(i))) * 0x100000001b3n);
+  }
+  return { schema: 1, ...about, planId: `${about.workspace}-${hash.toString(16).padStart(16, "0")}` };
 }
 
 export const FUNDING_TOLERANCE = 0.005;
@@ -151,7 +237,7 @@ export function countFundingPath(
  * Pool B, one-off and policy-aware workbench ledger until that richer domain
  * can be migrated with its own parity contract.
  */
-export const RETIREMENT_ENGINE_VERSION = "2026-11-26.1";
+export const RETIREMENT_ENGINE_VERSION = "2026-11-26.2";
 export const TRANSFER_BALANCE_CAP = 2_100_000;
 export const TRANSFER_BALANCE_BUFFER = 5_000;
 export const HOSTPLUS_OPENING_ANCHOR = 317_447.66;
@@ -160,6 +246,11 @@ export const POOL_C_MODELLED_DRAG = 0.0035;
 
 export type PssElectionKey = "60-40" | "65-35" | "70-30" | "100";
 export type PssProjectionBasisKey = "source-825" | "prudent-630";
+
+export function pssEstimateDate(rail: "A" | "B", basis: PssProjectionBasisKey, election: PssElectionKey | null) {
+  if (rail === "A") return "March 2026";
+  return basis === "prudent-630" && election === "100" ? "9 September 2026" : "1 September 2026";
+}
 
 export type PssElection = {
   key: PssElectionKey;

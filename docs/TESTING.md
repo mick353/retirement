@@ -12,8 +12,8 @@ npm exec -- playwright install --only-shell chromium
 
 | Checkout | Command | Result |
 | --- | --- | --- |
-| GitHub Pages | `npm run typecheck && npm test && npm run test:browser` | TypeScript, model and website checks, 24 Node tests, and browser journeys against the Pages build |
-| ChatGPT Sites | `npm test` | Sites build, model and website checks, 25 Node tests, and browser journeys against the built Worker and assets |
+| GitHub Pages | `npm run typecheck && npm test && npm run test:browser` | TypeScript, model and website checks, 28 Node tests, and browser journeys against the Pages build |
+| ChatGPT Sites | `npm test` | Sites build, model and website checks, 29 Node tests, and browser journeys against the built Worker and assets |
 
 The V23 matrix tests 384 combinations of PSS basis, election, annual return, spending rule, and Pool C policy. The separate core validator checks prior calculation behaviour against the recorded deterministic and seeded-risk fixtures.
 
@@ -45,3 +45,7 @@ The spending-band journey checks that the year, amount and budget basis fit at w
 Decision-integrity checks use the review's $160,000 example. Of 600 seeded Command Centre paths, 427 pass the age-75 investment floor and 11 also fund every spending year. Existing balance paths and percentiles retain frozen-ledger parity. The browser checks the upfront verdict, trigger count, one-off limit, policy result invalidation, keyboard Guide, explicit Surface draft, and saved/revised annual forecast. Pension-calendar checks cover first-year pro-rating, leap years, 1 June and nearest-$10 rounding.
 
 The Decision Brief browser check verifies at least 4.5:1 contrast for the four result notes in both themes. The offline check replaces obsolete retirement caches, preserves an unrelated cache on the same origin, and opens the example Decision Brief offline. The Sites test server reproduces production redirects so both the .html link and the canonical Site URL are tested. Real-device Safari, operating-system PWA installation, and pixel-by-pixel comparison remain separate checks.
+
+The decision workbench test checks fixed paths against the earlier independent replay, confirms and cancels a draft, compares the annual trace to the CSV and chart, and verifies the plan receipt. A near-floor model fixture explains why the flat and detailed conclusions can differ. The payment calendar fixture covers July, December, June, leap years, delayed commencement, and the next 1 July balance. Synthetic AI tests compare the preview to the request and verify the optional notes boundary.
+
+The offline test opens Command Centre from a new tab without internet, then loads and edits an older V23 age-band plan and reopens it after deferring an update. Additional engine checks use `npm run test:browser -- --mobile-engine ios` with Playwright WebKit and `npm run test:browser -- --mobile-engine android` with Chromium. Install the WebKit browser with `npm exec -- playwright install webkit` for the iOS-sized run. These profiles reproduce the mobile viewport and input capabilities in a desktop browser.
