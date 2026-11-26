@@ -78,11 +78,12 @@ test("V23 scenario matrix remains finite, reconciled and horizon-complete", () =
             STATE.spendMode=schedule.mode;STATE.spendReturnPct=schedule.pct;STATE.gapBands=schedule.bands.map(b=>({...b}));STATE.poolCPolicy=policy;STATE.totalSpendTarget=schedule.total??null;
             const sim=runModel({profile,abpReturn:annualReturn,accumReturn:annualReturn*.85});
             if(sim.rows.length!==36||sim.rows[0].age!==60||sim.rows.at(-1).age!==95||!sim.rows[0].launchSnapshot)throw new Error("Projection horizon mismatch");
-            for(const row of sim.rows){
+            for(const [index,row] of sim.rows.entries()){
               const numbers=[row.poolA,row.poolB,row.poolC,row.total,row.fundedGap,row.fundedTotalSpend,row.spendingShortfall,row.investmentReturn,row.poolCDraw,row.oneOffPoolCDrawn];
               if(numbers.some(value=>!Number.isFinite(value)))throw new Error("Non-finite model output");
               if([row.poolA,row.poolB,row.poolC].some(value=>value<-.02))throw new Error("Negative pool balance");
               if(Math.abs(row.total-(row.poolA+row.poolB+row.poolC))>.02)throw new Error("Pool total does not reconcile");
+              if(Math.abs(cashTrace(sim.rows,index).balanceResidual)>=.005)throw new Error("Cash-flow trace does not reconcile to the cent");
               if(!row.launchSnapshot){
                 if(row.fundedTotalSpend-row.targetSpend>.02)throw new Error("Funded spending exceeds target");
                 if(Math.abs(row.spendingShortfall-Math.max(0,row.targetSpend-row.fundedTotalSpend))>.02)throw new Error("Shortfall does not reconcile");
@@ -106,6 +107,56 @@ test("V23 scenario matrix remains finite, reconciled and horizon-complete", () =
   assert.deepEqual([...result.sourceElections].sort(), ["100", "60-40", "65-35", "70-30"]);
   assert.deepEqual([...result.prudentElections].sort(), ["100", "60-40", "65-35", "70-30"]);
   assert.ok(result.cases.every((entry) => Number.isFinite(entry.end) && entry.end >= 0));
+});
+
+test("drafts explain the cashflow trade-off and use the independently replayed market paths", () => {
+  const context = modelContext();
+  const result = JSON.parse(vm.runInContext(`(() => {
+    STATE.pssProjectionBasis="prudent-630";
+    selectPssElection("70-30",{spendTarget:160000});
+    Object.assign(STATE,{essentialSpending:122000,likely:.05,vol:.12,targetAge:75,simulationSeed:20260814,poolCPolicy:"preserve",oneOff:0});
+    const original=captureScenarioState();
+    const plans=compareDecisionDrafts(original,{budget:122000,election:"100",semantics:"total"});
+    const summary=plans.map(({id,firstYearBudget,check,funding,age75})=>({id,firstYearBudget,miss:check.firstBudgetMiss?.age??null,essentialMiss:check.firstEssentialMiss?.age??null,
+      unfunded:Math.round(check.planned-check.funded),capital:Math.round(age75),both:funding.lifestyleAndCapital}));
+    const changed=JSON.stringify(original)!==JSON.stringify(captureScenarioState());
+    const bands={...original,totalSpendTarget:null,spendMode:"fixed",gapGrowth:0,gapBands:[{age:60,amount:24000,unit:"dollar",startOnBirthday:false},{age:70,amount:18000,unit:"dollar",startOnBirthday:true}]};
+    const sameTotal=decisionDraftPlans(bands,{election:"100",semantics:"total"}).find(plan=>plan.id==="election");
+    const sameGap=decisionDraftPlans(bands,{election:"100",semantics:"gap"}).find(plan=>plan.id==="election");
+    const baseline=JSON.stringify(scenarioStateResult(bands).sim.rows.map(row=>row.targetSpend));
+    const flatSameTotal=JSON.stringify(scenarioStateResult(sameTotal.state).sim.rows.map(row=>row.targetSpend));
+    const altGap=scenarioStateResult(sameGap.state).sim.rows[1].gap;
+    const noPct=decisionDraftPlans({...bands,gapBands:[{age:60,amount:70,unit:"drawPct"}]},{election:"100",semantics:"total"}).find(plan=>plan.id==="election");
+    return JSON.stringify({summary,changed,baseline,flatSameTotal,altGap,unsupported:Boolean(noPct.state)});
+  })()`, context));
+  assert.equal(result.changed, false, "A comparison does not change the active plan");
+  assert.deepEqual(result.summary.filter(plan => plan.id !== "election"), [
+    { id: "current", firstYearBudget: 160000, miss: 69, essentialMiss: 70, unfunded: 414150, capital: 717616, both: 1 },
+    { id: "budget", firstYearBudget: 122000, miss: null, essentialMiss: null, unfunded: 0, capital: 1062576, both: result.summary[1].both },
+    { id: "reserve", firstYearBudget: 160000, miss: null, essentialMiss: null, unfunded: 0, capital: 247151, both: 50 },
+  ]);
+  assert.ok(Math.abs(result.altGap - 24000) < .005);
+  assert.equal(result.baseline, result.flatSameTotal, "Fixed-band budget dollars and timing both carry to the alternate election");
+  assert.equal(result.unsupported, false);
+});
+
+test("a near-floor handoff labels a different verdict across the two ledgers", () => {
+  const context = modelContext();
+  const result = JSON.parse(vm.runInContext(`(() => {
+    STATE.pssProjectionBasis="prudent-630";
+    selectPssElection("60-40",{spendTarget:80000});
+    restoreCustomInputs({floor:8184});
+    Object.assign(STATE,{targetAge:95,likely:.065,poolCPolicy:"preserve",oneOff:0});
+    const result=flatHandoffComparison({rail:"B",pssElection:"60-40",pssProjectionBasis:"prudent-630",spend:80000,targetAge:95,realReturn:.065});
+    const state=captureScenarioState();
+    const receipt=detailedPlanReceipt(state);
+    return JSON.stringify({flatPass:result.flatPass,detailedPass:result.detailedPass,flat:Math.round(result.flat.capital),detailed:Math.round(result.detailed.capital),receipt});
+  })()`, context));
+  assert.equal(result.flatPass, true);
+  assert.equal(result.detailedPass, false);
+  assert.equal(result.flat, 8_208_761);
+  assert.equal(result.detailed, 8_158_257);
+  assert.equal(result.receipt.sourceDate, "1 September 2026");
 });
 
 test("Pool C spending policy is explicit, reconciled and reduces rather than hides a shortfall", () => {

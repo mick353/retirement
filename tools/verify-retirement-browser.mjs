@@ -4,12 +4,15 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { chromium } from "playwright";
+import { chromium, devices, webkit } from "playwright";
 
-const { values: { artifact = "pages", url } } = parseArgs({
-  options: { artifact: { type: "string" }, url: { type: "string" } },
+const { values: { artifact = "pages", url, "mobile-engine": mobileEngine } } = parseArgs({
+  options: { artifact: { type: "string" }, url: { type: "string" }, "mobile-engine": { type: "string" } },
 });
 assert.ok(["pages", "sites"].includes(artifact), "Use --artifact pages or --artifact sites");
+assert.ok(mobileEngine === undefined || ["ios", "android"].includes(mobileEngine), "Use --mobile-engine ios or android");
+const mobileProfile = mobileEngine === "ios" ? devices["iPhone 13"] : mobileEngine === "android" ? devices["Pixel 7"] : {};
+const { defaultBrowserType, ...mobileOptions } = mobileProfile;
 
 const types = {
   ".css": "text/css", ".html": "text/html", ".ico": "image/x-icon",
@@ -28,6 +31,12 @@ async function serveBuild() {
     const path = decodeURIComponent(url.pathname);
     if (!path.startsWith(prefix)) return new Response("Not found", { status: 404 });
     const relative = path.slice(prefix.length);
+    if (relative === "sw.js" && url.searchParams.get("test-install") === "missing-asset") {
+      const original = await readFile(resolve(root, "sw.js"), "utf8");
+      const interrupted = original.replace(/v\d+`;/, "v-interrupted`;")
+        .replace("const APP_SHELL = [", 'const APP_SHELL = [scopedUrl("unavailable-test-shell.js"),');
+      return new Response(interrupted, { headers: { "content-type": "text/javascript" } });
+    }
     if (!isPages && ["deep-model.html", "atlas.html", "atlas-prototype.html", "model-reference.html"].includes(relative)) {
       url.pathname = url.pathname.slice(0, -5);
       return Response.redirect(url.href, 307);
@@ -389,8 +398,8 @@ async function exerciseV23EdgeCases(page, base) {
   await page.locator("#btn-csv").click();
   const csv = await readFile(await (await csvDownload).path(), "utf8");
   const [header, launch] = csv.split("\n").map((row) => row.split(","));
-  assert.deepEqual(header.slice(-3), ["One-off Requested", "One-off Funded", "One-off Unfunded"]);
-  assert.deepEqual(launch.slice(-3), ["190000", "0", "190000"]);
+  assert.deepEqual(header.slice(20, 23), ["One-off Requested", "One-off Funded", "One-off Unfunded"]);
+  assert.deepEqual(launch.slice(20, 23), ["190000", "0", "190000"]);
   const likely = await chartValues(page, "#oo_chart", "Likely (6.5%)");
   assert.ok(likely[0] > 0);
   assert.ok(likely.slice(1).every((value) => value === null), "The chart omits unfunded one-off points");
@@ -802,12 +811,135 @@ async function exerciseDecisionIntegrity(page, base) {
   assert.deepEqual(await spending.locator("dd").allInnerTexts(),["$160,000","$120,000","$122,000"]);
 }
 
+async function exerciseDecisionWorkbench(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  const shared = "shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=75&seed=20260814&theme=dark";
+  const deep = new URL(`deep-model.html?page=decisionbrief&${shared}`, base);
+  await open(page, deep);
+  await page.locator("#v23-set-essentials").click();
+  await page.locator("#v23_essentials").fill("122000");
+  await page.locator("#v23_essentials").press("Tab");
+  assert.match(await page.locator("#v23-funding-explanation").innerText(), /Pool C counts toward your investments and stays in reserve/);
+  const fullBudget = page.locator("#v23-decision-outcomes .card").filter({ hasText: "Full budget through 75" });
+  await fullBudget.getByRole("button", { name: "Inspect age 69" }).click();
+  const trace = page.locator("#decision-trace-results");
+  assert.match(await page.locator("#decision-trace-label").innerText(), /age 68 to 69/);
+  const value = (root, term) => root.locator("dl > div").filter({ has: page.getByText(term, { exact: true }) }).first().locator("dd").innerText();
+  assert.equal(await value(trace, "Net pension spent"), "$95,434.30");
+  assert.equal(await value(trace, "Pool C spent"), "$0.00");
+  assert.equal(await value(trace, "Cash flow reconciliation difference"), "$0.00");
+
+  await page.locator("#decision-trace-age").selectOption("75");
+  const download = page.waitForEvent("download");
+  await page.locator("#btn-csv").click();
+  const rawCsv = await readFile(await (await download).path(), "utf8");
+  const [fields, ...annual] = rawCsv.split("\n").map(row => row.split(","));
+  const ending75 = annual.find(row => row[0] === "75");
+  const csvCapital = Number(ending75[fields.indexOf("Closing investments exact ($)")]);
+  const chartCapital = (await chartValues(page, "#brief_chart", "Capital @75"))[2];
+  assert.ok(Math.abs(csvCapital - chartCapital) < .005);
+  assertMoney(Number((await value(trace, "Closing investments")).replace(/[$,]/g, "")), csvCapital, "Trace agrees with the exported ledger");
+
+  await page.getByRole("button", { name: "Compare alternatives", exact: true }).click();
+  await page.locator("#decision-draft-budget").fill("122000");
+  await page.locator("#decision-draft-semantics").selectOption("total");
+  const run = page.getByRole("button", { name: "Run plan comparison", exact: true });
+  await run.click();
+  const result = (id) => page.locator(`[data-draft-id="${id}"]`);
+  assert.equal(await value(result("current"), "Full budget + floor through 75"), "1 of 200 (0.5%)");
+  assert.equal(await value(result("reserve"), "Full budget + floor through 75"), "50 of 200 (25%)");
+  assert.equal(await value(result("budget"), "Investments at 75"), "$1,062,576");
+  assert.equal(await value(result("election"), "First-year budget"), "$160,000.00");
+  const openBudget = result("budget").getByRole("button");
+  await openBudget.click();
+  const preview = page.locator("#decision-draft-preview");
+  assert.match(await preview.innerText(), /\$122,000\/yr total/);
+  await preview.getByRole("button", { name: "Keep current plan", exact: true }).click();
+  assert.match(await fullBudget.innerText(), /\$414,150 unfunded/);
+  await page.locator("#decision-draft-budget").fill("125000");
+  assert.equal(await page.locator("#decision-draft-results").isVisible(), false);
+  await page.locator("#decision-draft-budget").fill("122000");
+  await run.click();
+  await openBudget.click();
+  const draftId = await value(preview, "Draft plan ID");
+  await preview.getByRole("button", { name: "Apply draft to V23", exact: true }).click();
+  await page.getByText("Lower flat budget applied in V23.", { exact: false }).waitFor();
+  assert.match(await page.locator("#brief_reco").innerText(), /full \$1,830,000 planned/);
+  const settings = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export settings", exact: true }).click();
+  const portable = JSON.parse(await readFile(await (await settings).path(), "utf8"));
+  assert.equal(portable.plan.planId, draftId);
+  assert.equal(portable.plan.sourceDate, "1 September 2026");
+  assert.equal(portable.plan.simulationSeed, 20260814);
+  assert.equal(portable.state.totalSpendTarget, 122000);
+
+  await open(page, new URL(`?section=scenario&tool=lab&${shared}`, base));
+  const calendar = page.locator(".dated-payment");
+  await calendar.locator(":scope > summary").click();
+  assert.match(await calendar.innerText(), /21 Dec 2033 to 30 June? 2034.*192 of 365.*\$84,164.*\$9,290/s);
+  await calendar.getByText("Enter dates and balances for this calendar", { exact: true }).click();
+  await calendar.getByLabel("First PSS payday (optional)").fill("2034-01-05");
+  await calendar.getByLabel("Balance at next 1 July ($)").fill("400000");
+  await calendar.getByLabel("Age at next 1 July").fill("65");
+  await calendar.getByRole("button", { name: "Update calendar" }).click();
+  assert.match(await calendar.innerText(), /13 estimated PSS paydays.*\$20,000.*26 estimated PSS paydays/s);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await calendar.locator(":scope > summary").click();
+  assert.match(await calendar.innerText(), /\$20,000.*26 estimated PSS paydays/s);
+}
+
+async function exerciseAIContextPrivacy(page, base) {
+  const requests = [];
+  const endpoint = "**/api/retirement-ai";
+  await page.route(endpoint, async route => {
+    const headers = { "access-control-allow-origin":"*", "access-control-allow-methods":"POST, OPTIONS", "access-control-allow-headers":"content-type" };
+    if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, headers, contentType: "text/event-stream", body: 'data: {"text":"Synthetic privacy response"}\n\n' });
+  });
+  const check = async ({ panel, input, preview, notes, secret, optionalKey, draft }) => {
+    await panel.getByText("Preview data before sending", { exact:true }).click();
+    const field = panel.locator(input);
+    const send = panel.getByRole("button", { name:"Send", exact:true });
+    await field.fill(draft);
+    assert.equal(JSON.parse(await panel.locator(preview).textContent()).context[optionalKey], undefined);
+    await send.click();
+    await panel.getByText("Synthetic privacy response", { exact:true }).last().waitFor();
+    assert.equal(requests.at(-1).context[optionalKey], undefined);
+    assert.ok(!JSON.stringify(requests.at(-1)).includes(secret));
+    assert.equal(requests.at(-1).messages.length, 1);
+    await panel.getByLabel("Include saved reviews and scenarios").check();
+    assert.ok(!JSON.stringify(JSON.parse(await panel.locator(preview).textContent()).context).includes(secret));
+    await panel.getByLabel(notes).check();
+    assert.ok(JSON.stringify(JSON.parse(await panel.locator(preview).textContent()).context).includes(secret));
+    await field.fill("Send the selected note.");
+    await send.click();
+    await panel.getByText("Synthetic privacy response", { exact:true }).nth(1).waitFor();
+    assert.ok(JSON.stringify(requests.at(-1).context[optionalKey]).includes(secret));
+    assert.equal(requests.at(-1).messages.length, 1, "Previous chat needs explicit opt-in");
+  };
+  try {
+    await open(page, new URL("deep-model.html?page=decisionbrief&shared=1&rail=B&pss=70-30&spend=122000",base));
+    await page.locator('[data-note-key="decisionbrief"]').fill("SYNTHETIC PRIVATE V23 NOTE");
+    await page.locator("#v23-ai-launcher").click();
+    await check({ panel:page.locator("#v23-ai-panel"), input:"#v23-ai-input", preview:"#v23-ai-context-preview",
+      notes:"Include personal adviser notes", secret:"SYNTHETIC PRIVATE V23 NOTE", optionalKey:"adviserNotes", draft:"Check the model." });
+    await open(page,new URL("?section=review",base));
+    await page.locator(".actual-plan-note textarea").fill("SYNTHETIC PRIVATE CC NOTE");
+    await page.locator(".ai-launcher").click();
+    await check({ panel:page.locator("#retirement-ai-panel"), input:"#retirement-ai-message", preview:"#cc-ai-context-preview",
+      notes:"Include personal review notes", secret:"SYNTHETIC PRIVATE CC NOTE", optionalKey:"reviewNotes", draft:"Check the review basis." });
+  } finally {
+    await page.unroute(endpoint);
+  }
+}
+
 async function exerciseOfflineWorkbench(browser, base) {
-  const context = await browser.newContext();
+  const context = await browser.newContext(mobileOptions);
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
@@ -820,10 +952,62 @@ async function exerciseOfflineWorkbench(browser, base) {
     assert.ok(cacheNames.includes("unrelated-site-cache"), "Cache activation leaves other sites' caches intact");
     assert.ok(retiredCaches.every(name => !cacheNames.includes(name)), "The obsolete retirement caches are removed");
     await context.setOffline(true);
+    const cold = await context.newPage();
+    await open(cold, new URL("?section=scenario&tool=lab", base));
+    await cold.locator(".shared-plan-controls").waitFor();
+    await cold.close();
     for (const url of new Set([canonical, deep.href])) {
       await open(page, new URL(url));
       assert.match(await page.locator("#v23-decision-summary").innerText(), /\$414,150 unfunded.*age 69/s);
     }
+    await page.evaluate(() => {
+      const legacy = JSON.parse(localStorage.getItem("v23_4_state"));
+      legacy.totalSpendTarget = null;
+      legacy.gapBands = [{age:60,amount:25000,unit:"dollar",startOnBirthday:false},{age:70,amount:15000,unit:"dollar",startOnBirthday:false}];
+      delete legacy.sharedImport;
+      localStorage.removeItem("v23_4_state");
+      localStorage.setItem("v23_3_state", JSON.stringify(legacy));
+      localStorage.setItem("v23_welcome", "done");
+    });
+    const older = await context.newPage();
+    const income = new URL("deep-model.html?page=income", base);
+    await open(older, income);
+    const toggle = older.locator("#plan-controls-toggle");
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    const amount = older.locator('[data-band-amount="0"]');
+    assert.equal(await amount.inputValue(),"25000");
+    await amount.fill("27000");
+    await amount.press("Tab");
+    const update = await older.evaluate(async () => {
+      const registration = await navigator.serviceWorker.ready;
+      const active = registration.active;
+      try { await registration.update(); } catch { /* network unavailable */ }
+      return { offline:!navigator.onLine, sameWorker:registration.active===active, waiting:Boolean(registration.waiting) };
+    });
+    assert.deepEqual(update,{offline:true,sameWorker:true,waiting:false},"An offline update leaves the installed release available");
+    await older.reload({waitUntil:"domcontentloaded"});
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    assert.equal(await amount.inputValue(),"27000");
+    if (!url) {
+      await context.setOffline(false);
+      const interrupted = await older.evaluate(async () => {
+        const installed=await navigator.serviceWorker.ready;
+        const script=new URL(installed.active.scriptURL);
+        script.searchParams.set("test-install","missing-asset");
+        const prior=installed.active.scriptURL;
+        const next=await navigator.serviceWorker.register(script.href,{scope:installed.scope});
+        const candidate=next.installing;
+        if (candidate&&!["redundant","activated"].includes(candidate.state)) await new Promise(resolve => {
+          const timeout=setTimeout(resolve,5000);
+          candidate.addEventListener("statechange", () => {
+            if (["redundant","activated"].includes(candidate.state)){clearTimeout(timeout);resolve();}
+          });
+        });
+        return {retained:next.active?.scriptURL===prior,badCache:(await caches.keys()).includes("robinson-retirement-pages-v-interrupted")};
+      });
+      assert.deepEqual(interrupted,{retained:true,badCache:false},"A replacement with a missing launch asset keeps the installed worker and removes its incomplete cache");
+    }
+    await older.close();
     console.log(`Retirement cache upgrade and offline V23 passed on ${base.href}`);
   } finally {
     await context.close();
@@ -833,23 +1017,27 @@ async function exerciseOfflineWorkbench(browser, base) {
 const preview = url ? { base: new URL(url.endsWith("/") ? url : url + "/") } : await serveBuild();
 let browser;
 try {
-  browser = await chromium.launch();
-  for (const width of [390, 1440]) {
-    const context = await browser.newContext({ viewport: { width, height: 950 }, locale: "en-AU", reducedMotion: "reduce" });
+  browser = await (defaultBrowserType === "webkit" ? webkit : chromium).launch();
+  for (const width of mobileEngine ? [mobileOptions.viewport.width] : [390, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 950 }, ...mobileOptions, locale: "en-AU", reducedMotion: "reduce" });
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(15000);
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await exerciseV23(page, preview.base);
-      await exerciseV23EdgeCases(page, preview.base);
-      await exerciseExplorer(page, preview.base);
-      await exerciseAuditedControls(page, preview.base);
-      await exerciseBandEditor(page, preview.base);
-      await exerciseDecisionBrief(page, preview.base);
-      await exerciseDecisionIntegrity(page, preview.base);
+      if (!mobileEngine) {
+        await exerciseV23EdgeCases(page, preview.base);
+        await exerciseExplorer(page, preview.base);
+        await exerciseAuditedControls(page, preview.base);
+        await exerciseBandEditor(page, preview.base);
+        await exerciseDecisionBrief(page, preview.base);
+        await exerciseDecisionIntegrity(page, preview.base);
+      }
+      await exerciseDecisionWorkbench(page, preview.base);
+      await exerciseAIContextPrivacy(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
-      console.log(`Retirement browser journeys passed at ${width}px on ${preview.base.href}`);
+      console.log(`Retirement browser journeys passed at ${width}px${mobileEngine ? ` (${mobileEngine} profile)` : ""} on ${preview.base.href}`);
     } finally {
       await context.close();
     }

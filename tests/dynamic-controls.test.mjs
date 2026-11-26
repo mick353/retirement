@@ -29,6 +29,51 @@ test("Hostplus central case and ABP timing controls retain their governed regres
   assert.throws(()=>core.firstPensionFinancialYear(100_000,60,"2027-02-30"), /valid pension commencement/);
 });
 
+test("the payment calendar differentiates living costs, fortnightly PSS and the fund minimum", () => {
+  const inputs = {
+    retirementDate: "2033-12-21", abpStart: "2033-12-21", abpOpening: 441_674.40, abpAge: 60,
+    nextJulyBalance: 400_000, nextJulyAge: 65, firstPssPayday: "2034-01-05",
+    annualLivingCosts: 160_000, netPensionPerFortnight: 3_670.55,
+  };
+  const [start, next] = core.retirementPaymentCalendar(inputs);
+  assert.equal(start.days, 192);
+  assert.equal(start.abpMinimum, 9290);
+  assert.equal(Number(start.livingCosts.toFixed(2)), 84_164.38);
+  assert.equal(start.pssDates[0], "2034-01-05");
+  assert.equal(start.pssDates.at(-1), "2034-06-22");
+  assert.equal(start.pssDates.length, 13);
+  assert.ok(Math.abs(start.estimatedPssPayments - 47_717.15) < .005);
+  assert.equal(next.from, "2034-07-01");
+  assert.equal(next.livingCosts, 160_000);
+  assert.equal(next.abpMinimum, 20_000);
+  assert.equal(next.pssDates[0], "2034-07-06");
+  assert.equal(next.pssDates.length, 26);
+  const leap = core.retirementPaymentCalendar({ ...inputs, retirementDate: "2027-07-01", abpStart: "2027-07-01", firstPssPayday: null });
+  assert.equal(leap[0].days, 366);
+  assert.equal(leap[0].abpMinimum, 17_670);
+  assert.equal(leap[0].estimatedPssPayments, null);
+  assert.equal(core.retirementPaymentCalendar({ ...inputs, abpStart: "2034-06-01", nextJulyBalance: null })[0].abpMinimum, 0);
+  const delayed = core.retirementPaymentCalendar({ ...inputs, abpStart: "2034-07-01", nextJulyBalance: null });
+  assert.equal(delayed[0].abpBasis, "starts-later");
+  assert.equal(delayed[1].abpMinimum, 17_670);
+  assert.throws(() => core.retirementPaymentCalendar({ ...inputs, firstPssPayday: "2033-12-01" }), /on or after retirement/);
+});
+
+test("plan IDs travel across builds and track material assumption changes", () => {
+  const input = {
+    workspace: "v23", modelRevision: "test", source: "CSC", sourceDate: "9 September 2026",
+    poolCPolicy: "preserve", periodConvention: "Birthday", simulationSeed: 20260814,
+    assumptions: { bands: [{ amount: 28_000, age: 60 }, { age: 70, amount: 18_000 }], rate: .05, saved: { budget: 0 } },
+  };
+  const first = core.planReceipt(input);
+  const reordered = core.planReceipt({ ...input, modelRevision: "newer test", assumptions: { rate: .05, saved: { budget: 0 }, bands: [{ age: 60, amount: 28_000 }, { amount: 18_000, age: 70 }] } });
+  assert.equal(reordered.planId, first.planId);
+  assert.notEqual(reordered.modelRevision, first.modelRevision);
+  assert.notEqual(core.planReceipt({ ...input, poolCPolicy: "after-abp" }).planId, first.planId);
+  assert.notEqual(core.planReceipt({ ...input, simulationSeed: 20260815 }).planId, first.planId);
+  assert.notEqual(core.planReceipt({ ...input, sourceDate: null }).planId, first.planId);
+});
+
 test("provider projection bases are explicit, shared and election-gated", () => {
   for (const source of [dashboard, atlas, v23]) {
     assert.match(source, /source-825/);

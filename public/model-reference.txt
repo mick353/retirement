@@ -1,7 +1,7 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
 Source reconciliation: 9 September 2026; guide review: 26 November 2026
-Canonical retirement-engine version: 2026-11-26.1; detailed workbench V23.11.2
+Canonical retirement-engine version: 2026-11-26.2. Detailed workbench V23.12.
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
@@ -25,6 +25,10 @@ Keep desired spending, funded spending and investment capital separate. Higher i
 
 DECISION AND REVIEW
 - Start with the V23 Decision Brief at ./deep-model.html?page=decisionbrief. Enter an annual net essentials budget in Plan controls to test that minimum through the selected age. Check the first missed year and investments at 75 and 85.
+- Compare alternatives puts the current plan, a different flat budget, another pension election and a Pool C policy on the same 200 market paths. Check the budget rule before applying a draft.
+- Inspect an age to trace the money spent from the pension and each set of pools, amounts kept invested, and closing balances. Settings and the Brief print pack include the plan ID and calculation revision. Settings from either host can be opened in the same workspace on the other host.
+- The Scenario Lab payment calendar separates planned living costs, estimated PSS payments and the financial-year ABP minimum. Enter provider dates and balances when available. The calendar uses Schedule 7 as at 1 July 2026.
+- Preview data before sending in either AI panel. Saved reviews, personal notes and recent chat are independent choices and start off.
 - Risk and Monte Carlo report full-budget, essentials, capital-floor and joint measures. Spending checks cover each intervening year. Capital is measured at the checkpoint. The joint tests use the same simulated path for both requirements.
 - Surface applies spending and return under Command Centre's reserve rule. Reviewing a Pool C draw opens a V23 draft that requires a separate apply action. Returning from V23 previews the first-year budget as a flat comparison.
 - One-off capacity shows the investment-floor-only maximum and the editable range. The essentials limit also checks ordinary spending through the selected age.
