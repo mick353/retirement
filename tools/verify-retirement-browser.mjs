@@ -24,9 +24,14 @@ async function serveBuild() {
   const worker = isPages ? null : (await import(pathToFileURL(resolve("dist/server/index.js")).href)).default;
 
   async function assets(request) {
-    const path = decodeURIComponent(new URL(request.url).pathname);
+    const url = new URL(request.url);
+    const path = decodeURIComponent(url.pathname);
     if (!path.startsWith(prefix)) return new Response("Not found", { status: 404 });
     const relative = path.slice(prefix.length);
+    if (!isPages && ["deep-model.html", "atlas.html", "atlas-prototype.html", "model-reference.html"].includes(relative)) {
+      url.pathname = url.pathname.slice(0, -5);
+      return Response.redirect(url.href, 307);
+    }
     const file = resolve(root, relative || "index.html");
     if (!file.startsWith(root + sep)) return new Response("Not found", { status: 404 });
     for (const candidate of extname(file) ? [file] : [file, file + ".html"]) {
@@ -787,17 +792,21 @@ async function exerciseOfflineWorkbench(browser, base) {
     await open(page, new URL("model-reference.txt", base));
     await page.evaluate(async () => {
       await caches.open("robinson-retirement-pages-v28");
+      await caches.open("robinson-retirement-pages-v29");
       await caches.open("unrelated-site-cache");
     });
     const deep = new URL("deep-model.html?page=decisionbrief&shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=75", base);
     await open(page, deep);
+    const canonical = page.url();
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
     const cacheNames = await page.evaluate(() => caches.keys());
     assert.ok(cacheNames.includes("unrelated-site-cache"), "Cache activation leaves other sites' caches intact");
-    assert.ok(!cacheNames.includes("robinson-retirement-pages-v28"), "The obsolete retirement cache is removed");
+    assert.ok(!cacheNames.includes("robinson-retirement-pages-v28") && !cacheNames.includes("robinson-retirement-pages-v29"), "The obsolete retirement caches are removed");
     await context.setOffline(true);
-    await open(page, deep);
-    assert.match(await page.locator("#v23-decision-summary").innerText(), /\$414,150 unfunded.*age 69/s);
+    for (const url of new Set([canonical, deep.href])) {
+      await open(page, new URL(url));
+      assert.match(await page.locator("#v23-decision-summary").innerText(), /\$414,150 unfunded.*age 69/s);
+    }
     console.log(`Retirement cache upgrade and offline V23 passed on ${base.href}`);
   } finally {
     await context.close();

@@ -1,7 +1,7 @@
 ROBINSON RETIREMENT MODEL REFERENCE
 Static, crawler-readable documentation
 Source reconciliation: 9 September 2026; guide review: 26 November 2026
-Canonical retirement-engine version: 2026-11-26.1; detailed workbench V23.11
+Canonical retirement-engine version: 2026-11-26.1; detailed workbench V23.11.1
 
 PUBLIC INTERFACES
 - Interactive Command Centre: ./
