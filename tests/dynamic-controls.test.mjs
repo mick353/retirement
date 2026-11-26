@@ -218,7 +218,7 @@ test("V23 Plan controls use one accessible collapsible summary on desktop and mo
   assert.match(v23, /function setProfileControlsExpanded\(expanded\)/);
   assert.match(v23, /id="sel_poolcpolicy"/);
   assert.match(v23, /Use Pool C after Pools A and B are exhausted/);
-  assert.match(v23, /Pool C \$\{STATE\.poolCPolicy==="after-abp"\?"after A\/B":"preserved"\}/);
+  assert.match(v23, /modelledPoolCLabel\(STATE\.poolCPolicy,STATE\.poolCReserve\)/);
 });
 
 test("V23 reinvestment page explains zero-surplus cases and points to income equivalents", () => {
@@ -242,8 +242,8 @@ test("V23 lifestyle detail and charts use accessible progressive disclosure", ()
 });
 
 test("Command Centre distinguishes the flat comparison lens from V23 age-band planning", () => {
-  assert.match(dashboard, /const v23SpendPlanUrl = sharedPageUrl\("deep-model\.html\?page=income", currentScenario, theme\)/);
-  assert.match(dashboard, /function sharedPageUrl\(path: string, scenario: ScenarioState, theme\?: Theme\)/);
+  assert.match(dashboard, /const v23SpendPlanUrl = sharedPageUrl\("deep-model\.html\?page=income", currentScenario, theme, carryGoalsToV23\)/);
+  assert.match(dashboard, /function sharedPageUrl\(path: string, scenario: ScenarioState, theme\?: Theme, carryGoals = true\)/);
   assert.match(dashboard, /THEME_STORAGE_KEY = "robinson-retirement-theme"/);
   assert.match(dashboard, /Command Centre tests a flat annual-spending lens/);
   assert.match(dashboard, /held constant in real dollars for every retirement year here/);
@@ -298,7 +298,7 @@ test("comparison plans use the active return, horizon and home assumptions", () 
   assert.match(atlasHtml, /id="return"[^>]*min="2"[^>]*max="7\.5"/);
   assert.match(atlasHtml, /id="home"[^>]*max="1000000"/);
   assert.match(dashboard, /ledgerEndingAtAge\(scenarioRail, scenario\.spend, realReturn, targetAge, taxYear\)/);
-  assert.match(dashboard, /monteCarloFan\(scenarioRail, scenario\.spend, realReturn, taxYear, \.12, 360, simulationSeed\)/);
+  assert.match(dashboard, /monteCarloFan\(scenarioRail, scenario\.spend, realReturn, taxYear, \.12, 360, simulationSeed, null, investmentFloor\)/);
   assert.match(dashboard, /New repeatable sample/);
   assert.match(dashboard, /Active assumptions: <b>\{pct\(realReturn, 1\)\} real return p\.a\.<\/b> after inflation · target age \{targetAge\}/);
   assert.match(dashboard, /Using a card changes only its spend and rail; it does not reset those assumptions/);

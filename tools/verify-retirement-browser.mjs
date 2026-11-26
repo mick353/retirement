@@ -76,6 +76,22 @@ async function open(page, destination) {
   assert.equal(response?.status(), 200, destination.href);
 }
 
+async function downloadSettings(page, kind = "full backup") {
+  await page.getByRole("button", { name: "Export settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: /^Export your (V23|Command Centre) plan$/ });
+  const button = dialog.getByRole("button", { name: `Download ${kind}`, exact: true });
+  let preview;
+  if (kind === "plan only") {
+    await dialog.getByText("Preview the plan-only file", { exact: true }).click();
+    preview = JSON.parse(await dialog.locator("pre").textContent());
+  }
+  const download = page.waitForEvent("download");
+  await button.click();
+  const bytes = await readFile(await (await download).path());
+  if (preview) assert.deepEqual(JSON.parse(bytes), preview, "Plan-only file matches the preview");
+  return bytes;
+}
+
 async function chartValues(page, selector, label) {
   return page.locator(selector).evaluate((canvas, seriesLabel) => {
     const datasets = Chart.getChart(canvas).data.datasets;
@@ -250,9 +266,7 @@ async function exerciseV23(page, base) {
   await open(page, slots);
   const slot = page.locator("#slot_cards .card").filter({ has: page.getByRole("textbox", { name: "Scenario slot A name" }) });
   await slot.getByRole("button", { name: "Save current" }).click();
-  const downloaded = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export settings" }).click();
-  const backup = await readFile(await (await downloaded).path());
+  const backup = await downloadSettings(page);
   const exported = JSON.parse(backup.toString("utf8"));
   assert.equal(exported.state.pssElection, "100");
   assert.deepEqual(exported.state.gapBands.map(({ age, amount, unit }) => [age, amount, unit]), [
@@ -534,9 +548,7 @@ async function exerciseAuditedControls(page, base) {
   assert.equal(slot[5], "$0");
   await show("wash");
   await page.locator("#sel_washon").selectOption("0");
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export settings" }).click();
-  const exported = JSON.parse(await readFile(await (await download).path(), "utf8"));
+  const exported = JSON.parse(await downloadSettings(page));
   assert.equal(exported.state.wash.enabled,false);
   assert.ok(Number.isInteger(exported.state.simulationSeed));
 }
@@ -682,7 +694,8 @@ async function exerciseDecisionIntegrity(page, base) {
   const summary = page.locator("#v23-decision-summary");
   assert.equal(await summary.isVisible(), true);
   assert.match(await summary.innerText(), /\$414,150 unfunded.*age 69/s);
-  assert.match(await summary.innerText(), /\$717,616.*\$1,130,536/s);
+  assert.match(await summary.innerText(), /\$717,616/);
+  assert.doesNotMatch(await summary.innerText(), /\$1,130,536/);
   for (const theme of ["dark", "light"]) {
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) await page.locator("#btn-theme").click();
     const ratios = await summary.locator(".card .sub").evaluateAll((notes) => {
@@ -697,7 +710,7 @@ async function exerciseDecisionIntegrity(page, base) {
         return (Math.max(text, background) + .05) / (Math.min(text, background) + .05);
       });
     });
-    assert.equal(ratios.length, 4);
+    assert.equal(ratios.length, 3);
     assert.ok(ratios.every(ratio => ratio >= 4.5), `${theme} result notes must meet 4.5:1 contrast (found ${ratios.join(", ")})`);
   }
   const beforeControls = await summary.evaluate(element =>
@@ -762,9 +775,7 @@ async function exerciseDecisionIntegrity(page, base) {
 
   await show("checklist");
   await page.locator('#checklist_container input[data-id="cl1"]').check();
-  const download = page.waitForEvent("download");
-  await page.getByRole("button",{name:"Export settings",exact:true}).click();
-  const backup = JSON.parse(await readFile(await (await download).path(),"utf8"));
+  const backup = JSON.parse(await downloadSettings(page));
   assert.equal(backup.state.essentialSpending,122000);
   assert.equal(backup.state.salaryTaxYear,"2027-28");
   assert.equal(backup.checklist.cl1,true);
@@ -787,12 +798,12 @@ async function exerciseDecisionIntegrity(page, base) {
   assert.equal(draftUrl.searchParams.get("poolC"),"after-abp");
   await open(page,draftUrl);
   assert.match(await page.locator("#v23-shared-title").innerText(),/Surface draft ready/);
-  assert.match(await page.locator("#v23-decision-basis").innerText(),/Pool C preserved/);
+  assert.match(await page.locator("#v23-decision-basis").innerText(),/Keep Pool C invested/);
   await page.getByRole("button",{name:"Apply draft with Pool C draw",exact:true}).click();
-  assert.match(await page.locator("#v23-decision-basis").innerText(),/Pool C available after A\/B/);
+  assert.match(await page.locator("#v23-decision-basis").innerText(),/Use after Pools A and B/);
   assert.match(await page.locator("#brief_reco").innerText(),/full \$2,415,000 planned/);
   await page.reload({waitUntil:"domcontentloaded"});
-  assert.match(await page.locator("#v23-decision-basis").innerText(),/Pool C available after A\/B/);
+  assert.match(await page.locator("#v23-decision-basis").innerText(),/Use after Pools A and B/);
 
   await open(page,new URL(`?section=review&${fixture}`,base));
   const review = page.locator(".actual-plan-review");
@@ -820,6 +831,11 @@ async function exerciseDecisionWorkbench(page, base) {
   await page.locator("#v23-set-essentials").click();
   await page.locator("#v23_essentials").fill("122000");
   await page.locator("#v23_essentials").press("Tab");
+  const later = page.locator("#v23_later_check_age");
+  assert.equal(await page.locator("#v23-decision-outcomes").getByText("Investments at 85", { exact: true }).count(), 0);
+  await later.fill("85");
+  await later.press("Tab");
+  assert.match(await page.locator("#v23-decision-outcomes").innerText(), /Full budget through 85/i);
   assert.match(await page.locator("#v23-funding-explanation").innerText(), /Pool C counts toward your investments and stays in reserve/);
   const fullBudget = page.locator("#v23-decision-outcomes .card").filter({ hasText: "Full budget through 75" });
   await fullBudget.getByRole("button", { name: "Inspect age 69" }).click();
@@ -849,6 +865,13 @@ async function exerciseDecisionWorkbench(page, base) {
   const result = (id) => page.locator(`[data-draft-id="${id}"]`);
   assert.equal(await value(result("current"), "Full budget + floor through 75"), "1 of 200 (0.5%)");
   assert.equal(await value(result("reserve"), "Full budget + floor through 75"), "50 of 200 (25%)");
+  assert.equal(await value(result("reserve"), "Full budget + floor through 85"), "17 of 200 (8.5%)");
+  assert.equal(await value(result("reserve"), "Budget unfunded through 85"), "$366,896");
+  assert.equal(await value(result("reserve"), "Investments at 85"), "$0");
+  await result("reserve").getByRole("button", { name: "Trace first shortfall: age 79 to 80" }).click();
+  assert.match(await page.locator("#decision-trace-label").innerText(), /Use Pool C after A\/B.*age 79 to 80/);
+  assert.equal(await value(trace, "Cash flow reconciliation difference"), "$0.00");
+  await page.getByRole("button", { name: "Inspect active plan" }).click();
   assert.equal(await value(result("budget"), "Investments at 75"), "$1,062,576");
   assert.equal(await value(result("election"), "First-year budget"), "$160,000.00");
   const splitAmounts = await page.locator(".decision-alternative dd").evaluateAll(cells => cells
@@ -858,7 +881,7 @@ async function exerciseDecisionWorkbench(page, base) {
       return range.getClientRects().length !== 1;
     }).map(cell => cell.textContent));
   assert.deepEqual(splitAmounts, [], "Every dollar amount stays on one line");
-  const openBudget = result("budget").getByRole("button");
+  const openBudget = result("budget").getByRole("button", { name: "Preview Lower flat budget" });
   await openBudget.click();
   const preview = page.locator("#decision-draft-preview");
   assert.match(await preview.innerText(), /\$122,000\/yr total/);
@@ -873,13 +896,12 @@ async function exerciseDecisionWorkbench(page, base) {
   await preview.getByRole("button", { name: "Apply draft to V23", exact: true }).click();
   await page.getByText("Lower flat budget applied in V23.", { exact: false }).waitFor();
   assert.match(await page.locator("#brief_reco").innerText(), /full \$1,830,000 planned/);
-  const settings = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export settings", exact: true }).click();
-  const portable = JSON.parse(await readFile(await (await settings).path(), "utf8"));
+  const portable = JSON.parse(await downloadSettings(page));
   assert.equal(portable.plan.planId, draftId);
   assert.equal(portable.plan.sourceDate, "1 September 2026");
   assert.equal(portable.plan.simulationSeed, 20260814);
   assert.equal(portable.state.totalSpendTarget, 122000);
+  assert.equal(portable.state.laterCheckAge, 85);
 
   await open(page, new URL(`?section=scenario&tool=lab&${shared}`, base));
   const calendar = page.locator(".dated-payment");
@@ -894,6 +916,79 @@ async function exerciseDecisionWorkbench(page, base) {
   await page.reload({waitUntil:"domcontentloaded"});
   await calendar.locator(":scope > summary").click();
   assert.match(await calendar.innerText(), /\$20,000.*26 estimated PSS paydays/s);
+}
+
+async function exerciseInvestmentGoalsAndExports(page, base) {
+  await page.evaluate(() => localStorage.clear());
+  const fixture = "shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=75&seed=20260814";
+  await open(page, new URL(`?section=scenario&tool=risk&${fixture}`, base));
+  const risk = page.locator(".risk-funding");
+  await risk.getByRole("button", { name: "Edit investment goal and ages" }).click();
+  const floor = page.locator("#cc-investment-floor"), later = page.locator("#cc-later-check-age");
+  await floor.fill("700000");
+  await floor.press("Tab");
+  await later.fill("85");
+  await later.press("Enter");
+  assert.match(await risk.innerText(), /Investment goal \$700,000/);
+  assert.match(await risk.locator(".risk-checkpoint").first().innerText(), /Target at age 75.*unfunded/s);
+  assert.match(await risk.locator(".risk-checkpoint").last().innerText(), /Later check at age 85.*reached \$700,000/s);
+  await risk.getByRole("button", { name: /Inspect first shortfall/ }).first().click();
+  const trace = page.getByRole("region", { name: "Selected-year three-pool money flow" });
+  assert.match(await trace.innerText(), /target remains unfunded/);
+  const handoff = page.locator(".cc-goal-handoff");
+  assert.equal(new URL(await handoff.getByRole("link").getAttribute("href"), base).searchParams.get("floor"), null);
+  await handoff.getByRole("checkbox").check();
+  const toV23 = new URL(await handoff.getByRole("link").getAttribute("href"), base);
+  assert.equal(toV23.searchParams.get("floor"), "700000");
+  assert.equal(toV23.searchParams.get("checkAge"), "85");
+  toV23.searchParams.set("page","decisionbrief");
+  await open(page, toV23);
+  assert.match(await page.locator("#v23-decision-outcomes").innerText(), /\$700,000 floor.*Investments at 85/is);
+  await page.locator("#v23-set-essentials").click();
+  const v23Floor = page.locator("#v23_investment_floor");
+  await v23Floor.fill("800000");
+  await v23Floor.press("Tab");
+  await page.locator("#sel_poolcpolicy").selectOption("above-reserve");
+  await page.locator("#v23_poolc_reserve").fill("900000");
+  await page.locator("#v23_poolc_reserve").press("Tab");
+  assert.match(await page.locator("#v23-decision-outcomes").innerText(), /Pool C is .* below its reserve/);
+  const note = page.locator('[data-note-key="decisionbrief"]');
+  await note.fill("SYNTHETIC NOTE LOCAL TO V23");
+  const portableBytes = await downloadSettings(page, "plan only");
+  const portable = JSON.parse(portableBytes);
+  assert.equal(portable.exportScope,"plan-only");
+  assert.equal(portable.state.investmentFloor,800000);
+  assert.equal(portable.state.poolCReserve,900000);
+  assert.equal(portable.state.useReserveForOneOffs,false);
+  assert.equal(portable.state.laterCheckAge,85);
+  for(const field of ["notes","slots","slotNames","checklist"]) assert.equal(portable[field],undefined);
+  assert.equal(JSON.parse(await downloadSettings(page)).notes.decisionbrief,"SYNTHETIC NOTE LOCAL TO V23");
+  await v23Floor.fill("850000");
+  await v23Floor.press("Tab");
+  await page.locator("#inp-import-settings").setInputFiles({name:"plan-only.json",mimeType:"application/json",buffer:portableBytes});
+  await page.getByText(`Plan ${portable.plan.planId} restored with matching inputs and calculation version.`, { exact:true }).waitFor({state:"attached"});
+  assert.equal(await note.inputValue(),"SYNTHETIC NOTE LOCAL TO V23");
+  await page.locator("#v23-command-link").click();
+  assert.match(await page.locator("#v23-handoff-comparison").innerText(), /V23 goal \$800,000.*Command Centre goal \$700,000/s);
+  await page.locator("#v23-handoff-goals").check();
+  const toCommand = new URL(await page.locator("#v23-handoff-open").getAttribute("href"));
+  assert.equal(toCommand.searchParams.get("floor"),"800000");
+  assert.equal(toCommand.searchParams.get("checkAge"),"85");
+  toCommand.searchParams.set("section","review");
+  await open(page,toCommand);
+  await page.locator(".actual-plan-note textarea").fill("SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
+  const commandBytes = await downloadSettings(page,"plan only");
+  const command = JSON.parse(commandBytes);
+  assert.equal(command.current.investmentFloor,800000);
+  assert.equal(command.current.laterCheckAge,85);
+  for(const field of ["actualCheckpoints","saved","reviewChecks","reviewSnapshot"]) assert.equal(command[field],undefined);
+  assert.equal(JSON.parse(await downloadSettings(page)).actualCheckpoints[75].note,"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
+  await open(page,new URL(`?section=scenario&tool=lab&${fixture}`,base));
+  await page.locator(".scenario-actions input[type=file]").setInputFiles({name:"plan-only.json",mimeType:"application/json",buffer:commandBytes});
+  await page.getByText("Imported plan ID and calculation version match.",{exact:true}).waitFor({state:"attached"});
+  assert.equal(await page.locator(".command-plan-id code").textContent(),command.plan.planId);
+  await open(page,new URL("?section=review",base));
+  assert.equal(await page.locator(".actual-plan-note textarea").inputValue(),"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
 }
 
 async function exerciseAIContextPrivacy(page, base) {
@@ -947,7 +1042,7 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30, 31, 32].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31, 32, 33].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
@@ -1043,6 +1138,7 @@ try {
         await exerciseDecisionIntegrity(page, preview.base);
       }
       await exerciseDecisionWorkbench(page, preview.base);
+      await exerciseInvestmentGoalsAndExports(page, preview.base);
       await exerciseAIContextPrivacy(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px${mobileEngine ? ` (${mobileEngine} profile)` : ""} on ${preview.base.href}`);

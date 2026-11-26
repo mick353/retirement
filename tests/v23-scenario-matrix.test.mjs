@@ -117,8 +117,13 @@ test("drafts explain the cashflow trade-off and use the independently replayed m
     Object.assign(STATE,{essentialSpending:122000,likely:.05,vol:.12,targetAge:75,simulationSeed:20260814,poolCPolicy:"preserve",oneOff:0});
     const original=captureScenarioState();
     const plans=compareDecisionDrafts(original,{budget:122000,election:"100",semantics:"total"});
-    const summary=plans.map(({id,firstYearBudget,check,funding,age75})=>({id,firstYearBudget,miss:check.firstBudgetMiss?.age??null,essentialMiss:check.firstEssentialMiss?.age??null,
-      unfunded:Math.round(check.planned-check.funded),capital:Math.round(age75),both:funding.lifestyleAndCapital}));
+    const summary=plans.map(({id,firstYearBudget,check,funding})=>({id,firstYearBudget,miss:check.firstBudgetMiss?.age??null,essentialMiss:check.firstEssentialMiss?.age??null,
+      unfunded:Math.round(check.planned-check.funded),capital:Math.round(check.capital),both:funding.lifestyleAndCapital}));
+    const extended=compareDecisionDrafts({...original,laterCheckAge:85},{budget:122000,election:"100",semantics:"total"});
+    const openPoolC=extended.find(plan=>plan.id==="reserve");
+    const later={both75:openPoolC.funding.lifestyleAndCapital,both85:openPoolC.laterFunding.lifestyleAndCapital,
+      unpaid:Math.round(openPoolC.laterCheck.planned-openPoolC.laterCheck.funded),firstMiss:openPoolC.laterCheck.firstBudgetMiss.age,capital:openPoolC.laterCheck.capital};
+    const raisedGoal=compareDecisionDrafts({...original,laterCheckAge:85,investmentFloor:700000},{budget:122000,election:"100",semantics:"total"});
     const changed=JSON.stringify(original)!==JSON.stringify(captureScenarioState());
     const bands={...original,totalSpendTarget:null,spendMode:"fixed",gapGrowth:0,gapBands:[{age:60,amount:24000,unit:"dollar",startOnBirthday:false},{age:70,amount:18000,unit:"dollar",startOnBirthday:true}]};
     const sameTotal=decisionDraftPlans(bands,{election:"100",semantics:"total"}).find(plan=>plan.id==="election");
@@ -127,7 +132,10 @@ test("drafts explain the cashflow trade-off and use the independently replayed m
     const flatSameTotal=JSON.stringify(scenarioStateResult(sameTotal.state).sim.rows.map(row=>row.targetSpend));
     const altGap=scenarioStateResult(sameGap.state).sim.rows[1].gap;
     const noPct=decisionDraftPlans({...bands,gapBands:[{age:60,amount:70,unit:"drawPct"}]},{election:"100",semantics:"total"}).find(plan=>plan.id==="election");
-    return JSON.stringify({summary,changed,baseline,flatSameTotal,altGap,unsupported:Boolean(noPct.state)});
+    return JSON.stringify({summary,later,changed,baseline,flatSameTotal,altGap,unsupported:Boolean(noPct.state),
+      goals:raisedGoal.map((plan,index)=>({capital:plan.check.capital,previousCapital:extended[index].check.capital,
+        funded:plan.check.funded,previousFunded:extended[index].check.funded,floor:plan.check.capital-plan.check.floorMargin,
+        joint:plan.funding.lifestyleAndCapital,previousJoint:extended[index].funding.lifestyleAndCapital}))});
   })()`, context));
   assert.equal(result.changed, false, "A comparison does not change the active plan");
   assert.deepEqual(result.summary.filter(plan => plan.id !== "election"), [
@@ -136,6 +144,9 @@ test("drafts explain the cashflow trade-off and use the independently replayed m
     { id: "reserve", firstYearBudget: 160000, miss: null, essentialMiss: null, unfunded: 0, capital: 247151, both: 50 },
   ]);
   assert.ok(Math.abs(result.altGap - 24000) < .005);
+  assert.deepEqual(result.later, { both75: 50, both85: 17, unpaid: 366896, firstMiss: 80, capital: 0 });
+  assert.ok(result.goals.every(goal => goal.capital === goal.previousCapital && goal.funded === goal.previousFunded && Math.abs(goal.floor - 700_000) < .005 && goal.joint <= goal.previousJoint));
+  assert.ok(result.goals.some(goal => goal.joint < goal.previousJoint));
   assert.equal(result.baseline, result.flatSameTotal, "Fixed-band budget dollars and timing both carry to the alternate election");
   assert.equal(result.unsupported, false);
 });
@@ -147,16 +158,56 @@ test("a near-floor handoff labels a different verdict across the two ledgers", (
     selectPssElection("60-40",{spendTarget:80000});
     restoreCustomInputs({floor:8184});
     Object.assign(STATE,{targetAge:95,likely:.065,poolCPolicy:"preserve",oneOff:0});
-    const result=flatHandoffComparison({rail:"B",pssElection:"60-40",pssProjectionBasis:"prudent-630",spend:80000,targetAge:95,realReturn:.065});
+    const scenario={rail:"B",pssElection:"60-40",pssProjectionBasis:"prudent-630",spend:80000,targetAge:95,realReturn:.065};
+    const result=flatHandoffComparison({...scenario,investmentFloor:8184000});
+    const independent=flatHandoffComparison(scenario);
     const state=captureScenarioState();
     const receipt=detailedPlanReceipt(state);
-    return JSON.stringify({flatPass:result.flatPass,detailedPass:result.detailedPass,flat:Math.round(result.flat.capital),detailed:Math.round(result.detailed.capital),receipt});
+    return JSON.stringify({flatPass:result.flatPass,detailedPass:result.detailedPass,flat:Math.round(result.flat.capital),detailed:Math.round(result.detailed.capital),
+      differentGoals:[independent.floor,independent.flatFloor],sameGoals:[result.floor,result.flatFloor],receipt});
   })()`, context));
   assert.equal(result.flatPass, true);
   assert.equal(result.detailedPass, false);
   assert.equal(result.flat, 8_208_761);
   assert.equal(result.detailed, 8_158_257);
+  assert.deepEqual(result.differentGoals, [8_184_000, 500_000]);
+  assert.deepEqual(result.sameGoals, [8_184_000, 8_184_000]);
   assert.equal(result.receipt.sourceDate, "1 September 2026");
+});
+
+test("a Pool C reserve caps spending and one-offs independently of market losses", () => {
+  const context = modelContext();
+  const result = JSON.parse(vm.runInContext(`(() => {
+    const profile={...PROFILES.michael,netPension:100000};
+    const inputs={profile,startAbp:0,startAcc:0,startPoolC:320000,endAge:61,abpReturn:0,accumReturn:0,poolCDrag:0,totalSpendTarget:160000,oneOff:0};
+    const run=overrides=>runModel({...inputs,...overrides}).rows;
+    const reserve={poolCPolicy:"above-reserve",poolCReserve:300000};
+    const read=row=>[row.fundedTotalSpend,row.spendingShortfall,row.poolCDraw,row.poolC,row.poolCReserveGap];
+    const oneOff=row=>[row.oneOffPoolCDrawn,row.oneOffShortfall,row.poolC];
+    const healthCostsByAge=new Map([[60,50000]]);
+    return JSON.stringify({
+      preserve:read(run({poolCPolicy:"preserve"})[1]),
+      after:read(run({poolCPolicy:"after-abp"})[1]),
+      capped:read(run(reserve)[1]),
+      zero:read(run({...reserve,poolCReserve:0})[1]),
+      unset:read(run({...reserve,poolCReserve:null})[1]),
+      loss:read(run({...reserve,annualReturns:[{A:-.1,B:0}]})[1]),
+      defaultOneOff:oneOff(run({...reserve,oneOff:50000})[0]),
+      explicitOneOff:oneOff(run({...reserve,oneOff:50000,useReserveForOneOffs:true})[0]),
+      health:[run({...reserve,healthCostsByAge})[0].healthCostFunded,run({...reserve,healthCostsByAge,useReserveForOneOffs:true})[0].healthCostFunded],
+    });
+  })()`, context));
+  assert.deepEqual(result, {
+    preserve: [100_000, 60_000, 0, 320_000, 0],
+    after: [160_000, 0, 60_000, 260_000, 0],
+    capped: [120_000, 40_000, 20_000, 300_000, 0],
+    zero: [160_000, 0, 60_000, 260_000, 0],
+    unset: [100_000, 60_000, 0, 320_000, 0],
+    loss: [100_000, 60_000, 0, 288_000, 12_000],
+    defaultOneOff: [0, 50_000, 320_000],
+    explicitOneOff: [20_000, 30_000, 300_000],
+    health: [0, 20_000],
+  });
 });
 
 test("Pool C spending policy is explicit, reconciled and reduces rather than hides a shortfall", () => {
