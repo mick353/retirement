@@ -17,8 +17,8 @@
   --panel2:#050e1a;
   --border:rgba(60,120,255,.18);
   --text:#cee0ff;
-  --muted:#5a7aaa;
-  --soft:#344a6a;
+  --muted:#a0b6d4;
+  --soft:#8ba4c3;
   --acc:#4d83ff;
   --acc2:#2fd492;
   --acc3:#f5a623;
@@ -44,7 +44,7 @@
   --border:#c8d5ee;
   --text:#08142a;
   --muted:#486080;
-  --soft:#7888a8;
+  --soft:#526684;
   --acc:#2050d0;
   --acc2:#088050;
   --acc3:#a06000;
@@ -309,8 +309,9 @@ body.print-pack section.page.print-pack-include{display:flex}
 .slider-block select{max-width:100%}
 .decision-at-a-glance{display:grid;gap:12px}
 .decision-at-a-glance[hidden]{display:none}
-.decision-at-a-glance h2{margin:0;font-size:clamp(20px,3vw,28px)}
+#v23-decision-summary h2{margin:0;font-size:clamp(20px,3vw,28px)}
 .decision-at-a-glance .cards{margin:0}
+#v23-decision-outcomes .card{background:var(--panel2)}
 .decision-at-a-glance .card .value{font-size:clamp(19px,2.1vw,27px)}
 .decision-at-a-glance .card .sub{font-size:13px;line-height:1.4}
 .decision-summary-actions{display:flex;flex-wrap:wrap;gap:8px}
@@ -980,7 +981,7 @@ main{min-width:0;}
   <div class="brand">
     <div class="logo">R</div>
     <div>
-      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.11.1 · 26 Nov 2026</span></h1>
+      <h1>Robinson Retirement Dashboard <span class="muted smaller">V23.11.2 · 26 Nov 2026</span></h1>
       <div class="sub">Executive summary · Decision brief · Guardrails · TBC engine · Real dollars · planning controls with provider verification points</div>
     </div>
   </div>
@@ -1864,7 +1865,7 @@ main{min-width:0;}
 </footer>
 <script>
 "use strict";
-const APP_VERSION = "v23.11.1";
+const APP_VERSION = "v23.11.2";
 const TBC_AT_RETIREMENT = 2_100_000;
 const TBC_PLANNING_BUFFER = 5_000;
 const HOSTPLUS_AT_60 = 317_447.66;
@@ -4375,6 +4376,7 @@ function renderDecisions(){
     ["Annual recalibration","Added in v17C","Actual balances can be compared against the model path.","Run after new statements or major market moves."]
   ],["Decision","Status","Rationale","Review trigger"]);
   renderTable("change_tbl",[
+    ["v23.11.2","Nov 2026","The Decision Brief heading and small result details are easier to read in both themes."],
     ["v23.11.1","Nov 2026","Offline navigation opens the saved Decision Brief on both hosts."],
     ["v23.11","Nov 2026","Decision Brief combines essential spending, planned spending and investment balances. Risk tests spending on the same paths, old policy results are hidden after edits, and trigger statuses agree across views."],
     ["v23.10.2","Nov 2026","Spending-band controls fit their fields, budget-basis changes apply immediately, and lifestyle phases show annual funded amounts and what each percentage is based on."],

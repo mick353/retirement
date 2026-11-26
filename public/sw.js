@@ -1,12 +1,12 @@
 const CACHE_PREFIX = "robinson-retirement-pages-";
-const CACHE = `${CACHE_PREFIX}v30`;
+const CACHE = `${CACHE_PREFIX}v31`;
 const SCOPE = new URL(self.registration.scope);
 const scopedUrl = (path = "") => new URL(path, SCOPE).toString();
 const REPORT_PAGES = ["deep-model", "atlas", "atlas-prototype", "model-reference"];
 const APP_SHELL = [
-  scopedUrl(), ...REPORT_PAGES.map(page => scopedUrl(`${page}.html?v=30`)),
+  scopedUrl(), ...REPORT_PAGES.map(page => scopedUrl(`${page}.html?v=31`)),
   scopedUrl("atlas.css?v=28"), scopedUrl("atlas.js?v=28"), scopedUrl("atlas-entry.js?v=28"),
-  scopedUrl("retirement-engine.js?v=3"), scopedUrl("model-reference.txt?v=30"),
+  scopedUrl("retirement-engine.js?v=3"), scopedUrl("model-reference.txt?v=31"),
   scopedUrl("vendor/chart.umd.js"), scopedUrl("manifest.webmanifest"), scopedUrl("favicon.svg"),
 ];
 
