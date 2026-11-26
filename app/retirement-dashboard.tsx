@@ -517,6 +517,7 @@ function normaliseCommandPlan(candidate: Partial<ScenarioState>): ScenarioState 
   };
 }
 const THEME_STORAGE_KEY = "robinson-retirement-theme";
+const NAV_DRAWER_MEDIA = "(max-width: 1180px)";
 
 function normaliseTheme(value: string | null | undefined): Theme | null {
   return value === "light" || value === "dark" ? value : null;
@@ -2357,11 +2358,25 @@ export default function RetirementDashboard() {
   const [simulationSeed, setSimulationSeed] = useState(20260814);
   const [scenarioHydrated, setScenarioHydrated] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [navAsDrawer, setNavAsDrawer] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try { return window.localStorage.getItem("robinson-retirement-nav-collapsed") === "1"; } catch { return false; }
   });
+  const navMenuRef = useRef<HTMLButtonElement>(null);
+  const menuExpanded = navAsDrawer ? navOpen : !navCollapsed;
+
+  useEffect(() => {
+    const viewport = window.matchMedia(NAV_DRAWER_MEDIA);
+    const updateMode = () => {
+      setNavAsDrawer(viewport.matches);
+      setNavOpen(false);
+    };
+    updateMode();
+    viewport.addEventListener("change", updateMode);
+    return () => viewport.removeEventListener("change", updateMode);
+  }, []);
 
   useEffect(() => {
     try { window.localStorage.setItem("robinson-retirement-nav-collapsed", navCollapsed ? "1" : "0"); } catch { /* storage unavailable */ }
@@ -2383,11 +2398,15 @@ export default function RetirementDashboard() {
       const typing = !!target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
       if (event.key === "Escape" && navOpen) {
         setNavOpen(false);
-        document.getElementById("nav-menu-button")?.focus();
+        navMenuRef.current?.focus();
         return;
       }
-      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === "[") { event.preventDefault(); setNavCollapsed((value) => !value); }
+      if (typing || event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "[" && navMenuRef.current) {
+        event.preventDefault();
+        if (document.getElementById("retirement-sidebar")?.contains(target)) navMenuRef.current.focus();
+        navMenuRef.current.click();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -2657,17 +2676,12 @@ export default function RetirementDashboard() {
     window.history.replaceState(null,"",`${window.location.pathname}?${query}`);
   }, [currentScenario, scenarioHydrated, theme, section, scenarioTool, explorerPanel, visualView, washCycles]);
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, []);
-
   const go = (key: SectionKey) => {
     const tools:Partial<Record<SectionKey,ScenarioTool>>={scenario:"lab",visuals:"explore",compare:"compare",frontier:"frontier",risk:"risk"};
     if(tools[key]){setScenarioTool(tools[key]!);setSection("scenario");}
     else setSection(key);
     setNavOpen(false);
+    if (navOpen) navMenuRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -3483,12 +3497,22 @@ export default function RetirementDashboard() {
   return (
     <div className={`retirement-app ${theme}`}>
       <header className="topbar">
-        <div className="brand"><div className="brandmark">R</div><div><b>Robinson Retirement</b><span>Command Centre · real dollars</span></div></div>
-        <div className="top-actions">{section === "vr" ? <Badge tone="modelled">VR · Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : " · March/V5"}</Badge> : <Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : ""}</Badge>}<button aria-label="Toggle colour theme" className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button><button aria-label={navCollapsed ? "Show navigation sidebar" : "Hide navigation sidebar"} title={navCollapsed ? "Show sidebar ( [ )" : "Hide sidebar ( [ )"} aria-controls="retirement-sidebar" aria-expanded={!navCollapsed} className="icon-button desktop-only" onClick={() => setNavCollapsed(!navCollapsed)}>{navCollapsed ? "» Menu" : "« Hide"}</button><button aria-label={navOpen ? "Close navigation" : "Open navigation"} aria-controls="retirement-sidebar" aria-expanded={navOpen} id="nav-menu-button" className="icon-button mobile-only menu-button" onClick={() => setNavOpen(!navOpen)}>{navOpen ? "Close" : "Menu"}</button></div>
+        <div className="topbar-start">
+          <button ref={navMenuRef} id="nav-menu-button" type="button" className="icon-button menu-button"
+            aria-controls="retirement-sidebar" aria-expanded={menuExpanded}
+            onClick={() => navAsDrawer ? setNavOpen(open => !open) : setNavCollapsed(collapsed => !collapsed)}>
+            {menuExpanded ? "Hide menu" : "Show menu"}
+          </button>
+          <div className="brand"><div className="brandmark">R</div><div><b>Robinson Retirement</b><span>Command Centre · real dollars</span></div></div>
+        </div>
+        <div className="top-actions">
+          {section === "vr" ? <Badge tone="modelled">VR · Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : " · March/V5"}</Badge> : <Badge tone={railKey === "A" ? "modelled" : "exact"}>Rail {railKey}{railKey === "B" ? ` · ${effectivePssElection === "100" ? "100% pension" : effectivePssElection} · ${projectionBasis.shortLabel}` : ""}</Badge>}
+          <button aria-label="Toggle colour theme" className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button>
+        </div>
       </header>
-      <div className={`app-layout ${navCollapsed ? "nav-collapsed" : ""}`.trim()}>
-        {navOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={() => setNavOpen(false)} />}
-        <aside id="retirement-sidebar" aria-label="Retirement sections" inert={navCollapsed && !navOpen} className={`sidebar ${navOpen ? "open" : ""}`}>
+      <div className={`app-layout${!navAsDrawer && navCollapsed ? " nav-collapsed" : ""}`}>
+        {navAsDrawer && navOpen && <button className="nav-backdrop" type="button" tabIndex={-1} aria-label="Close menu" onClick={() => { setNavOpen(false); navMenuRef.current?.focus(); }} />}
+        <aside id="retirement-sidebar" aria-label="Retirement sections" inert={!menuExpanded} className={`sidebar${navAsDrawer && navOpen ? " open" : ""}`}>
           <div className="sidebar-context"><span>Retirement date</span><b>21 December 2033</b><small>Age 60 · preservation age 60</small></div>
           <nav>{NAV.map((item, index) => { const showGroup = index === 0 || item.group !== NAV[index - 1].group; return <div key={item.key}>{showGroup && <div className="nav-group">{item.group}</div>}<button aria-current={section === item.key ? "page" : undefined} className={section === item.key ? "active" : ""} onClick={() => go(item.key)}><span>{item.label}</span></button></div>; })}</nav>
           <a className="deep-link spending-deep-link" href={v23SpendPlanUrl} target="_blank" rel="noreferrer"><span>Set spending plan in V23</span><small>Fine-tune age-by-age gaps and drawdown periods. Command Centre spending is a flat comparison lens.</small><b>Open Income &amp; draws ↗</b></a>
@@ -3507,6 +3531,7 @@ export default function RetirementDashboard() {
             </div>}
             <details className="workspace-guide-more">
               <summary>Plan controls, handoff and backups</summary>
+              <p>Use Hide menu at the top left to give the page more room. On narrower screens, Show menu opens it over the page.</p>
               <p>Command Centre compares one annual after-tax budget in today's dollars. Its six Scenario tabs share the active comparison plan. The CSC basis sets the retirement-day pension and lump sum. The real return applies after retirement.</p>
               <p>Use V23 Income &amp; draws for spending that changes by age. Use the Decision Brief to check funding, investment balances and shortfall years. Select Use these investment goals when opening V23 to carry your goal and later check.</p>
               <p>In Lab or Review, select Export settings. Download plan only to share the calculation inputs. Download full backup to include saved plans, checklist and recorded actuals. Import into the same workspace on either site.</p>

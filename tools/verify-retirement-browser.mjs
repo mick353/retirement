@@ -991,6 +991,64 @@ async function exerciseInvestmentGoalsAndExports(page, base) {
   assert.equal(await page.locator(".actual-plan-note textarea").inputValue(),"SYNTHETIC NOTE LOCAL TO COMMAND CENTRE");
 }
 
+async function exerciseSideMenu(page, base) {
+  const originalViewport = page.viewportSize();
+  const scenario = new URL("?section=scenario&tool=explore&shared=1&spend=122000&age=75",base);
+  const menu = page.locator("#nav-menu-button");
+  const sidebar = page.locator("#retirement-sidebar");
+  const chart = page.locator(".integrated-explorer iframe");
+  const chartWidth = () => chart.evaluate(frame => frame.getBoundingClientRect().width);
+  await page.evaluate(() => localStorage.removeItem("robinson-retirement-nav-collapsed"));
+  try {
+    await page.setViewportSize({ width:1920, height:950 });
+    await open(page,scenario);
+    await page.getByRole("button",{name:"Hide menu",exact:true}).waitFor();
+    const withSidebar = await chartWidth();
+    await menu.click();
+    await sidebar.waitFor({state:"hidden"});
+    assert.equal(await menu.getAttribute("aria-expanded"),"false");
+    assert.ok(await sidebar.evaluate(element=>element.inert));
+    const withRoom = await chartWidth();
+    assert.ok(withRoom - withSidebar >= 200, "Hiding the menu gives the wide chart back the sidebar's space");
+    await page.reload({waitUntil:"domcontentloaded"});
+    await page.getByRole("button",{name:"Show menu",exact:true}).waitFor();
+    assert.equal(await chartWidth(),withRoom);
+    await menu.press("[");
+    await sidebar.waitFor();
+    assert.equal(await menu.getAttribute("aria-expanded"),"true");
+    await menu.press("[");
+    await sidebar.waitFor({state:"hidden"});
+
+    await page.setViewportSize({ width:1024, height:800 });
+    await page.locator(".app-layout:not(.nav-collapsed)").waitFor();
+    const tabletWidth = await chartWidth();
+    await menu.click();
+    await sidebar.waitFor();
+    assert.equal(await sidebar.evaluate(element=>getComputedStyle(element).position),"fixed");
+    assert.equal(await chartWidth(),tabletWidth,"The tablet drawer leaves the chart width alone");
+    await page.keyboard.press("Escape");
+    await sidebar.waitFor({state:"hidden"});
+    assert.ok(await menu.evaluate(element=>element===document.activeElement));
+    await menu.click();
+    await sidebar.getByRole("button",{name:/^PSS/}).click();
+    await sidebar.waitFor({state:"hidden"});
+    await page.waitForFunction(()=>new URLSearchParams(location.search).get("section")==="pss");
+
+    await page.setViewportSize({ width:320, height:720 });
+    await page.getByRole("button",{name:"Show menu",exact:true}).waitFor();
+    await menu.click();
+    await sidebar.waitFor();
+    assert.ok(await page.locator(".topbar").evaluate(element=>element.scrollWidth<=element.clientWidth+1));
+    await page.setViewportSize({ width:1440, height:950 });
+    await page.getByRole("button",{name:"Show menu",exact:true}).waitFor();
+    await sidebar.waitFor({state:"hidden"});
+    assert.equal(await page.locator(".nav-backdrop").count(),0);
+  } finally {
+    await page.setViewportSize(originalViewport);
+    await page.evaluate(() => localStorage.removeItem("robinson-retirement-nav-collapsed"));
+  }
+}
+
 async function exerciseGuideHelp(page, base) {
   await page.evaluate(() => localStorage.clear());
   const shared = "shared=1&rail=B&pss=70-30&basis=prudent-630&spend=160000&return=.05&age=74&floor=710000&checkAge=86";
@@ -1083,7 +1141,7 @@ async function exerciseOfflineWorkbench(browser, base) {
   try {
     const page = await context.newPage();
     await open(page, new URL("model-reference.txt", base));
-    const retiredCaches = [28, 29, 30, 31, 32, 33, 34].map(version => `robinson-retirement-pages-v${version}`);
+    const retiredCaches = [28, 29, 30, 31, 32, 33, 34, 35].map(version => `robinson-retirement-pages-v${version}`);
     await page.evaluate(async retiredCaches => {
       await Promise.all(retiredCaches.map(name => caches.open(name)));
       await caches.open("unrelated-site-cache");
@@ -1181,6 +1239,7 @@ try {
       await exerciseDecisionWorkbench(page, preview.base);
       await exerciseInvestmentGoalsAndExports(page, preview.base);
       await exerciseGuideHelp(page, preview.base);
+      if (!mobileEngine && width === 1440) await exerciseSideMenu(page, preview.base);
       await exerciseAIContextPrivacy(page, preview.base);
       assert.deepEqual(errors, [], `Browser errors at ${width}px`);
       console.log(`Retirement browser journeys passed at ${width}px${mobileEngine ? ` (${mobileEngine} profile)` : ""} on ${preview.base.href}`);

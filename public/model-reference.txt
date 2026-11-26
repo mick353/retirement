@@ -15,6 +15,7 @@ This document describes the source inputs, formulas, scenario engines, controls 
 Decision-support only. This is a personal planning model, not licensed financial, tax or legal advice. Future returns, longevity, legislation, PSS outcomes and provider implementation are uncertain. Reconfirm current rules, obtain a corrected CSC statement and seek professional advice before acting.
 
 HOW TO USE THE RETIREMENT PLANNER
+In Command Centre, Show menu and Hide menu are at the top left. On narrower screens the menu opens over the page.
 1. In Command Centre, check the active rail, dated CSC source basis and PSS election. Set a flat annual net spending target and a separate after-inflation return assumption.
 2. In Scenario > Lab, compare desired spending with funded spending. A shortfall is not extra income. Read the annual ledger and investment capital at your selected age together.
 3. In V23 Income & draws, open Plan controls and select Spending by age. Each band can use a whole budget or a top-up above net PSS. For a whole-budget example, choose Total spending and set $160,000 from 60 and $122,000 from 70. The new band begins on the 70th birthday.
